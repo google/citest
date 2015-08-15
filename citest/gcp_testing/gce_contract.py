@@ -1,0 +1,206 @@
+# Copyright 2015 Google Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+"""Provides a means for specifying and verifying expectations of GCE state."""
+
+# Standard python modules.
+import collections
+import json
+import logging
+import re
+import time
+import traceback
+
+# Our modules.
+from . import gcloud_agent
+from .. import json_contract as jc
+from ..service_testing import cli_agent
+
+class GCloudObjectObserver(jc.ObjectObserver):
+
+  def __init__(self, gcloud, args, filter=None):
+    """Construct observer.
+
+    Args:
+      gcloud: GCloudAgent instance to use.
+      args: Command-line argument list to execute.
+    """
+    super(GCloudObjectObserver, self).__init__(filter)
+    self._gcloud = gcloud
+    self._args = args
+
+  def _make_scribe_parts(self, scribe):
+    parts = [scribe.build_part('Args', self._args)]
+    inherited = super(GCloudObjectObserver, self)._make_scribe_parts(scribe)
+    return parts + inherited
+
+  def __str__(self):
+    return 'GCloudObjectObserver({0})'.format(self._args)
+
+  def collect_observation(self, observation, trace=True):
+    gcloud_response = self._gcloud.run(self._args, trace=trace)
+    if gcloud_response.retcode != 0:
+      observation.add_error(
+          cli_agent.CliAgentRunError(self._gcloud, gcloud_response))
+      return []
+
+    decoder = json.JSONDecoder()
+    try:
+      doc = decoder.decode(gcloud_response.output)
+      if not isinstance(doc, list):
+        doc = [doc]
+      observation.add_all_objects(doc)
+    except Exception as e:
+      error = 'Invalid JSON in response: %s' % str(gcloud_response)
+      logging.getLogger(__name__).info('%s\n%s\n----------------\n',
+                                       error, traceback.format_exc())
+      observation.add_error(jc.JsonError(error, e))
+      return []
+
+    return observation._objects
+
+
+class GCloudObjectFactory(object):
+
+  def __init__(self, gcloud):
+    self._gcloud = gcloud
+
+  def new_list_resources(self, type, extra_args=None):
+    """Specify a resource list to be returned later.
+
+    Args:
+      type: gcloud's name for the GCE resource type.
+
+    Returns:
+      A jc.ObjectObserver to return the specified resource list when called.
+    """
+    zone = None
+    if extra_args is None:
+      extra_args = []
+    if self._gcloud.command_needs_zone(type, 'list'):
+      zone = self._gcloud.zone
+      # But if we already had it, dont add it.
+      try:
+        if extra_args.index('--zone') >= 0:
+          zone = None
+      except ValueError:
+        pass
+
+    cmd = self._gcloud.build_gcloud_command_args(
+        type, ['list'] + extra_args, project=self._gcloud.project, zone=zone)
+    return GCloudObjectObserver(self._gcloud, cmd)
+
+  def new_inspect_resource(self, type, name, extra_args=None):
+    """Specify a resource instance to inspect later.
+
+    Args:
+      type: gcloud's name for the GCE resource type.
+      name: The name of the specific resource instance to inspect.
+
+    Returns:
+      An jc.ObjectObserver to return the specified resource details when called.
+    """
+    zone = None
+    if extra_args is None:
+      extra_args = []
+
+    if self._gcloud.command_needs_zone(type, 'describe'):
+      zone = self._gcloud.zone
+      try:
+        if extra_args.index('--zone') >= 0:
+          zone = None
+      except ValueError:
+        pass
+
+    cmd = self._gcloud.build_gcloud_command_args(
+        type, ['describe', name] + extra_args,
+        project=self._gcloud.project, zone=zone)
+    return GCloudObjectObserver(self._gcloud, cmd)
+
+
+class GCloudClauseBuilder(jc.ContractClauseBuilder):
+  """A ContractClause that facilitates observing GCE state."""
+
+  def __init__(self, title, gcloud, retryable_for_secs=0):
+    super(GCloudClauseBuilder, self).__init__(
+        title=title, retryable_for_secs=retryable_for_secs)
+    self._factory = GCloudObjectFactory(gcloud)
+
+  def list_resources(self, type, extra_args=None):
+    """Observe resources of a particular type.
+
+    This ultimately calls a "gcloud ... |type| list |extra_args|"
+    """
+    self.observer = self._factory.new_list_resources(type, extra_args)
+    observation_builder = jc.ValueObservationVerifierBuilder('List ' + type)
+    self.verifier_builder.append_verifier_builder(observation_builder)
+
+    return observation_builder
+
+  def inspect_resource(self, type, name, extra_args=None, no_resource_ok=False):
+    """Observe the details of a specific instance.
+
+    This ultimately calls a "gcloud ... |type| |name| describe |extra_args|"
+
+    Args:
+      type: The gcloud resource type  (e.g. instances)
+      name: The GCE resource name
+      extra_args: Additional parameters to pass to gcloud.
+      no_resource_ok: Whether or not the resource is required.
+          If the resource is not required, a 404 is treated as a valid check.
+          Because resource deletion is asynchronous, there is no explicit
+          API here to confirm that a resource does not exist.
+
+    Returns:
+      A js.ValueObservationVerifier that will collect the requested resource
+          when its verify() method is run.
+    """
+
+    self.observer = self._factory.new_inspect_resource(type, name, extra_args)
+
+    if no_resource_ok:
+      error_verifier = cli_agent.CliAgentObservationFailureVerifier(
+          title='404 Permitted', error_regex='.*ResponseError: code=404.*')
+      disjunction_builder = jc.ObservationVerifierBuilder(
+          'Inspect {0} {1} or 404'.format(type, name))
+      disjunction_builder.append_verifier(error_verifier)
+
+      inspect_builder = jc.ValueObservationVerifierBuilder(
+          'Inspect {0} {1}'.format(type, name))
+      disjunction_builder.append_verifier_builder(
+          inspect_builder, new_term=True)
+      self.verifier_builder.append_verifier_builder(
+          disjunction_builder, new_term=True)
+    else:
+      inspect_builder = jc.ValueObservationVerifierBuilder(
+          'Inspect {0} {1}'.format(type, name))
+      self.verifier_builder.append_verifier_builder(inspect_builder)
+
+    return inspect_builder
+
+
+class GceContractBuilder(jc.ContractBuilder):
+  """Specialized contract that facilitates observing GCE."""
+
+  def __init__(self, gcloud):
+    """Constructs a new contract.
+
+    Args:
+      gcloud: The GCloudAgent to use for communicating with GCE.
+    """
+    super(GceContractBuilder, self).__init__(
+        lambda title, retryable_for_secs:
+          GCloudClauseBuilder(
+              title, gcloud=gcloud, retryable_for_secs=retryable_for_secs))
