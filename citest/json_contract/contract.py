@@ -141,9 +141,6 @@ class ContractClause(predicate.ValuePredicate):
       if clause_result:
         break
 
-      self.logger.debug(
-          '******\n%s\n********\n', Scribe().render(clause_result))
-
       now = time.time()
       if end_time <= now:
         if end_time > start_time:
