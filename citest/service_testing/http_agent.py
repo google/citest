@@ -85,8 +85,9 @@ class HttpOperationStatus(testable_agent.AgentOperationStatus):
 
 class HttpAgent(testable_agent.TestableAgent):
   """A specialization of TestableAgent for interacting with HTTP services."""
-  def __init__(self, address):
+  def __init__(self, address, protocol='http'):
     super(HttpAgent, self).__init__()
+    self._protocol = protocol
     self._address = address
 
   def _make_scribe_parts(self, scribe):
@@ -147,7 +148,7 @@ class HttpAgent(testable_agent.TestableAgent):
       headers = {}
     if path[0] == '/':
       path = path[1:]
-    url = 'http://{0}/{1}'.format(self._address, path)
+    url = '{0}://{1}/{2}'.format(self._protocol, self._address, path)
 
     req = urllib2.Request(url)
     for key, value in headers.items():

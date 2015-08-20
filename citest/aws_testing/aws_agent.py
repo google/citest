@@ -57,7 +57,7 @@ class AwsAgent(st.CliAgent):
   def _make_scribe_parts(self, scribe):
     parts = [
       scribe.build_part('Profile', self._profile),
-      scribe.build_part('Regione', self._region),
+      scribe.build_part('Region', self._region),
       scribe.build_part('Trace', self._trace)]
     inherited = super(AwsAgent, self)._make_scribe_parts(scribe)
     return parts + inherited
