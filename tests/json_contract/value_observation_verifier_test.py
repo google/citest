@@ -65,7 +65,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
                  jc.PathPredicate('b', jc.STR_EQ('B'))]
     # This is our object verifier for these tests.
     verifier = jc.ValueObservationVerifier(
-        title='Find Both', constraints=pred_list)
+        title='Find Both', mapped_constraints=pred_list)
 
     test_cases = [('dict', _LETTER_DICT),
                   ('array', _DICT_ARRAY),
@@ -96,7 +96,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
 
     # This is our object verifier for these tests.
     verifier = jc.ValueObservationVerifier(
-        title='Cannot find one', constraints=pred_list)
+        title='Cannot find one', mapped_constraints=pred_list)
 
     test_cases = [('array', _DICT_ARRAY),
                   ('dict', _LETTER_DICT),
@@ -130,7 +130,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
 
     # This is our object verifier for these tests.
     verifier = jc.ValueObservationVerifier(
-        title='Cannot find either', constraints=pred_list)
+        title='Cannot find either', mapped_constraints=pred_list)
 
     test_cases = [('array', _DICT_ARRAY),
                   ('dict', _LETTER_DICT),
@@ -164,7 +164,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
 
     # This is our object verifier for these tests.
     verifier = jc.ValueObservationVerifier(
-        title='Find one of two', constraints=pred_list)
+        title='Find one of two', mapped_constraints=pred_list)
 
     test_cases = [('array', _DICT_ARRAY),
                   ('dict', _LETTER_DICT),

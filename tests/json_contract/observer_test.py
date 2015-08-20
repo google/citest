@@ -137,7 +137,7 @@ class JsonObserverTest(unittest.TestCase):
         test_strict = index == 2
         expected = test[index]
         verifier = jc.ValueObservationVerifier(
-          title='Verifier', constraints=[aA, bB], strict=test_strict)
+          title='Verifier', mapped_constraints=[aA, bB], strict=test_strict)
 
         verify_result = verifier(observation)
         try:

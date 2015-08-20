@@ -14,6 +14,7 @@
 
 
 import unittest
+from citest.base import Scribe
 import citest.json_contract as jc
 
 
@@ -38,13 +39,19 @@ class FakeObserver(jc.ObjectObserver):
 
 
 class JsonContractTest(unittest.TestCase):
+  def assertEqual(self, a, b, msg=''):
+    if not msg:
+      scribe = Scribe()
+      msg = 'EXPECT\n{0}\nGOT\n{1}'.format(scribe.render(a), scribe.render(b))
+    super(JsonContractTest, self).assertEqual(a, b, msg)
+
   def test_clause_success(self):
     observation = jc.Observation()
     observation.add_object('A')
     fake_observer = FakeObserver(observation)
 
     eq_A = jc.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
+    verifier = jc.ValueObservationVerifier('Has A', mapped_constraints=[eq_A])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
 
@@ -60,7 +67,7 @@ class JsonContractTest(unittest.TestCase):
     fake_observer = FakeObserver(observation)
 
     eq_A = jc.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
+    verifier = jc.ValueObservationVerifier('Has A', mapped_constraints=[eq_A])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
 
@@ -76,7 +83,7 @@ class JsonContractTest(unittest.TestCase):
     fake_observer = FakeObserver(observation)
 
     eq_A = jc.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
+    verifier = jc.ValueObservationVerifier('Has A', mapped_constraints=[eq_A])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
@@ -94,7 +101,7 @@ class JsonContractTest(unittest.TestCase):
     fake_observer = FakeObserver(observation)
 
     eq_A = jc.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
+    verifier = jc.ValueObservationVerifier('Has A', mapped_constraints=[eq_A])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
@@ -113,7 +120,7 @@ class JsonContractTest(unittest.TestCase):
     fake_observer = FakeObserver(observation)
 
     eq_A = jc.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
+    verifier = jc.ValueObservationVerifier('Has A', mapped_constraints=[eq_A])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
@@ -133,7 +140,7 @@ class JsonContractTest(unittest.TestCase):
     eq_A = jc.STR_EQ('A')
     eq_B = jc.STR_EQ('B')
     verifier = jc.ValueObservationVerifier(
-        'Has A and B', constraints=[eq_A, eq_B])
+        'Has A and B', mapped_constraints=[eq_A, eq_B])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
@@ -145,6 +152,59 @@ class JsonContractTest(unittest.TestCase):
     self.assertEqual(expect_result, result)
     self.assertFalse(result)
 
+  def mixed_exclude_helper(self, strict):
+    observation = jc.Observation()
+    observation.add_object('A')
+    observation.add_object('B')
+    observation.add_object('C')
+    fake_observer = FakeObserver(observation)
+
+    # We dont expect to see B in the list.
+    # This can be interpreted two ways -- strictly or not strictly.
+    # Strictly means no results should ever contain B.
+    # Non strict means some result should not contain B.
+    builder = jc.ValueObservationVerifierBuilder(
+        'Test Excludes', strict=strict)
+    builder.excludes(None, 'B')
+
+    clause = jc.ContractClause('TestClause', fake_observer, builder.build())
+    contract = jc.Contract()
+    contract.add_clause(clause)
+
+    # Doesnt matter whether strict or not since this is checking cardinality
+    # over the entire list via the excludes clause.
+    expect_result = jc.contract.ContractVerifyResult(
+        False, [clause.verify()])
+    result = contract.verify()
+    self.assertEqual(expect_result, result)
+    self.assertEqual(False, result.valid)
+
+  def test_contract_mixed_exclude_strict_not_ok(self):
+    self.mixed_exclude_helper(strict=True)
+
+  def test_contract_mixed_exclude_not_strict_ok(self):
+    self.mixed_exclude_helper(strict=False)
+
+  def test_multiple_required(self):
+    observation = jc.Observation()
+    observation.add_object('A')
+    observation.add_object('B')
+    observation.add_object('C')
+    fake_observer = FakeObserver(observation)
+
+    eq_A_or_B = jc.DisjunctivePredicate([jc.STR_EQ('A'), jc.STR_EQ('B')])
+    builder = jc.ValueObservationVerifierBuilder('Test Multiple')
+    builder.contains_pred(None, eq_A_or_B, min=2)
+
+    clause = jc.ContractClause('TestClause', fake_observer, builder.build())
+    contract = jc.Contract()
+    contract.add_clause(clause)
+
+    expect_result = jc.contract.ContractVerifyResult(True, [clause.verify()])
+    result = contract.verify()
+    self.assertEqual(expect_result, result)
+    self.assertEqual(True, result.valid)
+
   def test_contract_observation_failure(self):
     observation = jc.Observation()
     observation.add_error(
@@ -153,7 +213,7 @@ class JsonContractTest(unittest.TestCase):
     error = jc.ObservationFailedError(observation.errors)
 
     eq_A = jc.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
+    verifier = jc.ValueObservationVerifier('Has A', mapped_constraints=[eq_A])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
