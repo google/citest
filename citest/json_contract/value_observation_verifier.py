@@ -39,7 +39,7 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
       return ValueObservationVerifier(
           title=self.title,
           dnf_verifiers=dnf_verifiers,
-          constraints=self._constraints,
+          unmapped_constraints=self._constraints,
           strict=self._strict)
 
   def _make_scribe_parts(self, scribe):
@@ -56,6 +56,10 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
       raise TypeError('{0} is not predicate.ValuePredicate'.format(
           constraint.__class__))
     self._constraints.append(constraint)
+    return self
+
+  def add_mapped_constraint(self, constraint):
+    self._constraints.append(map_predicate.MapPredicate(constraint))
     return self
 
   def contains(self, path, value, min=1, max=None):
@@ -124,7 +128,10 @@ class ValueObservationVerifier(ov.ObservationVerifier):
         self._strict)
 
   def __init__(self,
-               title, dnf_verifiers=None, constraints=None, strict=False):
+               title, dnf_verifiers=None,
+               mapped_constraints=None,
+               unmapped_constraints=None,
+               strict=False):
     """Construct instance.
 
     Args:
@@ -132,7 +139,10 @@ class ValueObservationVerifier(ov.ObservationVerifier):
       dnf_verifiers: A list of lists of jc.ObservationVerifier where the outer
           list are OR'd together and the inner lists are AND'd together
           (i.e. disjunctive normal form).
-      constraints: A list of jc.ValuePredicate to apply to the observation.
+      unmapped_constraints: A list of jc.ValuePredicate to apply to the
+          observation object list.
+      mapped_constraints: A list of jc.ValuePredicate to apply to the
+          individual objects within the observation object list.
       strict: If True then the verifier requires all the observed elements to
           satisfy all the constraints (including future added constraints).
           Otherwise if False then the verifier requires each of the constraints
@@ -141,7 +151,11 @@ class ValueObservationVerifier(ov.ObservationVerifier):
     """
     super(ValueObservationVerifier, self).__init__(title, dnf_verifiers)
     self._strict = strict
-    self._constraints = constraints or []
+    self._constraints = []
+    if unmapped_constraints:
+      self._constraints.extend(unmapped_constraints)
+    for c in mapped_constraints or []:
+      self._constraints.append(map_predicate.MapPredicate(c))
 
   def __call__(self, observation):
     if observation.errors:
@@ -171,16 +185,34 @@ class ValueObservationVerifier(ov.ObservationVerifier):
     final_builder = ov.ObservationVerifyResultBuilder(observation)
 
     for constraint in self._constraints:
-      logging.getLogger(__name__).debug(
-        'Mapping with constraint=%s', constraint)
-      map_result = map_predicate.MapPredicate(constraint)(object_list)
+      logging.getLogger(__name__).debug('Verifying constraint=%s', constraint)
+      constraint_result = constraint(object_list)
 
-      if not map_result.good_object_result_mappings:
+      if not constraint_result:
         logging.getLogger(__name__).debug('FAILED constraint')
         valid = False
-      final_builder.add_map_result(map_result)
 
-    if valid and self._strict:
+      # This is messy. On one hand we may want to have mapped results
+      # to show which objects are valid or not if we are looking individually.
+      # But on the other hand, we might be looking at all the objects as a
+      # collection in whole (e.g. cardinality). Really we should not be
+      # assuming a map predicate result, but currently are. So we're going
+      # to coerce non-map results into map results.
+      # TODO(ewiseblatt): Fix this by refactoring this and its base class.
+      skip_strict = True
+      if isinstance(constraint_result, map_predicate.MapPredicateResult):
+          # If we didnt map anything, then the strict check isnt appropriate.
+          skip_strict = False
+      else:
+          map_result_builder = map_predicate.MapPredicateResultBuilder(
+              constraint)
+          map_result_builder.add_result([object_list], constraint_result)
+          constraint_result = map_result_builder.build(constraint_result.valid)
+          if constraint_result.valid:
+            skip_strict = True
+      final_builder.add_map_result(constraint_result)
+
+    if valid and self._strict and not skip_strict:
       len_validated = len(final_builder.validated_object_set)
       len_objects = len(object_list)
       valid = len_validated == len_objects
