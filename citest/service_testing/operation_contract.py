@@ -30,8 +30,9 @@ class OperationContract(Scribable):
     return self._contract
 
   def _make_scribe_parts(self, scribe):
-    return [scribe.build_nested_part('Operation', self._operation),
-            scribe.build_nested_part('Contract', self._contract)]
+    return [scribe.part_builder.build_nested_part(
+               'Operation', self._operation),
+            scribe.part_builder.build_nested_part('Contract', self._contract)]
 
   def __init__(self, operation, contract):
     """Construct instance.

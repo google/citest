@@ -54,32 +54,34 @@ def test_obj_list_to_html(l):
 class HtmlScribeTest(unittest.TestCase):
   def test_string(self):
       scribe = base.html_scribe.HtmlScribe()
-      text = scribe.render('Hello, World!')
-      self.assertEqual('Hello, World!', text)
+      self.assertEqual('Hello, World!',
+                       scribe.render_to_string('Hello, World!'))
 
   def test_simple_object(self):
       obj = TestObject('Hello, World!')
       scribe = base.html_scribe.HtmlScribe()
-      text = scribe.render(obj)
-      self.assertEqual(test_obj_to_html(obj), text)
+      self.assertEqual(test_obj_to_html(obj),
+                       scribe.render_to_string(obj))
 
   def test_object_list(self):
       l = [ TestObject('A'), TestObject('B') ]
       scribe = base.html_scribe.HtmlScribe()
-      text = scribe.render(l)
-      self.assertEqual(test_obj_list_to_html(l), text)
+      self.assertEqual(test_obj_list_to_html(l),
+                       scribe.render_to_string(l))
 
   def test_list_of_list(self):
       innerAB = [ TestObject('A'), TestObject('B') ]
       innerXY = [ TestObject('X'), TestObject('Y') ]
       outer = [innerAB, innerXY]
       scribe = base.html_scribe.HtmlScribe()
-      text = scribe.render(outer)
+
       # Inner HTML will be indented an extra level
       innerAB_html = test_obj_list_to_html(innerAB).replace('\n', '\n  ')
       innerXY_html = test_obj_list_to_html(innerXY).replace('\n', '\n  ')
-      self.assertEqual('<ul>\n  <li> {0}\n  <li> {1}\n</ul>'.format(
-          innerAB_html, innerXY_html), text)
+      self.assertEqual(
+          '<ul>\n  <li> {0}\n  <li> {1}\n</ul>'.format(
+              innerAB_html, innerXY_html),
+          scribe.render_to_string(outer))
 
 
 if __name__ == '__main__':

@@ -38,7 +38,7 @@ class TestDefault(object):
 class ScribeTest(unittest.TestCase):
   def test_registry(self):
     registry = base.ScribeClassRegistry('Test')
-    func = lambda obj, reg: 'Base'
+    func = lambda out, obj: 'Base'
 
     self.assertEqual(func, registry.find_with_default(TestBase, func).renderer)
     self.assertIsNone(registry.find_or_none(TestBase))
@@ -48,13 +48,13 @@ class ScribeTest(unittest.TestCase):
 
   def test_find_base_classes(self):
     registry = base.ScribeClassRegistry('Test')
-    func = lambda obj, reg: 'Base'
+    func = lambda out, obj: 'Base'
 
     registry.add(TestBase, func)
     self.assertEqual(func, registry.find_or_none(TestDerived).renderer)
 
   def test_registry_inherits_from_base(self):
-    func = lambda obj, reg: 'Default'
+    func = lambda out, obj: 'Default'
     registry = base.ScribeClassRegistry(TestDefault)
     self.assertIsNone(registry.find_or_none(TestDefault))
 
@@ -62,8 +62,8 @@ class ScribeTest(unittest.TestCase):
     self.assertEqual(func, registry.find_or_none(TestDefault).renderer)
 
   def test_registry_spec_override(self):
-    parent_func = lambda obj, reg: 'Parent'
-    child_func = lambda obj, reg: 'Child'
+    parent_func = lambda out, obj: 'Parent'
+    child_func = lambda out, obj: 'Child'
     parent = base.scribe.ScribeClassRegistry('ParentRegistry')
     child = base.scribe.ScribeClassRegistry('ChildRegistry')
 
@@ -75,31 +75,42 @@ class ScribeTest(unittest.TestCase):
 
   def test_scribe_indent(self):
     scribe = base.Scribe()
-    self.assertEqual('', scribe.line_indent)
-    self.assertEqual(2, scribe.indent_factor)
-    self.assertEqual(0, scribe.level)
+    out = base.Doodle(scribe)
+    self.assertEqual('', out.line_indent)
+    self.assertEqual(2, out.indent_factor)
+    self.assertEqual(0, out.level)
 
-    scribe.push_level()
-    self.assertEqual('  ' * 1, scribe.line_indent)
-    scribe.push_level()
-    self.assertEqual('  ' * 2, scribe.line_indent)
-    scribe.pop_level()
-    self.assertEqual('  ' * 1, scribe.line_indent)
-    scribe.pop_level()
-    self.assertEqual('', scribe.line_indent)
+    out.push_level()
+    self.assertEqual('  ' * 1, out.line_indent)
+    out.push_level()
+    self.assertEqual('  ' * 2, out.line_indent)
+    out.pop_level()
+    self.assertEqual('  ' * 1, out.line_indent)
+    out.pop_level()
+    self.assertEqual('', out.line_indent)
 
   def test_scribe_render(self):
-    func = lambda obj, reg: 'Hello {0}'.format(obj)
+    func = lambda out, obj: out.write('Hello {0}'.format(obj))
     registry = base.scribe.ScribeClassRegistry('Registry')
     registry.add(TestBase, func)
 
     scribe = base.Scribe(registry)
-    self.assertEqual('Hello World', scribe.render(TestBase('World')))
+    out = base.Doodle(scribe)
+    scribe.render(out, TestBase('World'))
+    self.assertEqual('Hello World', str(out))
+
+  def test_scribe_render_to_string(self):
+    func = lambda out, obj: out.write('Hello {0}'.format(obj))
+    registry = base.scribe.ScribeClassRegistry('Registry')
+    registry.add(TestBase, func)
+
+    scribe = base.Scribe(registry)
+    self.assertEqual('Hello World', scribe.render_to_string(TestBase('World')))
 
   @staticmethod
-  def push_level_and_raise_exception(obj, scribe):
+  def push_level_and_raise_exception(out, obj):
     """Rendering method to inject errors."""
-    scribe.push_level()
+    out.push_level()
     raise ValueError('Oops')
 
   def test_scribe_render_exception(self):
@@ -108,20 +119,25 @@ class ScribeTest(unittest.TestCase):
     registry.add(TestBase, func)
 
     scribe = base.Scribe(registry)
+    out = base.Doodle(scribe)
     # Test render errors are propagated, and level is restored.
     with self.assertRaises(ValueError):
-        scribe.render(TestBase('XXX'))
-    self.assertEqual(0, scribe.level)
+        scribe.render(out, TestBase('XXX'))
+    self.assertEqual(0, out.level)
 
   def test_scribe_parts(self):
     registry = base.scribe.ScribeClassRegistry('Registry')
     scribe = base.scribe.Scribe(registry)
+    out = base.Doodle(scribe)
+
+    # Add extra indentation for stronger verification of rendering in scope.
+    out.push_level()
 
     parts = [scribe.build_part('C', 'c'),
              scribe.build_part('A', 'a'),
              scribe.build_part('B', 'b')]
-    scribe.push_level()
-    self.assertEqual("C: 'c'\n  A: 'a'\n  B: 'b'", scribe.render_parts(parts))
+    scribe.render_parts(out, parts)
+    self.assertEqual("C: 'c'\n  A: 'a'\n  B: 'b'", str(out))
 
   def test_scribe_section(self):
     registry = base.scribe.ScribeClassRegistry('Registry')
@@ -135,11 +151,12 @@ class ScribeTest(unittest.TestCase):
 
     parts = [scribe.build_part('Section', section)]
     self.assertEqual("Section:\n  C: 'c'\n  A: 'a'\n  B: 'b'",
-                     scribe.render_parts(parts))
+                     scribe.render_parts_to_string(parts))
 
   def test_scribe_subsection(self):
     registry = base.scribe.ScribeClassRegistry('Registry')
     scribe = base.scribe.Scribe(registry)
+    out = base.Doodle(scribe)
 
     section = scribe.make_section()
     subsection = scribe.make_section()
@@ -154,54 +171,58 @@ class ScribeTest(unittest.TestCase):
        scribe.build_part('Second', 2)])
 
     parts = [scribe.build_part('Section', section)]
+    scribe.render_parts(out, parts)
     self.assertEqual("Section:\n"
                      "  C: 'c'\n"
                      "  A:\n"
                      "    First: 1\n"
                      "    Second: 2\n"
                      "  B: 'b'",
-                     scribe.render_parts(parts))
+                     str(out))
 
   def test_scribe_list(self):
     registry = base.scribe.ScribeClassRegistry('Registry')
     registry.add(
         TestBase,
-        lambda obj, scribe: 'CLASS {0}'.format(obj.__name__))
+        lambda out, obj: out.write('CLASS {0}'.format(obj.__name__)))
     scribe = base.scribe.Scribe(registry)
 
     test = ['a', TestBase, 'b']
-    self.assertEqual("'a', CLASS TestBase, 'b'", scribe.render(test))
+    self.assertEqual("'a', CLASS TestBase, 'b'",
+                     scribe.render_to_string(test))
 
   def test_scribe_nested_list_part(self):
     registry = base.scribe.ScribeClassRegistry('Registry')
     registry.add(
         TestBase,
-        lambda obj, scribe: 'CLASS {0}'.format(obj.__name__))
+        lambda out, obj: out.write('CLASS {0}'.format(obj.__name__)))
     scribe = base.scribe.Scribe(registry)
     test = ['a', TestBase, 'b']
 
-    parts = [scribe.build_nested_part('Test List', test)]
+    parts = [scribe.part_builder.build_nested_part('Test List', test)]
     self.assertEqual("Test List:\n  'a'\n  CLASS TestBase\n  'b'",
-                     scribe.render_parts(parts))
+                     scribe.render_parts_to_string(parts))
 
   def test_scribe_json_part(self):
     d = {'a': 'A', 'b': 'B'}
     scribe = base.scribe.Scribe()
+    out = base.Doodle(scribe)
+
     # The push here is to take it off the root indent to test indentation
-    scribe.push_level(count=5)
-    indent = scribe.line_indent
+    out.push_level(count=5)
+    indent = out.line_indent
     # The pop here is because build_json_part pushes an additional level.
     # The indent reference point we just grabbed is at that inner level.
     # We pop here so that we can then push into the level of our expected indent.
-    scribe.pop_level()
+    out.pop_level()
 
     part = scribe.build_json_part('Test', d)
-    s = scribe.render_parts([part])
+    scribe.render_parts(out, [part])
     self.assertEqual('Test:\n{indent}{{\n'
                      '{indent}  "a": "A",\n'
                      '{indent}  "b": "B"\n'
                      '{indent}}}'.format(indent=indent),
-                     s)
+                     str(out))
 
 
 if __name__ == '__main__':

@@ -99,7 +99,8 @@ class CliAgentRunError(testable_agent.AgentError):
 
   def _make_scribe_parts(self, scribe):
     return (super(CliAgentRunError, self)._make_scribe_parts(scribe)
-            + [scribe.build_nested_part('Cli Response', self._run_response)])
+            + [scribe.part_builder.build_nested_part('Cli Response',
+                                                     self._run_response)])
 
   def __init__(self, agent, run_response):
     super(CliAgentRunError, self).__init__(run_response.error)

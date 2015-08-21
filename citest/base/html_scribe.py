@@ -14,6 +14,7 @@
 
 import re
 import sys
+import threading
 import traceback
 
 from . import scribe as scribe_module
@@ -87,28 +88,22 @@ def _escape(source, quote=False):
   return s
 
 
-def _escape_repr_renderer(obj, scribe):
+def _escape_repr_renderer(out, obj):
   """A renderer that escapes a python object string representation into HTML.
 
   Args:
+    out: The Doodle to render to.
     obj: A python object to render as a string.
-    scribe: The scribe rendering the object.
-
-  Returns:
-    Escaped string representation.
   """
-  return _escape(str(obj))
+  out.write(_escape(str(obj)))
 
 
-def _exception_renderer(obj, scribe):
+def _exception_renderer(out, obj):
   """A renderer for exceptions as HTML.
 
   Args:
+    out: The Doodle to render to.
     obj: A python Exception to render as a string.
-    scribe: The scribe rendering the object.
-
-  Returns:
-    HTML string representation.
   """
   # TODO(ewiseblatt): 20150810
   # This is assuming we're calling this from an exception handler,
@@ -122,13 +117,12 @@ def _exception_renderer(obj, scribe):
           '<pre><code>{traceback}</code></pre></div>\n').format(
            message=_escape(str(obj)),
            traceback=preformatted_trace.replace('\\n', '\n'))
-
-  return html
+  out.write(html)
 
 
 class HtmlScribe(scribe_module.Scribe):
   """
-  Implements a scribe that renders into HTML.
+  Implements a thread-safe scribe that renders into HTML.
 
   Attributes:
     next_section_id: The string ID to use to identify the next expandable
@@ -137,58 +131,69 @@ class HtmlScribe(scribe_module.Scribe):
 
   @property
   def next_section_id(self):
+    self._lock.acquire(True)
     self._section_count += 1
-    return 'S{0}'.format(self._section_count)
+    id = self._section_count
+    self._lock.release()
+    return 'S{0}'.format(id)
 
   def __init__(self, registry=HTML_SCRIBE_REGISTRY):
     super(HtmlScribe, self).__init__(registry)
+    self._lock = threading.Lock()
     self._section_count = 0
 
-  def render_html_head_block(self, title):
-    """Renders text for the HTML HEAD section.
+  def write_html_head_block(self, out, title):
+    """Writes text for the HTML HEAD section.
 
     The HEAD section will contain the standard Javascript and CSS used within.
 
     Args:
+      out: The Doodle to write into.
       title: The unescaped text title of HTML will be escaped.
     """
-    return '<head><title>{title}</title>{javascript}{css}</head>\n'.format(
-        javascript=_javascript, css=_css, title=_escape(title))
+    out.write('<head><title>{title}</title>{javascript}{css}</head>\n'.format(
+        javascript=_javascript, css=_css, title=_escape(title)))
 
-  def render_begin_html_document(self, title):
-    """Renders a new html document up to the openening BODY tag.
+  def write_begin_html_document(self, out, title):
+    """Writes a new html document up to the openening BODY tag.
 
     Args:
+      out: The Doodle to write into.
       title: The unescaped text title of the HTML.
     """
-    return '\n'.join(
-      ['<!DOCTYPE html>\n<html>',
-       self.render_html_head_block(title),
-       '<body>'])
+    html_out = out.new_at_level()
+    self.write_html_head_block(html_out, title),
+    out.write('\n'.join(
+        ['<!DOCTYPE html>\n<html>',
+         str(html_out),
+         '<body>']))
 
-  def render_end_html_document(self):
-    """Renders the closing of the HTML document BODY and HTML tags."""
-    return '\n'.join(['</body>', '</html>'])
+  def write_end_html_document(self, out):
+    """Writes the closing of the HTML document BODY and HTML tags."""
+    out.write('\n'.join(['</body>', '</html>']))
 
-  def render_notoggle_div(self, html, css='fodder'):
-    """Renders an HTML div section that is not toggleable.
+  def write_notoggle_div(self, out, html, css='fodder'):
+    """Writes an HTML div section that is not toggleable.
 
     Args:
+      out: The Doodle to write to.
       html: The html to render inside the DIV tag.
       css: The CSS style name to use, if any.
     """
     lines = ['<div class="{css}" style="display:block">'.format(css=css)]
-    self.push_level()
-    lines.append('{indent}{html}', indent=self.line_indent, html=html)
-    self.pop_level()
-    lines.append('{indent}</div>'.format(self.line_indent))
-    return '\n'.join(lines)
+    out.push_level()
+    lines.append('{indent}{html}'.format(indent=out.line_indent, html=html))
+    out.pop_level()
+    lines.append('{indent}</div>'.format(out.line_indent))
+    out.write('\n'.join(lines))
 
-  def render_expandable_content(
-      self, summary_html, detail_html, detail_css, id, default_visible=True):
-    """Renders an expandable DIV block.
+  def write_expandable_content(
+      self, out, summary_html, detail_html, detail_css, id,
+      default_visible=True):
+    """Writes an expandable DIV block.
 
     Args:
+      out: The Doodle to write to.
       summary_html: The HTML to display when the block is not expanded.
          This is also displayed to close the block when expanded.
       detail_html: This is the HTML to display when the block is expanded.
@@ -201,11 +206,11 @@ class HtmlScribe(scribe_module.Scribe):
     # The summary line is a link.
     lines = ['<a class="toggle"'
              ' onclick="toggle_visibility(\'{id}\');">'.format(id=id)]
-    self.push_level()
+    out.push_level()
     lines.append('{indent}{summary}'.format(
-            indent=self.line_indent, summary=summary_html))
-    self.pop_level()
-    lines.append('{indent}</a><br/>'.format(indent=self.line_indent))
+            indent=out.line_indent, summary=summary_html))
+    out.pop_level()
+    lines.append('{indent}</a><br/>'.format(indent=out.line_indent))
 
     # div tags are visible by default, so we only worry about hiding it.
     visibility = '' if default_visible else ' style="display:none"'
@@ -213,14 +218,14 @@ class HtmlScribe(scribe_module.Scribe):
     # The detail is in a div tag.
     lines.append(
         '{indent}<div id="{id}"{visibility}>'.format(
-            indent=self.line_indent, id=id, visibility=visibility))
-    self.push_level()
+            indent=out.line_indent, id=id, visibility=visibility))
+    out.push_level()
     lines.append('{indent}{detail}'.format(
-            indent=self.line_indent, detail=detail_html))
-    self.pop_level()
-    lines.append('{indent}</div>'.format(indent=self.line_indent))
+            indent=out.line_indent, detail=detail_html))
+    out.pop_level()
+    lines.append('{indent}</div>'.format(indent=out.line_indent))
 
-    return '\n'.join(lines)
+    out.write('\n'.join(lines))
 
   def maybe_rewrite_class_parts(self, parts):
     """If the parts is a CLASS expansion then flatten it out.
@@ -263,7 +268,7 @@ class HtmlScribe(scribe_module.Scribe):
     scribe_module.ScribePartBuilder.INVALID: 'invalid',
   }
 
-  def build_key_html(self):
+  def write_key_html(self, out):
     table="""
 <table>
   <tr><th class="valid">Good</th>
@@ -285,10 +290,12 @@ class HtmlScribe(scribe_module.Scribe):
 </table>
 <hr/>
 """
-    return '<b>Key:</b>{table}\n<p/>'.format(
-        table=self.render_expandable_content(
-        summary_html='Report Key', detail_html=table, detail_css='meta',
-        id='key', default_visible=False))
+    content_out = scribe_module.Doodle(self)
+    self.write_expandable_content(
+        content_out, summary_html='Report Key',
+        detail_html=table, detail_css='meta',
+        id='key', default_visible=False)
+    out.write('<b>Key:</b>{table}\n<p/>'.format(table=content_out))
 
   @staticmethod
   def determine_css_decorator(d, key):
@@ -316,87 +323,89 @@ class HtmlScribe(scribe_module.Scribe):
       self.determine_css_decorator(self._RELATION_TO_TH_CSS, part.relation),
       self.determine_css_decorator(self._RELATION_TO_TD_CSS, part.relation))
 
-  def render_parts(self, parts):
+  def render_parts(self, out, parts):
     """Implements scribe part rendering method to produce a [nested] table.
 
     Args:
+      out: The Doodle to write to.
       parts: List of ScribeRendererPart
-
-    Returns:
-      HTML for parts.
     """
     parts = self.maybe_rewrite_class_parts(parts)
 
     lines = ['<table>']
-    self.push_level()
+    out.push_level()
     for p in parts:
       label = _escape(p.name) if p.name else ''
-      detail = (p.explicit_renderer(p.value, self)
-                   if p.explicit_renderer
-                   else self.render(p.value))
+      detail = out.render_to_string(p.value, p.explicit_renderer)
+
       if not label.strip() and not detail.strip():
         continue
       th_css, td_css = self.determine_part_css(p)
 
       lines.append('{indent}<tr><th{th_css}>{label}</th><td{td_css}>\n'
                    '{indent}{detail}</td>'.format(
-          indent=self.line_indent, label=label, detail=detail,
+          indent=out.line_indent, label=label, detail=detail,
           th_css=th_css, td_css=td_css))
-    self.pop_level()
-    lines.append('{indent}</table>'.format(indent=self.line_indent))
-    return '\n'.join(lines)
+    out.pop_level()
+    lines.append('{indent}</table>'.format(indent=out.line_indent))
+    out.write('\n'.join(lines))
 
   @staticmethod
-  def section_renderer(section, scribe):
+  def section_renderer(out, section):
     """Scribe rendering method for rendering ScribeRendererSection as HTML.
 
     Sections are rendered as expandable DIV tags containing the normally
     rendered object within.
 
     Args:
+      out: The Scribable to write to.
       section: The ScribeRendererSection to render.
-      scribe: The HtmlScribe to render the section with.
-    Returns:
-      HTML encoding of the section.
     """
+    scribe = out.scribe
     id = scribe.next_section_id
     summary_html=section.title or 'Details'
-    detail_html=scribe.render_parts(section._parts)
+    detail_out = out.new_at_level()
+    scribe.render_parts(detail_out, section._parts)
+    detail_html = str(detail_out)
     if len(re.sub(' +', ' ', detail_html)) < 120:
-      return detail_html
-    detail_css=None
-    return scribe.render_expandable_content(
-      summary_html, detail_html, detail_css, id)
+      out.write(detail_html)
+    else:
+      detail_css=None
+      scribe.write_expandable_content(
+          out, summary_html, detail_html, detail_css, id)
 
   @classmethod
-  def render_json_if_possible(cls, obj, scribe):
-    text = super(HtmlScribe, cls).render_json_if_possible(obj, scribe)
+  def render_json_if_possible(cls, out, obj):
+    json_out = out.new_at_level()
+    super(HtmlScribe, cls).render_json_if_possible(json_out, obj)
+
     # The JSON is going to be indented to our current level (and beyond),
     # but we only need to indent relative to our current level, so remove
     # our level indentation.
-    text = text.replace('\n{indent}'.format(indent=scribe.line_indent),
+    text = str(json_out)
+    text = text.replace('\n{indent}'.format(indent=json_out.line_indent),
                         '\n').strip()
-    return '<pre>{text}</pre>'.format(text=_escape(text))
+    out.write('<pre>{text}</pre>'.format(text=_escape(text)))
 
   @classmethod
-  def render_list_elements(cls, l, scribe):
+  def render_list_elements(cls, out, l):
     """Scribe rendering method for rendering python lists as HTML.
 
     Args:
       cls: The HtmlScribe class rendering the list.
+      out: The Doodle to write to.
       l: The python list to render.
-      scribe: The HtmlScribe to render the section with.
-    Returns:
-      HTML encoding of the list.
     """
     lines = ['<ul>']
-    scribe.push_level()
+    out.push_level()
+    scribe = out.scribe
     for e in l:
+      line_text = out.render_to_string(e)
       lines.append('{indent}<li> {content}'.format(
-          indent=scribe.line_indent, content=scribe.render(e).strip()))
-    scribe.pop_level()
-    lines.append('{indent}</ul>'.format(indent=scribe.line_indent))
-    return '\n'.join(lines)
+          indent=out.line_indent, content=line_text.strip()))
+    out.pop_level()
+    lines.append('{indent}</ul>'.format(indent=out.line_indent))
+    out.write('\n'.join(lines))
 
 
 HTML_SCRIBE_REGISTRY.add(basestring, _escape_repr_renderer)

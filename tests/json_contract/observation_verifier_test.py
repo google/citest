@@ -49,7 +49,9 @@ class ObservationVerifierTest(unittest.TestCase):
   def assertEqual(self, a, b, msg=''):
     if not msg:
       scribe = Scribe()
-      msg = 'EXPECT\n{0}\nGOT\n{1}'.format(scribe.render(a), scribe.render(b))
+      msg = 'EXPECT\n{0}\nGOT\n{1}'.format(
+        scribe.render_to_string(a),
+        scribe.render_to_string(b))
     super(ObservationVerifierTest, self).assertEqual(a, b, msg)
 
   def test_result_builder_add_good_result(self):

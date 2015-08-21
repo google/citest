@@ -102,6 +102,8 @@ class AgentTestCase(base.BaseTestCase):
 
     relation = self.reportScribe.part_builder.determine_verified_relation(
         verify_results)
+    scribe = base_scribe.Scribe(base_scribe.DETAIL_SCRIBE_REGISTRY)
+
     report_section.parts.append(
       self.reportScribe.part_builder.build_nested_part(
         name='Verification', value=verify_results,
@@ -109,10 +111,9 @@ class AgentTestCase(base.BaseTestCase):
 
     self.assertTrue(
         verify_results,
-        'Contract clauses failed:\n{0}\n{1}'.format(
-            verify_results.enumerated_summary_message,
-            base_scribe.Scribe(base_scribe.DETAIL_SCRIBE_REGISTRY).render(
-                verify_results)))
+        'Contract clauses failed:\n{summary}\n{detail}'.format(
+            summary=verify_results.enumerated_summary_message,
+            detail=scribe.render_to_string(verify_results)))
 
   def confirmFinalStatusOk(self, status, timeout_ok=False):
     # This is not because we dont want there to be an "exception".
@@ -133,11 +134,10 @@ class AgentTestCase(base.BaseTestCase):
           'WARNING: It appears the status has timed out. Continuing anyway.')
       return
 
+    scribe = base_scribe.Scribe(base_scribe.DETAIL_SCRIBE_REGISTRY)
+    error = scribe.render_to_string(status)
     self.assertTrue(
-        status.finished_ok,
-        'Did not finish_ok:\n{0}'.format(
-            base_scribe.Scribe(base_scribe.DETAIL_SCRIBE_REGISTRY).render(
-                status)))
+        status.finished_ok, 'Did not finish_ok:\n{error}'.format(error=error))
 
   def make_test_case_report_section(self, test_case):
     return self.reportScribe.make_section(title=test_case.title)
@@ -163,11 +163,11 @@ class AgentTestCase(base.BaseTestCase):
     self.log_start_test(test_case.title)
     if max_retries < 0:
       raise ValueError(
-          'max_retries={0} cannot be negative'.format(max_retries))
+          'max_retries={max} cannot be negative'.format(max=max_retries))
     if retry_interval_secs < 0:
       raise ValueError(
-          'retry_interval_secs={0} cannot be negative'.format(
-              retry_interval_secs))
+          'retry_interval_secs={secs} cannot be negative'.format(
+              secs=retry_interval_secs))
 
     section = self.make_test_case_report_section(test_case)
     try:
@@ -180,7 +180,7 @@ class AgentTestCase(base.BaseTestCase):
         summary = status.error or ('Operation status OK' if status.finished_ok
                                    else 'Operation status Unknown')
         section.parts.append(self.reportScribe.part_builder.build_input_part(
-                             name='Attempt {0}'.format(i),
+                             name='Attempt {count}'.format(count=i),
                              value=status, summary=summary))
 
         if not status.exception_details:
@@ -196,9 +196,9 @@ class AgentTestCase(base.BaseTestCase):
       self.confirmFinalStatusOk(status, timeout_ok=timeout_ok)
       self.assertContract(test_case.contract, section)
     except Exception as e:
+      error = base_scribe.Scribe().render_to_string(status)
       self.logger.error('Test failed with exception: %s', e)
-      self.logger.error('Last status was:\n%s',
-                        base_scribe.Scribe().render(status))
+      self.logger.error('Last status was:\n%s', error)
       self.logger.debug('Exception was at:\n%s', traceback.format_exc())
       section.parts.append(self.reportScribe.build_part('EXCEPTION', e))
       raise

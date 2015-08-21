@@ -51,7 +51,7 @@ class JsonMapPredicateTest(unittest.TestCase):
     """
     map_result = jc.MapPredicate(pred, min=min)(obj)
     if dump:
-      print 'MAP_RESULT:\n{0}\n'.format(Scribe().render(map_result))
+      print 'MAP_RESULT:\n{0}\n'.format(Scribe().render_to_string(map_result))
 
     if expect_map_result:
       self.assertEqual(

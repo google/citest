@@ -47,6 +47,10 @@ class ScribeRendererSection(object):
 
   A different renderer for this class can be added to a registry to change
   how these groups are displayed.
+
+  Attributes:
+    parts: The list of ScribeRendererPart comprising the section content.
+    title: The string name of the section.
   """
 
   @property
@@ -66,21 +70,18 @@ class ScribeRendererSection(object):
     self._title = title or ''
 
   @staticmethod
-  def render(section, scribe):
+  def render(out, section):
     """Custom renderer for rendering parts in a section.
 
     Args:
-      section: The ScribeRendererSection to render
-      scribe: The scribe to render with.
-
-    Returns:
-      Rendered string.
+      out: The Doodle to render to.
+      section: The ScribeRendererSection to render.
     """
-    scribe.push_level()
+    out.push_level()
     try:
-      return scribe.render_parts(section._parts)
+      return out.scribe.render_parts(out, section._parts)
     finally:
-      scribe.pop_level()
+      out.pop_level()
 
 
 class ScribeClassRegistryEntry(object):
@@ -88,8 +89,9 @@ class ScribeClassRegistryEntry(object):
 
   Attributes:
     renderer: The callable function used to render instances.
-       It takes the object to render and a scribe and returns the rendered
-       string.
+       It takes the scribe Doodle to write to and the object to render
+       and will render the object into the doodle.
+
     part_builder: A callable that takes the object and renderer and returns
        a list of ScribeRendererPart that can be later fed back into the scribe
        to render the values. This can be None if it is not supported.
@@ -116,12 +118,13 @@ class ScribeClassRegistryEntry(object):
     self._part_builder = part_builder
     self._renderer = renderer or self._do_render_parts
 
-  def _do_render_parts(self, obj, scribe):
+  def _do_render_parts(self, out, obj):
+    scribe = out.scribe
     parts = self._part_builder(obj, scribe)
-    return scribe.render_parts(parts)
+    return scribe.render_parts(out, parts)
 
-  def __call__(self, obj, scribe):
-    return self._renderer(obj, scribe)
+  def __call__(self, out, obj):
+    return self._renderer(out, obj)
 
 
 class _BaseScribeClassRegistry(object):
@@ -167,7 +170,7 @@ class _BaseScribeClassRegistry(object):
     self._name = name
     self._registry = {}
     self._overrides_registry = overrides_registry
-    self._default_renderer = (lambda value, scribe: repr(value))
+    self._default_renderer = (lambda out, value: out.write(repr(value)))
 
   def add_part_builder(self, klass, function):
     if klass in self._registry:
@@ -230,6 +233,121 @@ class _BaseScribeClassRegistry(object):
     if not func:
       return None
     return ScribeClassRegistryEntry(renderer=func)
+
+
+class Doodle(object):
+  """Object for accumulating text output.
+
+  The doodle holds state information and and output produced by renderers.
+  Ultimately it produces a chunk of text containing all the renderer output
+  appended together. Doodles are used to make scribes stateless so that
+  they are essentially threadsafe (the registry is not threadsafe, but is
+  presumed to be read-only once the program is initialized).
+  Expectation is that each thread journal its own information without being
+  interleved by other threads -- especially to not have the scoping /
+  indentation influenced by other threads. The thread decides when it wants
+  to flush the doodle, which may require external coordination with
+  other threads depending on expectations of the underlying medium produced.
+
+  Typical usage is to pass the doodle into scribe.render as a caller,
+  or receive the doodle as an argument and write text directly into it.
+
+  Attributes:
+    scribe: The scribe used to write to the doodle. It is kept here for
+      convinence so only the doodle needs to be passed around.
+    line_indent: Current indentation string.
+    level: Numeric 'depth' of indentation levels.
+    indent_factor: Number of spaces to indent per level.
+  """
+
+  @property
+  def scribe(self):
+    return self._scribe
+
+  @property
+  def segments(self):
+    return self._segments
+
+  @property
+  def line_indent(self):
+    return self._make_level_indent(self._level)
+
+  @property
+  def level(self):
+    return self._level
+
+  @property
+  def indent_factor(self):
+    return self._indent_factor
+
+  @indent_factor.setter
+  def indent_factor(self):
+    self._indent_factor = factor
+
+  def __init__(self, scribe):
+    self._scribe = scribe
+    self._level = 0
+    self._indent_factor = 2
+    self._segments = []
+
+  def __str__(self):
+    return ''.join(self._segments)
+
+  def reset(self):
+    """Reset the doodle back to its initial empty state.
+
+    Presumably this is after flushing it.
+    """
+    self._level = 0
+    self._segments = []
+
+  def new_at_level(self):
+    """Create a new empty doodle that is at the current level."""
+    out = self.__class__(self._scribe)
+    out._level = self._level
+    out._indent_factor = self._indent_factor
+    return out
+
+  def render_to_string(self, obj, renderer=None):
+    """Convienence method to render an object as a string at the current level.
+
+    This will not write into the doodle. The instance is not affected at
+    all. Rather this is a convienence method for converting an object
+    to a string at the current indentation level of this doodle.
+    """
+    tmp = self.new_at_level()
+    renderer(tmp, obj) if renderer else self.scribe.render(tmp, obj)
+    return str(tmp)
+
+  def write(self, text):
+    if text:
+      self._segments.append(text)
+
+  def push_level(self, count=1):
+    """Increment indentation level.
+
+    Args:
+      count: If specified, the number of levels to increment by.
+    """
+    if count < 0:
+      raise ValueError('count={0} cannot be negative'.format(count))
+    self._level += count
+
+  def pop_level(self, count=1):
+    """Decrement indentation level.
+
+    Args:
+      count: If specified, the number of levels to decrement by.
+    """
+    if count < 0:
+      raise ValueError('count={0} cannot be negative'.format(count))
+    if self._level < count:
+      raise ValueError('Popped too far.')
+    self._level -= count
+
+  def _make_level_indent(self, level):
+    """Helper function providing the indentation string for the given level."""
+    return ' ' * level * self._indent_factor
 
 
 class ScribePartBuilder(object):
@@ -325,9 +443,8 @@ class Scribe(object):
 
   Attributes:
     registry: Bound ScribeClassRegistry used to lookup renderers.
-    line_indent: Current indentation string.
-    level: Numeric 'depth' of indentation levels.
-    indent_factor: Number of spaces to indent per level.
+    part_builder: Contains helper functions for defining parts of a composed
+        data model.
   """
 
   @property
@@ -337,22 +454,6 @@ class Scribe(object):
   @property
   def registry(self):
     return self._registry
-
-  @property
-  def line_indent(self):
-    return self._make_level_indent(self._level)
-
-  @property
-  def level(self):
-    return self._level
-
-  @property
-  def indent_factor(self):
-    return self._indent_factor
-
-  @indent_factor.setter
-  def indent_factor(self):
-    self._indent_factor = factor
 
   @property
   def part_builder(self):
@@ -365,57 +466,41 @@ class Scribe(object):
       registry: The ScribeClassRegistry to bind. If None use the default.
     """
     self._registry = registry or DEFAULT_SCRIBE_REGISTRY
-    self._level = 0
-    self._indent_factor = 2
     self._part_builder = ScribePartBuilder(self)
 
-  def push_level(self, count=1):
-    """Increment indentation level.
+  def render_to_string(self, obj, default_renderer=None):
+    out = Doodle(self)
+    self.render(out, obj, default_renderer)
+    return str(out)
 
-    Args:
-      count: If specified, the number of levels to increment by.
-    """
-    if count < 0:
-      raise ValueError('count={0} cannot be negative'.format(count))
-    self._level += count
+  def render_parts_to_string(self, parts):
+    out = Doodle(self)
+    self.render_parts(out, parts)
+    return str(out)
 
-  def pop_level(self, count=1):
-    """Decrement indentation level.
-
-    Args:
-      count: If specified, the number of levels to decrement by.
-    """
-    if count < 0:
-      raise ValueError('count={0} cannot be negative'.format(count))
-    if self._level < count:
-      raise ValueError('Popped too far.')
-    self._level -= count
-
-  def render(self, obj, unknown=None):
+  def render(self, out, obj, default_renderer=None):
     """Render the given object by calling its registered renderer.
 
     Args:
+     out: The Doodle to render to.
      obj: The object to render.
      unknown: If there is no renderer, and unknown is provided, return that.
-
-    Returns:
-      Rendererd string or unknown if there is no renderer.
     """
-    unknown = unknown or self._registry.default_renderer
-    renderer = self._registry.find_with_default(obj, unknown)
-
-    orig_level = self._level
+    default_renderer = default_renderer or self._registry.default_renderer
+    renderer = self._registry.find_with_default(obj, default_renderer)
+    orig_level = out.level
     try:
-      result = renderer(obj, self)
+      renderer(out, obj)
     finally:
-      self._level = orig_level
-    return result
+      to_pop = out.level - orig_level
+      if to_pop:
+        out.pop_level(count=to_pop)
 
-  def render_classname(self, obj):
+  def render_classname(self, out, obj):
     """Renders the class of the given object."""
-    return 'CLASS {0}'.format(obj.__class__.__name__)
+    out.write('CLASS {0}'.format(obj.__class__.__name__))
 
-  def render_part(self, part):
+  def render_part(self, out, part):
     """Renders an individual ScribeRegistererPart.
 
     This method can be overwritten to change the presentation of individual
@@ -424,43 +509,37 @@ class Scribe(object):
     structure.
 
     Args:
+      out: The Doodle to render to.
       part: The ScribeRegistererPart to render.
-
-    Returns:
-      Rendered string for the name/value part entry.
     """
 
-    rendered_value = (
-      part.explicit_renderer(part.value, self) if part.explicit_renderer
-      else self.render(part.value))
-
-    if part.name and rendered_value:
-      sep = '' if rendered_value[0].isspace() else ' '
-      return '{0}:{1}{2}'.format(part.name, sep, rendered_value)
-    elif part.name:
-      return '{0}:'.format(part.name)
+    part_out = out.new_at_level()
+    if part.explicit_renderer:
+      part.explicit_renderer(part_out, part.value)
     else:
-      return rendered_value
+      self.render(part_out, part.value)
 
-  def render_parts(self, parts):
+    part_segments = part_out.segments
+    if part.name and part_segments:
+      sep = '' if part_segments[0][0].isspace() else ' '
+      out.write('{0}:{1}{2}'.format(part.name, sep, part_out))
+    elif part.name:
+      out.write('{0}:'.format(part.name))
+    else:
+      out.write(str(part_out))
+
+  def render_parts(self, out, parts):
     """Renders an sequence of ScribeRegistererPart.
 
     Args:
+      out: The Doodle to render to.
       parts: A list of ScribeRegistererPart.
-
-    Returns:
-      Rendered string for all the parts.
     """
-    indent = self._make_level_indent(self._level)
-    expanded_parts = [self.render_part(part) for part in parts]
-    joined_str = '\n{indent}'.format(indent=indent).join(expanded_parts)
-
-    # The joined string may have contained empty lines in it, particularly
-    # where we start sections in a new entry as opposed to as the value of
-    # an entry. We're going to clean this up by removing blank lines.
-    # It would be nice to do this pre-emptively but it isnt clear how to
-    # do that in a simple way.
-    return re.sub('\n *\n', '\n', joined_str)
+    sep = ''
+    for part in parts:
+      out.write(sep)
+      self.render_part(out, part)
+      sep = '\n{0}'.format(out.line_indent)
 
   def build_classname_parts(self, obj):
     """Returns a ScribeRegistererPart for rendering an objects class name."""
@@ -483,22 +562,12 @@ class Scribe(object):
     return '{count} {subject}{plural}'.format(
         count=count, subject=subject, plural=plural)
 
-  # DEPRECATED
-  def build_nested_part(self, name, value, renderer=None,
-                        summary=None, relation=None):
-    return self._part_builder.build_nested_part(
-        name, value, renderer=renderer, summary=summary, relation=relation)
-
   def make_section(self, title=None):
     """ScribeRendererSection factory."""
     return ScribeRendererSection(title=title)
 
-  def _make_level_indent(self, level):
-    """Helper function providing the indentation string for the given level."""
-    return ' ' * level * self._indent_factor
-
   @classmethod
-  def render_json_if_possible(cls, obj, scribe):
+  def render_json_if_possible(cls, out, obj):
     """Method for rendering objects as json, if the object is valid json.
 
     If the object is not valid json then just return the string.
@@ -506,47 +575,47 @@ class Scribe(object):
     try:
       if isinstance(obj, basestring):
         tmp = json.JSONDecoder().decode(obj)
-        text = json.JSONEncoder(indent=scribe.indent_factor,
+        text = json.JSONEncoder(indent=out.indent_factor,
                                 separators=(',', ': ')).encode(tmp)
       else:
-        text = json.JSONEncoder(indent=scribe.indent_factor,
+        text = json.JSONEncoder(indent=out.indent_factor,
                                 separators=(',', ': ')).encode(obj)
     except (ValueError, UnicodeEncodeError):
-      return repr(obj)
+      out.write(repr(obj))
+      return
 
     # json doesnt give a leading indent level, so we'll add that ourselves
     # so that the whole result can be placed within the callers indent level.
-    return text.replace('\n', '\n{0}'.format(scribe.line_indent))
+    return out.write(text.replace('\n', '\n{0}'.format(out.line_indent)))
 
   @classmethod
-  def render_nothing(cls, obj, scribe):
+  def render_nothing(cls, out, obj):
     """Renders empty string without going through encoding."""
-    return ''
+    pass
 
   @classmethod
-  def render_list_elements(cls, obj, scribe):
+  def render_list_elements(cls, out, obj):
     """Method for rendering lists.
 
     Args:
+       out: The Doodle to render to.
        obj: The list to render.
-       scribe: The scribe to render with.
-
-    Returns:
-       string containing each rendered element in the list seperated by ', '.
     """
-    all = []
+    sep = ''
+    scribe = out.scribe
     for elem in obj:
-      all.append(scribe.render(elem))
-    return ', '.join(all)
+      out.write(sep)
+      scribe.render(out, elem)
+      sep = ', '
 
   @staticmethod
-  def identity_renderer(value, scribe):
-    return value
+  def identity_renderer(out, value):
+    out.write(value)
 
   @staticmethod
-  def render_list_elements_hook(obj, scribe):
+  def render_list_elements_hook(out, obj):
     """Renderer for list objects."""
-    return scribe.__class__.render_list_elements(obj, scribe)
+    return out.scribe.__class__.render_list_elements(out, obj)
 
 
 class Scribable(object):
@@ -569,7 +638,7 @@ class Scribable(object):
       scribe: The Scribe to scribe the scribable with.
 
     Returns:
-      The rendered string.
+      A list of ScribeRendererPart to be rendered.
     """
     section = scribe.make_section()
     section.parts.extend(scribable._make_scribe_parts(scribe))
