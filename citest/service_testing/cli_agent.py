@@ -117,7 +117,7 @@ class CliAgentRunError(testable_agent.AgentError):
     Returns:
       re.MatchObject or None
     """
-    return re.match(regex, self._run_response.error)
+    return re.search(regex, self._run_response.error, re.MULTILINE)
 
 
 class CliAgent(testable_agent.TestableAgent):
