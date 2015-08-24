@@ -34,8 +34,8 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
   def assertEqual(self, a, b, msg=''):
     if not msg:
       msg = 'EXPECT\n{0}\nGOT\n{1}'.format(
-        Scribe().render(a),
-        Scribe().render(b))
+        Scribe().render_to_string(a),
+        Scribe().render_to_string(b))
     super(JsonValueObservationVerifierTest, self).assertEqual(a, b, msg)
 
   def test_verifier_builder_add_constraint(self):
@@ -212,10 +212,12 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
     scribe = Scribe()
     error_msg = '{expect_ok}!={ok}\n{errors}'.format(
         expect_ok=expect_ok, ok=ok,
-        errors=scribe.render(verify_results.bad_results))
+        errors=scribe.render_to_string(verify_results.bad_results))
     if dump:
-      print 'GOT RESULTS:\n{0}\n'.format(scribe.render(verify_results))
-      print '\nEXPECTED:\n{0}\n'.format(scribe.render(expect_results))
+      print 'GOT RESULTS:\n{0}\n'.format(
+          scribe.render_to_string(verify_results))
+      print '\nEXPECTED:\n{0}\n'.format(
+          scribe.render_to_string(expect_results))
 
     self.assertEqual(expect_ok, ok, error_msg)
     if expect_results:

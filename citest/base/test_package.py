@@ -33,7 +33,7 @@ def collect_suites_in_dir(dir):
                   for test_file in test_file_names]
   if not module_names:
     return []
-  
+
   return [unittest.defaultTestLoader.loadTestsFromName(prefix + test_file)
           for test_file in module_names]
 

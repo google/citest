@@ -31,7 +31,7 @@ class ObservationFailureTest(unittest.TestCase):
     if not msg:
       scribe = Scribe()
       msg = 'EXPECT\n{0}\nGOT\n{1}'.format(
-        scribe.render(a), scribe.render(b))
+        scribe.render_to_string(a), scribe.render_to_string(b))
     super(ObservationFailureTest, self).assertEqual(a, b, msg)
 
   def testObservationFailedErrorEqual(self):

@@ -144,14 +144,15 @@ class ObservationVerifyResult(predicate.PredicateResult):
     self._failed_constraints = failed_constraints
 
   def _make_scribe_parts(self, scribe):
+    part_builder = scribe.part_builder
     parts = [
-        scribe.part_builder.build_input_part('Observation', self._observation),
-        scribe.part_builder.build_nested_part(
+        part_builder.build_input_part('Observation', self._observation),
+        part_builder.build_nested_part(
             'Failed Constraints', self._failed_constraints),
-        scribe.part_builder.build_output_part(
+        part_builder.build_output_part(
             'All Results', self._all_results),
-        scribe.build_nested_part('Good Results', self._good_results),
-        scribe.build_nested_part('Bad Results', self._bad_results)]
+        part_builder.build_nested_part('Good Results', self._good_results),
+        part_builder.build_nested_part('Bad Results', self._bad_results)]
 
     inherited = super(ObservationVerifyResult, self)._make_scribe_parts(scribe)
     return parts + inherited
@@ -183,27 +184,34 @@ class ObservationVerifier(predicate.ValuePredicate):
     return self._title
 
   def _make_scribe_parts(self, scribe):
-    disjunction = self._dnf_verifiers
-    disjunction_segments = []
-    scribe.push_level()
-    for conjunction in disjunction:
-      segments = []
-      for elem in conjunction:
-        segments.append(scribe.render(elem))
-      disjunction_segments.append(
-          '\n{and_indent}AND '.format(and_indent=scribe.line_indent).join(
-          segments))
-    if not disjunction_segments:
-      disjunction_segments = ['<no verifiers>']
+    def render_disjunction(out, disjunction):
+        def render_conjunction(out, conjunction):
+            segments = []
+            scribe = out.scribe
+            for elem in conjunction:
+              segments.append(out.render_to_string(elem))
+            out.write(
+              '\n{and_indent}AND '.format(and_indent=out.line_indent).join(
+              segments))
 
-    verifiers = '\n{or_indent}OR '.format(or_indent=scribe.line_indent).join(
-        disjunction_segments)
-    scribe.pop_level()
+        out.push_level()
+        disjunction_segments = []
+        for conjunction in disjunction:
+          disjunction_segments.append(
+              out.render_to_string(conjunction, renderer=render_conjunction))
+
+        if not disjunction_segments:
+          disjunction_segments = ['<no verifiers>']
+
+        out.write('\n{or_indent}OR '.format(or_indent=out.line_indent).join(
+            disjunction_segments))
+        out.pop_level()
 
     parts = [
         scribe.build_part('Title', self._title),
         scribe.part_builder.build_control_part(
-            'Verifiers', verifiers, renderer=scribe.identity_renderer)]
+            'Verifiers', [self._dnf_verifiers],
+            renderer=render_disjunction)]
     return parts
 
   def __init__(self, title, dnf_verifiers=None):

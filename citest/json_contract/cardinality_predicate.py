@@ -41,6 +41,24 @@ class CardinalityResult(predicate.PredicateResult):
     raise NotImplemented('{0}.summary_string not implemented.'.format(
             self.__class__))
 
+  def __init__(self, source, count, pred, pred_result, valid=False):
+    super(CardinalityResult, self).__init__(valid)
+    self._source = source
+    self._count = count
+    self._pred = pred
+    self._pred_result = pred_result
+
+  def __str__(self):
+    return '{summary} detail={detail}'.format(
+      summary=self.summary_string(), detail=self._pred_result)
+
+  def __eq__(self, event):
+    return (self.__class__ == event.__class__
+            and self._count == event._count
+            and self._pred == event._pred
+            and self._source == event._source
+            and self._pred_result == event._pred_result)
+
   def _make_scribe_parts(self, scribe):
     count_relation = scribe.part_builder.determine_verified_relation(self)
     result_relation = scribe.part_builder.determine_verified_relation(
@@ -51,31 +69,14 @@ class CardinalityResult(predicate.PredicateResult):
             scribe.part_builder.build_nested_part('Result', self._pred_result,
                                                   relation=result_relation)]
 
-  def __init__(self, source, count, pred, pred_result, valid=False):
-    super(CardinalityResult, self).__init__(valid)
-    self._source = source
-    self._count = count
-    self._pred = pred
-    self._pred_result = pred_result
-
-  def __str__(self):
-    return '{0} detail={1}'.format(self.summary_string(), self._pred_result)
-
-  def __eq__(self, event):
-    return (self.__class__ == event.__class__
-            and self._count == event._count
-            and self._pred == event._pred
-            and self._source == event._source
-            and self._pred_result == event._pred_result)
-
 
 class ConfirmedCardinalityResult(CardinalityResult):
   """Denotes a CardinalityPredicate that was satisfied."""
 
   def __init__(self, source, count, pred, pred_result, valid=True):
       super(ConfirmedCardinalityResult, self).__init__(
-          valid=valid,
-          source=source, count=count, pred=pred, pred_result=pred_result)
+          source=source, count=count, pred=pred, pred_result=pred_result,
+          valid=valid)
 
   def summary_string(self):
     if not self.count:

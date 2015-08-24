@@ -82,7 +82,8 @@ class GceContractTest(unittest.TestCase):
 
     contract = contract_builder.build()
     verification_result = contract.verify()
-    self.assertTrue(verification_result, Scribe().render(verification_result))
+    self.assertTrue(verification_result,
+                    Scribe().render_to_string(verification_result))
 
     command = gcloud.build_gcloud_command_args(
         'instances', ['describe', 'test_name'] + extra_args,

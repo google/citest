@@ -14,6 +14,7 @@
 
 
 from scribe import(
+    Doodle,
     Scribable,
     Scribe,
     ScribeClassRegistry,

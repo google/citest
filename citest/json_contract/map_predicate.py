@@ -80,7 +80,8 @@ class MapPredicateResult(predicate.CompositePredicateResult):
     return self._obj_list
 
   @staticmethod
-  def _render_mapping(result_map_attempt, scribe):
+  def _render_mapping(out, result_map_attempt):
+    scribe = out.scribe
     parts = [
       scribe.part_builder.build_input_part(
         name='Object',
@@ -92,7 +93,8 @@ class MapPredicateResult(predicate.CompositePredicateResult):
         value=result_map_attempt.result,
         summary=result_map_attempt.summary)]
 
-    return scribe.render_parts(parts)
+    scribe.render_parts(out, parts)
+
 
   def _make_scribe_parts(self, scribe):
     parts = [

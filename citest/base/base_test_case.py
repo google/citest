@@ -54,6 +54,7 @@ import unittest
 # Our modules.
 from . import args_util
 from . import html_scribe
+from .scribe import Doodle
 
 
 # If a -log_config is not provided, then use this.
@@ -264,11 +265,13 @@ class BaseTestCase(unittest.TestCase):
         time=datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
 
     cls._reportScribe = html_scribe.HtmlScribe()
+    out = Doodle(cls._reportScribe)
+    cls._reportScribe.write_begin_html_document(out, title)
+    out.write(
+        '<div class="title">{title}</div>\n'.format(title=title))
+    cls._reportScribe.write_key_html(out)
     cls._reportFile = open('{0}/{1}'.format(dir, filename), 'w')
-    cls._reportFile.write(cls._reportScribe.render_begin_html_document(title))
-    cls._reportFile.write('<div class="title">{title}</div>\n'.format(
-        title=title))
-    cls._reportFile.write(cls._reportScribe.build_key_html())
+    cls._reportFile.write(str(out))
 
   # TODO(ewiseblatt): 20150807
   # This doesnt really belong here. It is here because
@@ -276,7 +279,9 @@ class BaseTestCase(unittest.TestCase):
   @classmethod
   def finishReportScribe(cls):
     """Finish the reporting scribe and close the file."""
-    cls._reportFile.write(cls._reportScribe.render_end_html_document())
+    out = Doodle(cls._reportScribe)
+    cls._reportScribe.write_end_html_document(out)
+    cls._reportFile.write(str(out))
     cls._reportFile.close()
     cls._reportScribe = None
     cls._reportFile = None
@@ -285,7 +290,7 @@ class BaseTestCase(unittest.TestCase):
   # Same concerns as startReportScribe.
   @classmethod
   def report(cls, obj):
-    cls._reportFile.write(cls._reportScribe.render(obj))
+    cls._reportFile.write(cls._reportScribe.render_to_string(obj))
 
   # TODO(ewiseblatt): 20150807
   # Same concerns as startReportScribe.
