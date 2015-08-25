@@ -34,8 +34,14 @@ class GCloudAgentTest(unittest.TestCase):
     gcloud.list_resources('managed-instance-groups')
     self.assertEqual(
       gcloud.last_run_params,
-      ['-q', 'preview'] + standard_params
-      + ['managed-instance-groups', '--zone', 'ZONE', 'list'])
+      ['-q', 'compute'] + standard_params
+      + ['instance-groups', 'managed', 'list', '--zone', 'ZONE'])
+
+    gcloud.list_resources('unmanaged-instance-groups')
+    self.assertEqual(
+      gcloud.last_run_params,
+      ['-q', 'compute'] + standard_params
+      + ['instance-groups', 'unmanaged', 'list', '--zone', 'ZONE'])
 
     gcloud.describe_resource('instances', 'NAME')
     self.assertEqual(gcloud.last_run_params,
@@ -44,9 +50,15 @@ class GCloudAgentTest(unittest.TestCase):
 
     gcloud.describe_resource('managed-instance-groups', 'NAME')
     self.assertEqual(gcloud.last_run_params,
-                     ['-q', 'preview'] + standard_params
-                     + ['managed-instance-groups', '--zone', 'ZONE',
-                        'describe', 'NAME'])
+                     ['-q', 'compute'] + standard_params
+                     + ['instance-groups', 'managed',
+                        'describe', 'NAME', '--zone', 'ZONE'])
+
+    gcloud.describe_resource('unmanaged-instance-groups', 'NAME')
+    self.assertEqual(gcloud.last_run_params,
+                     ['-q', 'compute'] + standard_params
+                     + ['instance-groups', 'unmanaged',
+                        'describe', 'NAME', '--zone', 'ZONE'])
 
 
   def test_gcloud_needs_zone(self):
@@ -86,20 +98,20 @@ class GCloudAgentTest(unittest.TestCase):
     self.assertEqual(
       gt.GCloudAgent.build_gcloud_command_args(
         'managed-instance-groups', ['list', 'X']),
-      ['-q', 'preview', '--format', 'json',
-       'managed-instance-groups', 'list', 'X'])
+      ['-q', 'compute', '--format', 'json',
+       'instance-groups', 'managed', 'list', 'X'])
 
     self.assertEqual(
       gt.GCloudAgent.build_gcloud_command_args(
-        'managed-instance-groups', ['list', 'X'], zone='ZONE'),
-      ['-q', 'preview', '--format', 'json',
-       'managed-instance-groups', '--zone', 'ZONE', 'list', 'X'])
+        'managed-instance-groups', ['list', 'X']),
+      ['-q', 'compute', '--format', 'json',
+       'instance-groups', 'managed', 'list', 'X'])
 
     self.assertEqual(
       gt.GCloudAgent.build_gcloud_command_args(
-        'managed-instance-groups', ['describe', 'X'], zone='ZONE'),
-      ['-q', 'preview', '--format', 'json',
-       'managed-instance-groups', '--zone', 'ZONE', 'describe', 'X'])
+        'managed-instance-groups', ['describe', 'X'], zone='XYZ'),
+      ['-q', 'compute', '--format', 'json',
+       'instance-groups', 'managed', 'describe', 'X', '--zone', 'XYZ'])
 
 
 if __name__ == '__main__':

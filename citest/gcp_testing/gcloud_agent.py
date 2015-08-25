@@ -116,9 +116,9 @@ class GCloudAgent(cli_agent.CliAgent):
     project: The default GCP project to use.
     zone: The default GCP zone to use (for commands requiring one).
   """
-  _LIST_NEEDS_ZONE = ['managed-instance-groups']
+  _LIST_NEEDS_ZONE = ['managed-instance-groups', 'unmanaged-instance-groups']
   _DESCRIBE_NEEDS_ZONE = _LIST_NEEDS_ZONE + ['instances']
-  _PREVIEW_GROUPS = ['managed-instance-groups']
+  _PREVIEW_COMMANDS = []
 
   @staticmethod
   def command_needs_zone(gce_type, gcloud_command, gcloud_type='compute'):
@@ -186,9 +186,7 @@ class GCloudAgent(cli_agent.CliAgent):
     Args:
       gce_type: The gcloud type we're inquiring about.
     """
-    if not GCloudAgent._PREVIEW_GROUPS:
-      GCloudAgent._init_preview_groups()
-    return gce_type in GCloudAgent._PREVIEW_GROUPS
+    return gce_type in GCloudAgent._PREVIEW_COMMANDS
 
   @staticmethod
   def zone_comes_first(gce_module, gce_type):
@@ -227,7 +225,12 @@ class GCloudAgent(cli_agent.CliAgent):
     preamble = ['-q', gcloud_module, '--format', format]
     if project:
       preamble += ['--project', project]
-    preamble += [gce_type]
+    if gce_type == 'managed-instance-groups':
+      preamble += ['instance-groups', 'managed']
+    elif gce_type == 'unmanaged-instance-groups':
+      preamble += ['instance-groups', 'unmanaged']
+    else:
+      preamble += [gce_type]
 
     if not zone:
       args_with_zone = args
@@ -331,33 +334,3 @@ class GCloudAgent(cli_agent.CliAgent):
 
     return self.run(cmdline, self.trace)
 
-  def run(self, args, trace=True):
-    """Run the specified command.
-
-    This implements the CliAgent.run() method.
-
-    Args:
-      args: Complete list of command-line arguments to run.
-      trace: Whether or not to trace all I/O to the debugging log file.
-    """
-    # We're only overriding this method to work around a bug in gcloud.
-    status = super(GCloudAgent, self).run(args, trace)
-    try:
-      output = status.output
-      if (output
-          and 'managed-instance-groups' in args
-          and 'describe' in args
-          and args[1 + args.index('--format')] == 'json'):
-        # There's a bug b/21363050 where gcloud is returning JSON as []{}.
-        # Work around that here by stripping off the leading [].
-        unexpected_array = output.find('\n]')
-        if unexpected_array > 0:
-          output = output[unexpected_array + 2:]
-          logger = logging.getLogger(__name__)
-          logger.debug(
-             '*** Working around b/21363050 by transforming JSON to:\n%s',
-             output)
-          return status.__class__(status.retcode, output, status.error)
-    except:
-      pass
-    return status
