@@ -171,8 +171,10 @@ class GCloudClauseBuilder(jc.ContractClauseBuilder):
     self.observer = self._factory.new_inspect_resource(type, name, extra_args)
 
     if no_resource_ok:
+      # Unfortunately gcloud does not surface the actual 404 but prints an
+      # error message saying that it was not found.
       error_verifier = cli_agent.CliAgentObservationFailureVerifier(
-          title='404 Permitted', error_regex='.*ResponseError: code=404.*')
+          title='404 Permitted', error_regex='.* was not found.*')
       disjunction_builder = jc.ObservationVerifierBuilder(
           'Inspect {0} {1} or 404'.format(type, name))
       disjunction_builder.append_verifier(error_verifier)
