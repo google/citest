@@ -28,6 +28,7 @@
 
 # Standard python modules.
 import argparse
+import multiprocessing
 import time
 import traceback
 
@@ -142,12 +143,29 @@ class AgentTestCase(base.BaseTestCase):
   def make_test_case_report_section(self, test_case):
     return self.reportScribe.make_section(title=test_case.title)
 
+  def run_test_case_list(
+      self, test_case_list, max_concurrent, timeout_ok=False,
+      max_retries=0, retry_interval_secs=5, full_trace=True):
+    num_threads = min(max_concurrent, len(test_case))
+    pool = multiprocessing.Pool(num_threads)
+    def run_one(test_case):
+      self.run_test_case(
+          test_case=test_case, timeout_ok=timeout_ok,
+          max_retries=max_retries, retry_interval_secs=retry_interval_secs,
+          full_trace=full_trace)
+
+    self.logger.info(
+        'Running %d tests across %d threads.',
+        len(test_case_list), num_threads)
+    pool.map(run_one, test_case_list)
+    self.logger.info('Finished %d tests.', len(test_case_list))
+
   def run_test_case(self, test_case, timeout_ok=False,
                     max_retries=0, retry_interval_secs=5, full_trace=True):
     """Run the specified test operation from start to finish.
 
     Args:
-      test_case: An OperationTestCase.
+      test_case: An OperationContract.
       timeout_ok: Whether a testable_agent.AgentOperationStatus timeout implies
           a test failure. If it is ok to timeout, then we'll still verify the
           contracts, but skip the final status check if there is no final
