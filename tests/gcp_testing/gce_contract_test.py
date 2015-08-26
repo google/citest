@@ -62,10 +62,13 @@ class GceContractTest(unittest.TestCase):
 
   def test_inspect_not_found_ok(self):
     # Return a 404 Not found
+    # The string we return just needs to end with " was not found",
+    # which is what gcloud currently returns (subject to change)
+    # and all we test for.
     error_response = st.CliResponseType(-
          1, '',
          'ERROR: (gcloud.preview.managed-instance-groups.describe)'
-         ' ResponseError: code=404, message=Not Found')
+         ' The thing you requested was not found')
 
     gcloud = fake_gcloud_agent.FakeGCloudAgent(
         'PROJECT', 'ZONE', error_response)
