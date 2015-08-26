@@ -28,7 +28,7 @@
 
 # Standard python modules.
 import argparse
-import multiprocessing
+from multiprocessing.pool import ThreadPool
 import time
 import traceback
 
@@ -146,8 +146,8 @@ class AgentTestCase(base.BaseTestCase):
   def run_test_case_list(
       self, test_case_list, max_concurrent, timeout_ok=False,
       max_retries=0, retry_interval_secs=5, full_trace=True):
-    num_threads = min(max_concurrent, len(test_case))
-    pool = multiprocessing.Pool(num_threads)
+    num_threads = min(max_concurrent, len(test_case_list))
+    pool = ThreadPool(processes=num_threads)
     def run_one(test_case):
       self.run_test_case(
           test_case=test_case, timeout_ok=timeout_ok,
