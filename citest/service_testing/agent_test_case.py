@@ -145,7 +145,7 @@ class AgentTestCase(base.BaseTestCase):
 
   def run_test_case_list(
       self, test_case_list, max_concurrent, timeout_ok=False,
-      max_retries=0, retry_interval_secs=5, full_trace=True):
+      max_retries=0, retry_interval_secs=5, full_trace=False):
     num_threads = min(max_concurrent, len(test_case_list))
     pool = ThreadPool(processes=num_threads)
     def run_one(test_case):
@@ -161,7 +161,7 @@ class AgentTestCase(base.BaseTestCase):
     self.logger.info('Finished %d tests.', len(test_case_list))
 
   def run_test_case(self, test_case, timeout_ok=False,
-                    max_retries=0, retry_interval_secs=5, full_trace=True):
+                    max_retries=0, retry_interval_secs=5, full_trace=False):
     """Run the specified test operation from start to finish.
 
     Args:

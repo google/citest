@@ -62,7 +62,7 @@ class TestableAgent(object):
     return self._default_max_wait_secs
 
   @default_max_wait_secs.setter
-  def set_default_max_wait_secs(self, max):
+  def default_max_wait_secs(self, max):
     self._default_max_wait_secs = max
 
   def __init__(self):
