@@ -308,14 +308,17 @@ class ContractBuilder(object):
     Args:
       clause_factory: Factory function expects a string title
          and retryable_for_secs and returns a ClauseBuilder.
+         It also takes a DEPRECATED strict flag. This is deprecated
+         because in the future the strict flag will be on individual
+         constraints added to the clause.
     """
     self._clause_factory = (
         clause_factory
-        or (lambda title, retryable_for_secs:
-           ContractClauseBuilder(title, retryable_for_secs)))
+        or (lambda title, retryable_for_secs=0, strict=False:
+           ContractClauseBuilder(title, retryable_for_secs, strict=strict)))
     self._builders = []
 
-  def new_clause_builder(self, title, retryable_for_secs=0):
+  def new_clause_builder(self, title, retryable_for_secs=0, strict=False):
     """Add new clause to contract from which specific constraints can be added.
 
     Args:
@@ -323,11 +326,14 @@ class ContractBuilder(object):
       retryable_for_secs: If > 0 then this clause is permitted to
           initially fail, but should eventually be met within the given
           time period.
+      strict: DEPRECATED strict flag. This is deprecated because in the future
+          strict will be on individual constraints added to the clause.
 
     Returns:
       A new ClauseBuilder created with the factory bound in the constructor.
     """
-    builder = self._clause_factory(title, retryable_for_secs=retryable_for_secs)
+    builder = self._clause_factory(
+        title, retryable_for_secs=retryable_for_secs, strict=strict)
     self._builders.append(builder)
     return builder
 

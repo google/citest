@@ -133,10 +133,24 @@ class GCloudObjectFactory(object):
 class GCloudClauseBuilder(jc.ContractClauseBuilder):
   """A ContractClause that facilitates observing GCE state."""
 
-  def __init__(self, title, gcloud, retryable_for_secs=0):
+  def __init__(self, title, gcloud, retryable_for_secs=0, strict=False):
+    """Construct new clause.
+
+    Args:
+      title: The string title for the clause is only for reporting purposes.
+      gcloud: The GCloudAgent to make the observation for the clause to verify.
+      retryable_for_secs: Number of seconds that observations can be retried
+         if their verification initially fails.
+      strict: DEPRECATED flag indicating whether the clauses (added later)
+         must be true for all objects (strict) or at least one (not strict).
+         See ValueObservationVerifierBuilder for more information.
+         This is deprecated because in the future this should be on a per
+         constraint basis.
+    """
     super(GCloudClauseBuilder, self).__init__(
         title=title, retryable_for_secs=retryable_for_secs)
     self._factory = GCloudObjectFactory(gcloud)
+    self._strict = strict
 
   def list_resources(self, type, extra_args=None):
     """Observe resources of a particular type.
@@ -144,7 +158,8 @@ class GCloudClauseBuilder(jc.ContractClauseBuilder):
     This ultimately calls a "gcloud ... |type| list |extra_args|"
     """
     self.observer = self._factory.new_list_resources(type, extra_args)
-    observation_builder = jc.ValueObservationVerifierBuilder('List ' + type)
+    observation_builder = jc.ValueObservationVerifierBuilder(
+        'List ' + type, strict=self._strict)
     self.verifier_builder.append_verifier_builder(observation_builder)
 
     return observation_builder
@@ -180,14 +195,14 @@ class GCloudClauseBuilder(jc.ContractClauseBuilder):
       disjunction_builder.append_verifier(error_verifier)
 
       inspect_builder = jc.ValueObservationVerifierBuilder(
-          'Inspect {0} {1}'.format(type, name))
+          'Inspect {0} {1}'.format(type, name), strict=self._strict)
       disjunction_builder.append_verifier_builder(
           inspect_builder, new_term=True)
       self.verifier_builder.append_verifier_builder(
           disjunction_builder, new_term=True)
     else:
       inspect_builder = jc.ValueObservationVerifierBuilder(
-          'Inspect {0} {1}'.format(type, name))
+          'Inspect {0} {1}'.format(type, name), strict=self._strict)
       self.verifier_builder.append_verifier_builder(inspect_builder)
 
     return inspect_builder
@@ -203,6 +218,7 @@ class GceContractBuilder(jc.ContractBuilder):
       gcloud: The GCloudAgent to use for communicating with GCE.
     """
     super(GceContractBuilder, self).__init__(
-        lambda title, retryable_for_secs:
+        lambda title, retryable_for_secs=0, strict=False:
           GCloudClauseBuilder(
-              title, gcloud=gcloud, retryable_for_secs=retryable_for_secs))
+              title, gcloud=gcloud,
+              retryable_for_secs=retryable_for_secs, strict=strict))
