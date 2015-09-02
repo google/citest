@@ -58,8 +58,10 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
     self._constraints.append(constraint)
     return self
 
-  def add_mapped_constraint(self, constraint):
-    self._constraints.append(map_predicate.MapPredicate(constraint))
+  def add_mapped_constraint(self, constraint, min=1, max=None):
+    pred = map_predicate.MapPredicate(pred=constraint, min=min, max=max)
+    self._constraints.append(
+        map_predicate.MapPredicate(pred=constraint, min=min, max=max))
     return self
 
   def contains(self, path, value, min=1, max=None):

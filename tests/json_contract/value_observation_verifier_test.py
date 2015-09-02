@@ -83,12 +83,13 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       for pred in pred_list:
         builder.add_map_result(jc.MapPredicate(pred)(observation.objects))
 
+      # All of these tests succeed.
       verify_results = builder.build(True)
 
       try:
         self._try_verify(verifier, observation, True, verify_results)
       except:
-        print 'testing ' + test[0]
+        print 'testing {0}'.format(test[0])
         raise
 
   def test_object_observation_verifier_one_constraint_not_found(self):
@@ -116,12 +117,13 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       for pred in pred_list:
         builder.add_map_result(jc.MapPredicate(pred)(observation.objects))
 
+      # None of these tests succeed.
       verify_results = builder.build(False)
 
       try:
         self._try_verify(verifier, observation, False, verify_results)
       except:
-        print 'testing ' + test[0]
+        print 'testing {0}'.format(test[0])
         raise
 
   def test_object_observation_verifier_multiple_constraint_not_found(self):
@@ -150,12 +152,13 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       for pred in pred_list:
         builder.add_map_result(jc.MapPredicate(pred)(observation.objects))
 
+      # None of these tests succeed.
       verify_results = builder.build(False)
 
       try:
         self._try_verify(verifier, observation, False, verify_results)
       except:
-        print 'testing ' + test[0]
+        print 'testing {0}'.format(test[0])
         raise
 
   def test_object_observation_verifier_some_but_not_all_constraints_found(self):
@@ -184,13 +187,81 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       for pred in pred_list:
         builder.add_map_result(jc.MapPredicate(pred)(observation.objects))
 
+      # None of these tests succeed.
       verify_results = builder.build(False)
 
       try:
         self._try_verify(verifier, observation, False, verify_results)
       except:
-        print 'testing ' + test[0]
+        print 'testing {0}'.format(test[0])
         raise
+
+  def test_object_observation_verifier_with_disjunction(self):
+      # We need strict True here because we want each object to pass
+      # the constraint test. Otherwise, if any object passes, then the whole
+      # observation would pass. This causes a problem when we say that
+      # we dont ever want to see 'name' unless it has a particular 'value'.
+      # Without strict test, we'd allow this to occur as long as another object
+      # satisfied that constraint.
+      # When we use 'excludes', it applies to the whole observation since this
+      # is normally the intent. However, here we are excluding values under
+      # certain context -- "If the 'name' field is 'NAME' then it must contain
+      # a value field 'VALUE'". Excluding name='NAME' everywhere would
+      # not permit the context where value='VALUE' which we want to permit.
+      # To specify this, we translate X -> Y to its logical equivalent
+      # "not X or Y", where "not X" is implemented by CardinalityPredicate
+      # that says X can never occur.
+      builder = jc.ValueObservationVerifierBuilder(
+        title='Test Disjunction', strict=True)
+
+      name_eq_pred = jc.PathEqPredicate('name', 'NAME')
+      value_eq_pred = jc.PathEqPredicate('value', 'VALUE')
+      name_value_pred = jc.ConjunctivePredicate(
+          [name_eq_pred, value_eq_pred])
+      no_name_pred = jc.CardinalityPredicate(name_eq_pred, max=0)
+
+      # Note that conceptually we're saying the conditional:
+      #    "no_name_pred -> name_value_pred"
+      # which is equivalent to "NOT no_name_pred OR name_value_pred".
+      # We are re-ordering the OR to check name_value_pred first to
+      # reduce the number of intermediate failures returned by NOT no_name_pred
+      # (since name_value_pred being true forces NOT no_name_pred to be false)
+
+      # Add disjunction (named instance is stopping or doesnt exist at all)
+      disjunction = jc.DisjunctivePredicate([name_value_pred, no_name_pred])
+      pred_list = [disjunction]
+      builder.add_mapped_constraint(disjunction, min=1)
+
+
+      match_name_value_obj = {'name':'NAME', 'value':'VALUE'}
+      match_value_not_name_obj = {'name':'GOOD', 'value':'VALUE'}
+      match_neither_obj = {'name':'GOOD', 'value':'GOOD'}
+      match_name_not_value_obj = {'name':'NAME', 'value':'BAD'}   # bad
+
+      test_cases = [(True, [match_name_value_obj, match_neither_obj]),
+                    (True, [match_value_not_name_obj, match_neither_obj]),
+                    (False, [match_neither_obj, match_name_not_value_obj])]
+
+      verifier = builder.build()
+      for test in test_cases:
+        observation = jc.Observation()
+        builder = jc.ObservationVerifyResultBuilder(observation)
+
+        expect_valid = test[0]
+        obj_list = test[1]
+        observation.add_all_objects(obj_list)
+
+        for pred in pred_list:
+          builder.add_map_result(jc.MapPredicate(pred)(observation.objects))
+
+        # All of these tests succeed.
+        verify_results = builder.build(expect_valid)
+
+        try:
+          self._try_verify(verifier, observation, expect_valid, verify_results)
+        except:
+          print 'testing {0}'.format(obj_list)
+          raise
 
   def _try_verify(self, verifier, observation, expect_ok, expect_results=None,
                   dump=False):

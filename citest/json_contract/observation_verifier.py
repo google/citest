@@ -50,10 +50,10 @@ class ObservationVerifyResultBuilder(object):
     result = entry.result
     for e in self._valid_obj_map:
       if e[0] == obj:
-        if not obj in self._valid_obj_set:
-          self._valid_obj_set.append(obj)
         e[1].append(result)
         return
+
+    self._valid_obj_set.append(obj)
     self._valid_obj_map.append((obj, [result]))
 
   def add_map_result(self, map_result):

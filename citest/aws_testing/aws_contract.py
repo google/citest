@@ -60,10 +60,24 @@ class AwsObjectObserver(jc.ObjectObserver):
 class AwsClauseBuilder(jc.ContractClauseBuilder):
   """A ContractClause that facilitates observing AWS state."""
 
-  def __init__(self, title, aws, retryable_for_secs=0):
+  def __init__(self, title, aws, retryable_for_secs=0, strict=False):
+    """Construct new clause.
+
+    Args:
+      title: The string title for the clause is only for reporting purposes.
+      gcloud: The AwsAgent to make the observation for the clause to verify.
+      retryable_for_secs: Number of seconds that observations can be retried
+         if their verification initially fails.
+      strict: DEPRECATED flag indicating whether the clauses (added later)
+         must be true for all objects (strict) or at least one (not strict).
+         See ValueObservationVerifierBuilder for more information.
+         This is deprecated because in the future this should be on a per
+         constraint basis.
+    """
     super(AwsClauseBuilder, self).__init__(
       title=title, retryable_for_secs=retryable_for_secs)
     self._aws = aws
+    self._strict = strict
 
   def collect_resources(self, aws_module, command, args=[], filter=None,
                         no_resources_ok=False):
@@ -92,14 +106,14 @@ class AwsClauseBuilder(jc.ContractClauseBuilder):
       disjunction_builder.append_verifier(error_verifier)
 
       collect_builder = jc.ValueObservationVerifierBuilder(
-          'Collect {0}'.format(command))
+          'Collect {0}'.format(command), strict=self._strict)
       disjunction_builder.append_verifier_builder(
           collect_builder, new_term=True)
       self.verifier_builder.append_verifier_builder(
           disjunction_builder, new_term=True)
     else:
       collect_builder = jc.ValueObservationVerifierBuilder(
-          'Collect {0}'.format(command))
+          'Collect {0}'.format(command), strict=self._strict)
       self.verifier_builder.append_verifier_builder(collect_builder)
 
     return collect_builder
@@ -115,6 +129,7 @@ class AwsContractBuilder(jc.ContractBuilder):
       aws: The AwsAgent to use for communicating with AWS.
     """
     super(AwsContractBuilder, self).__init__(
-        lambda title, retryable_for_secs:
+        lambda title, retryable_for_secs=0, strict=False:
             AwsClauseBuilder(
-                title, aws=aws, retryable_for_secs=retryable_for_secs))
+                title, aws=aws,
+                retryable_for_secs=retryable_for_secs, strict=strict))
