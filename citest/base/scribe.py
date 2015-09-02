@@ -289,6 +289,7 @@ class Doodle(object):
     self._level = 0
     self._indent_factor = 2
     self._segments = []
+    self._sep = None
 
   def __str__(self):
     return ''.join(self._segments)
@@ -300,6 +301,7 @@ class Doodle(object):
     """
     self._level = 0
     self._segments = []
+    self._sep = None
 
   def new_at_level(self):
     """Create a new empty doodle that is at the current level."""
@@ -319,7 +321,24 @@ class Doodle(object):
     renderer(tmp, obj) if renderer else self.scribe.render(tmp, obj)
     return str(tmp)
 
+  def write_sep(self, sep):
+    """Write separator into doodle, but only if content will follow.
+
+    This will clear any existing separator. The separator will be written
+    at most once."""
+    self._sep = sep
+
   def write(self, text):
+    """Writes text into doodle. Will precede it with a separator if one exists.
+
+    Args:
+      text: The text to write.
+    """
+    if self._sep:
+      if text and text[0] != '\n':
+        text = '{sep}{text}'.format(sep=self._sep, text=text)
+      self._sep = None
+
     if text:
       self._segments.append(text)
 
@@ -537,7 +556,7 @@ class Scribe(object):
     """
     sep = ''
     for part in parts:
-      out.write(sep)
+      out.write_sep(sep)
       self.render_part(out, part)
       sep = '\n{0}'.format(out.line_indent)
 
@@ -604,7 +623,7 @@ class Scribe(object):
     sep = ''
     scribe = out.scribe
     for elem in obj:
-      out.write(sep)
+      out.write_sep(sep)
       scribe.render(out, elem)
       sep = ', '
 
