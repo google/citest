@@ -196,7 +196,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
         print 'testing {0}'.format(test[0])
         raise
 
-  def test_object_observation_verifier_with_disjunction(self):
+  def test_object_observation_verifier_with_conditional(self):
       # We need strict True here because we want each object to pass
       # the constraint test. Otherwise, if any object passes, then the whole
       # observation would pass. This causes a problem when we say that
@@ -208,29 +208,17 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       # certain context -- "If the 'name' field is 'NAME' then it must contain
       # a value field 'VALUE'". Excluding name='NAME' everywhere would
       # not permit the context where value='VALUE' which we want to permit.
-      # To specify this, we translate X -> Y to its logical equivalent
-      # "not X or Y", where "not X" is implemented by CardinalityPredicate
-      # that says X can never occur.
       builder = jc.ValueObservationVerifierBuilder(
-        title='Test Disjunction', strict=True)
+        title='Test Conditional', strict=True)
 
       name_eq_pred = jc.PathEqPredicate('name', 'NAME')
       value_eq_pred = jc.PathEqPredicate('value', 'VALUE')
-      name_value_pred = jc.ConjunctivePredicate(
-          [name_eq_pred, value_eq_pred])
-      no_name_pred = jc.CardinalityPredicate(name_eq_pred, max=0)
+      name_value_pred = jc.AND([name_eq_pred, value_eq_pred])
+      no_name_pred = jc.NOT(name_eq_pred)
 
-      # Note that conceptually we're saying the conditional:
-      #    "no_name_pred -> name_value_pred"
-      # which is equivalent to "NOT no_name_pred OR name_value_pred".
-      # We are re-ordering the OR to check name_value_pred first to
-      # reduce the number of intermediate failures returned by NOT no_name_pred
-      # (since name_value_pred being true forces NOT no_name_pred to be false)
-
-      # Add disjunction (named instance is stopping or doesnt exist at all)
-      disjunction = jc.DisjunctivePredicate([name_value_pred, no_name_pred])
-      pred_list = [disjunction]
-      builder.add_mapped_constraint(disjunction, min=1)
+      conditional = jc.IF(name_eq_pred, value_eq_pred)
+      pred_list = [conditional]
+      builder.add_mapped_constraint(conditional)
 
 
       match_name_value_obj = {'name':'NAME', 'value':'VALUE'}

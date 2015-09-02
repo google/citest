@@ -78,7 +78,7 @@ class JsonObserverTest(unittest.TestCase):
     self.assertEqual(expected, observation)
 
     pred_list = [jc.PathEqPredicate('a', 'A'), jc.PathEqPredicate('b', 'B')]
-    conjunction = jc.ConjunctivePredicate(pred_list)
+    conjunction = jc.AND(pred_list)
     observer = jc.ObjectObserver(conjunction)
     observation = jc.Observation()
 

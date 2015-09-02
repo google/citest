@@ -76,8 +76,14 @@ from binary_predicate import (
 # The logic_predicate module adds and/or logic aggregation
 # to return composite results based on applying multiple predicates.
 from logic_predicate import (
+    AND,
+    IF,
+    NOT,
+    OR,
+    ConditionalPredicate,
     ConjunctivePredicate,
-    DisjunctivePredicate)
+    DisjunctivePredicate,
+    NegationPredicate)
 
 
 # The quantification_predicate module adds Existential and Universal
