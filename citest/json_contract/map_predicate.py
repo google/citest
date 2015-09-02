@@ -29,6 +29,11 @@ class ObjectResultMapAttempt(
   def __str__(self):
     return '{0} -> {1}'.format(self.obj, self.result)
 
+  def __eq__(self, attempt):
+    return (self.__class__ == attempt.__class__
+            and self.obj == attempt.obj
+            and self.result == attempt.result)
+
   def _make_scribe_parts(self, scribe):
     result_summary = '{name} {valid}'.format(
         name=self.obj.__class__.__name__, valid=self.result.valid)
@@ -189,3 +194,10 @@ class MapPredicate(predicate.ValuePredicate):
         all_results=all_results,
         good_map=good_map,
         bad_map=bad_map)
+
+  def _make_scribe_parts(self, scribe):
+    part_builder = scribe.part_builder
+    return [part_builder.build_mechanism_part(
+                'Mapped Predicate', self._pred, summary=self._pred.__class__),
+            scribe.build_part('Min', self._min, relation=part_builder.CONTROL),
+            scribe.build_part('Max', self._max, relation=part_builder.CONTROL)]
