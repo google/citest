@@ -132,9 +132,8 @@ class JsonMapPredicateTest(unittest.TestCase):
     self._try_map(aA, [_COMPOSITE_DICT, _COMPOSITE_DICT], False)
     self._try_map(aA, _MIXED_DICT, True)
 
-    AandB = jc.ConjunctivePredicate(
-               [jc.PathEqPredicate('a', 'A'),
-                jc.PathEqPredicate('b', 'B')])
+    AandB = jc.AND([jc.PathEqPredicate('a', 'A'),
+                    jc.PathEqPredicate('b', 'B')])
     self._try_map(AandB, _LETTER_DICT, True)
     self._try_map(AandB, _COMPOSITE_DICT, False)
     self._try_map(AandB, _NUMBER_DICT, False)

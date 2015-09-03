@@ -79,7 +79,7 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
     return self
 
   def contains_group(self, pred_list, min=1, max=None):
-    conjunction = logic_predicate.ConjunctivePredicate(pred_list)
+    conjunction = logic_predicate.AND(pred_list)
     self.add_constraint(
         cardinality_predicate.CardinalityPredicate(
             conjunction, min=min, max=max))
@@ -98,7 +98,7 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
     return self.excludes_pred(path, binary_predicate.EQUIVALENT(value), max)
 
   def excludes_group(self, pred_list, max=0):
-    conjunction = logic_predicate.ConjunctivePredicate(pred_list)
+    conjunction = logic_predicate.AND(pred_list)
     self.add_constraint(
         cardinality_predicate.CardinalityPredicate(
             conjunction, min=0, max=max))

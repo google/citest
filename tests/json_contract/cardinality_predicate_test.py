@@ -25,8 +25,8 @@ _CAB = [ 'C', 'A', 'B' ]
 _eq_A = jc.STR_EQ('A')
 _eq_B = jc.STR_EQ('B')
 _eq_X = jc.STR_EQ('X')
-_AorX = jc.DisjunctivePredicate([_eq_A, _eq_X])
-_AorB = jc.DisjunctivePredicate([_eq_A, _eq_B])
+_AorX = jc.OR([_eq_A, _eq_X])
+_AorB = jc.OR([_eq_A, _eq_B])
 
 
 class CardinalityPredicateTest(unittest.TestCase):

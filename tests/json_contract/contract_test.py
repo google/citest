@@ -193,7 +193,7 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('C')
     fake_observer = FakeObserver(observation)
 
-    eq_A_or_B = jc.DisjunctivePredicate([jc.STR_EQ('A'), jc.STR_EQ('B')])
+    eq_A_or_B = jc.OR([jc.STR_EQ('A'), jc.STR_EQ('B')])
     builder = jc.ValueObservationVerifierBuilder('Test Multiple')
     builder.contains_pred(None, eq_A_or_B, min=2)
 
