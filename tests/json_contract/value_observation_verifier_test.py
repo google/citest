@@ -220,7 +220,6 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       pred_list = [conditional]
       builder.add_mapped_constraint(conditional)
 
-
       match_name_value_obj = {'name':'NAME', 'value':'VALUE'}
       match_value_not_name_obj = {'name':'GOOD', 'value':'VALUE'}
       match_neither_obj = {'name':'GOOD', 'value':'GOOD'}
