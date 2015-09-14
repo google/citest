@@ -1,4 +1,13 @@
+out/
+.gradle/
+build/
+*.iml
+*.ipr
+*.iws
+.idea/
+*.hprof
 *.pyc
 *~
 #*
-.#*
+*.html
+*.log
