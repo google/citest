@@ -233,4 +233,4 @@ class AgentTestCase(base.BaseTestCase):
   def main(cls, scenarioClass):
     if not issubclass(scenarioClass, AgentTestScenario):
       raise Exception('scenarioClass must be derived from AgentTestScenario.')
-    super(AgentTestCase, cls).main(scenarioClass)
+    return super(AgentTestCase, cls).main(scenarioClass)

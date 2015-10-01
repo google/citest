@@ -363,13 +363,18 @@ class BaseTestCase(unittest.TestCase):
   def main(cls, scenarioClass=BaseTestScenario):
     cls.setupScenario(scenarioClass)
 
-    # Create some separation in logs
-    logger = logging.getLogger(__name__)
-    logger.info('Finished Setup. Start Tests\n'
-                + ' ' * (8 + 1)  # for leading timestamp prefix
-                + '---------------------------\n')
+    try:
+      # Create some separation in logs
+      logger = logging.getLogger(__name__)
+      logger.info('Finished Setup. Start Tests\n'
+                  + ' ' * (8 + 1)  # for leading timestamp prefix
+                  + '---------------------------\n')
 
-    suite = cls.buildSuite()
-    unittest.TextTestRunner(verbosity=2).run(suite)
+      suite = cls.buildSuite()
+      result = unittest.TextTestRunner(verbosity=2).run(suite)
+    finally:
+      if sys.exc_info()[0] != None:
+        sys.stderr.write('Tearing down scenario early due to an exception\n')
+      cls.teardownScenario(scenarioClass)
 
-    cls.teardownScenario(scenarioClass)
+    return len(result.failures) + len(result.errors)
