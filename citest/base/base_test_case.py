@@ -346,8 +346,7 @@ class BaseTestCase(unittest.TestCase):
     """
     parser = argparse.ArgumentParser()
     cls.initArgumentParser(parser)
-    # TODO(ewiseblatt): pass something else as second param?
-    scenarioClass.initArgumentParser(parser, "something")
+    scenarioClass.initArgumentParser(parser)
     args_namespace = parser.parse_args()
     bindings = args_util.parser_args_to_bindings(args_namespace)
 
