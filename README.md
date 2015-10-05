@@ -12,7 +12,7 @@ if appropriate.
 A test case might look something like this:
 
 ```
-  def create_network_load_balancer(self):
+  def create_load_balancer(self):
     load_balancer_name = self._bindings['TEST_APP_COMPONENT_NAME']
     target_pool_name = '{0}/targetPools/{1}-tp'.format(
       self._bindings['TEST_REGION'], load_balancer_name)
@@ -54,7 +54,7 @@ A test case might look something like this:
 
     test_case = OperationTestCase(
       self.newPostOperation(
-        title='create_network_load_balancer', data=payload,
+        title='create_load_balancer', data=payload,
         path='applications/%s/tasks' % self.TEST_APP_NAME),
       contract=contract)
 ```
