@@ -202,7 +202,7 @@ def establish_network_connectivity(gcloud, instance, target_port):
   my_project, my_zone, my_instance = determine_where_i_am()
   if (instance == my_instance
       and gcloud.zone == my_zone
-      and not gcloud.project or my_project == gcloud.project):
+      and (not gcloud.project or my_project == gcloud.project)):
     address = 'localhost:{0}'.format(target_port)
     url = 'http://' + address
     try:
@@ -243,8 +243,8 @@ def establish_network_connectivity(gcloud, instance, target_port):
   if my_project and (my_project == gcloud.project or not gcloud.project):
     logger.error(
       'We are in the same project %s but cannot reach the server %s.'
-      ' It must not be running on port %d', my_project, instance, target_port)
-    return None
+      ' It must not be running on port %d, or is bound to localhost',
+      my_project, instance, target_port)
 
   local_port = _unused_port()
   # The use of 'localhost' here will be relative to the instance we ssh into
