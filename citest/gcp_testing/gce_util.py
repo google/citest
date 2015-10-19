@@ -199,22 +199,6 @@ def establish_network_connectivity(gcloud, instance, target_port):
   except:
     logger.warning('Could not check VM status:%s', gcloud_response)
 
-  my_project, my_zone, my_instance = determine_where_i_am()
-  if (instance == my_instance
-      and gcloud.zone == my_zone
-      and (not gcloud.project or my_project == gcloud.project)):
-    address = 'localhost:{0}'.format(target_port)
-    url = 'http://' + address
-    try:
-      response = urllib2.urlopen(url, None, 5)
-      logger.debug('Running on %s.', url)
-      return address
-    except IOError:
-      logger.error(
-        'We are expecting localhost, but %s is not reachable.\n'
-        'Maybe it is not running.', url)
-      return None
-
   try:
     iface_list = doc['networkInterfaces']
   except KeyError:
@@ -240,6 +224,7 @@ def establish_network_connectivity(gcloud, instance, target_port):
     except urllib2.URLError:
       pass
 
+  my_project, my_zone, my_instance = determine_where_i_am()
   if my_project and (my_project == gcloud.project or not gcloud.project):
     logger.error(
       'We are in the same project %s but cannot reach the server %s.'
