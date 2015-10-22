@@ -24,14 +24,30 @@ from citest.base import TestRunner
 
 tested_main = False
 
-class BaseTestCaseTest(BaseTestCase):
-  def test_logging(self):
-    self.log_start_test()
-    self.log_end_test(name='Test')
+class TestRunnerTest(BaseTestCase):
+  def test_main(self):
+    # Confirms that our tests run.
+    global tested_main
+    tested_main = True
+
+  def test_init_argument_parser(self):
+    parser = argparse.ArgumentParser()
+    TestRunner.global_runner().initArgumentParser(parser)
+    args = parser.parse_args()
+    self.assertEquals(args.log_dir, '.')
+    self.assertEquals(
+      args.log_filename,
+      os.path.basename(__main__.__file__.replace('.py', '.log')))
+
+  def test_bindings(self):
+    self.assertEquals('.', TestRunner.global_runner().bindings['LOG_DIR'])
+    self.assertEquals(
+      os.path.basename(__main__.__file__.replace('.py', '.log')),
+      TestRunner.global_runner().bindings['LOG_FILENAME'])
 
 
 if __name__ == '__main__':
-  result = TestRunner.main(test_case_list=[BaseTestCaseTest])
+  result = TestRunner.main(test_case_list=[TestRunnerTest])
   if not tested_main:
      raise Exception("Test Failed.")
 

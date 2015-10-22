@@ -37,35 +37,86 @@ from ..base import args_util
 from ..base import scribe as base_scribe
 from .. import base
 from .. import json_contract as jc
+from scenario_test_runner import ScenarioTestRunner
 
 
-class AgentTestScenario(base.BaseTestScenario):
-  """Specialize base.BaseTestScenario to manage the TestableAgent for the test.
+_DEFAULT_TEST_ID = time.strftime('%H%M%S')
 
-  This should be refined to implement the new_agent method to construct the
-  agent for this test. The method is intended to be called by AgentTestCase's
-  make_scenario method, which specializes the base.BaseTestCase to make the
-  agent available to these shared scenario instances.
+
+class AgentTestScenario(object):
+  """Class for sharing scenario data and state across different test cases.
+
+  This class does not really define much behavior. It just manages
+  a set of parameters. The intent is for specialized classes to
+  define the OperationTestCases, using the parameters to determine
+  the final values to use.
 
   Attributes:
     agent: The TestableAgent that is being used for the test.
         Presumably there is only one, and it is bound at construction time.
+
+    bindings: A dictionary of name/value pairs used to bind configuration
+        parameters for the test. Often these are somewhat arbitrary values
+        that are used for multiple tests and might be desirable to control
+        with command-line arguments when debugging or other develpment.
+        The binding keys are all upper-case by convention for readability
+        to make binding keys more distinct within the code.
   """
+
+  DEFAULT_TEST_ID = _DEFAULT_TEST_ID
 
   @property
   def agent(self):
     return self._agent
 
-  def __init__(self, bindings, agent):
+  @property
+  def bindings(self):
+    return self._bindings
+
+  @staticmethod
+  def make_scenario(scenarioClass, bindings):
+    return scenarioClass(bindings)
+
+  @property
+  def test_id(self):
+    return self.__test_id
+
+  def __init__(self, bindings, agent=None):
     """Construct scenario
 
     Args:
-      bindings: A configuration bindings map of key/value string pairs.
-          The keys are upper case.
+      bindings: Dictionary of key/value configuration values.
+        The keys are in upper case. The actual keys are not standardized,
+        rather the scenarios may have a set of parameters that they use
+        for their needs.
+
       agent: The TestableAgent to use for this scenario.
+             If not prodided then construct a new one with the class new_agent
+             factory method.
     """
-    super(AgentTestScenario, self).__init__(bindings)
-    self._agent = agent
+    self._bindings = bindings
+    self._agent = agent or self.new_agent(bindings)
+    self.__test_id = bindings.get('TEST_ID', _DEFAULT_TEST_ID)
+
+  def substitute_variables(self, s):
+    """Substitute $KEY with the bound value of KEY.
+
+    Returns:
+      Copy of s with bound variables substituted with their values.
+    """
+    return args_util.replace(s, self._bindings)
+
+  @classmethod
+  def initArgumentParser(cls, parser, defaults=None):
+    """Adds arguments introduced by the BaseTestCase module.
+
+    Args:
+      parser: argparse.ArgumentParser instance to add to.
+    """
+    defaults = defaults or {}
+    parser.add_argument(
+        '--test_id', default=defaults.get('TEST_ID', _DEFAULT_TEST_ID),
+        help='A short, [reasonably] unique identifier for this test')
 
   @classmethod
   def new_agent(cls, bindings):
@@ -76,6 +127,17 @@ class AgentTestScenario(base.BaseTestScenario):
 
 class AgentTestCase(base.BaseTestCase):
   """Base class for agent integration tests."""
+
+  @property
+  def report_scribe(self):
+    return ScenarioTestRunner.global_runner().report_scribe
+
+  def report(self, obj):
+    ScenarioTestRunner.global_runner().report(obj)
+
+  @property
+  def scenario(self):
+    return ScenarioTestRunner.global_runner().scenario
 
   @property
   def testable_agent(self):
@@ -101,12 +163,12 @@ class AgentTestCase(base.BaseTestCase):
       summary = '{bad_count} of {clause_count} clause{plural} FAILED.'.format(
         bad_count=bad_count, clause_count=clause_count, plural=plural)
 
-    relation = self.reportScribe.part_builder.determine_verified_relation(
+    relation = self.report_scribe.part_builder.determine_verified_relation(
         verify_results)
     scribe = base_scribe.Scribe(base_scribe.DETAIL_SCRIBE_REGISTRY)
 
     report_section.parts.append(
-      self.reportScribe.part_builder.build_nested_part(
+      self.report_scribe.part_builder.build_nested_part(
         name='Verification', value=verify_results,
         summary=summary, relation=relation))
 
@@ -141,7 +203,7 @@ class AgentTestCase(base.BaseTestCase):
         status.finished_ok, 'Did not finish_ok:\n{error}'.format(error=error))
 
   def make_test_case_report_section(self, test_case):
-    return self.reportScribe.make_section(title=test_case.title)
+    return self.report_scribe.make_section(title=test_case.title)
 
   def run_test_case_list(
       self, test_case_list, max_concurrent, timeout_ok=False,
@@ -197,7 +259,7 @@ class AgentTestCase(base.BaseTestCase):
 
         summary = status.error or ('Operation status OK' if status.finished_ok
                                    else 'Operation status Unknown')
-        section.parts.append(self.reportScribe.part_builder.build_input_part(
+        section.parts.append(self.report_scribe.part_builder.build_input_part(
                              name='Attempt {count}'.format(count=i),
                              value=status, summary=summary))
 
@@ -218,20 +280,8 @@ class AgentTestCase(base.BaseTestCase):
       self.logger.error('Test failed with exception: %s', e)
       self.logger.error('Last status was:\n%s', error)
       self.logger.debug('Exception was at:\n%s', traceback.format_exc())
-      section.parts.append(self.reportScribe.build_part('EXCEPTION', e))
+      section.parts.append(self.report_scribe.build_part('EXCEPTION', e))
       raise
     finally:
       self.log_end_test(test_case.title)
       self.report(section)
-
-  @staticmethod
-  def make_scenario(scenarioClass, bindings):
-    agent = scenarioClass.new_agent(bindings)
-    return scenarioClass(bindings, agent)
-
-  @classmethod
-  def main(cls, scenarioClass, default_binding_overrides=None):
-    if not issubclass(scenarioClass, AgentTestScenario):
-      raise Exception('scenarioClass must be derived from AgentTestScenario.')
-    return super(AgentTestCase, cls).main(
-        scenarioClass, default_binding_overrides=default_binding_overrides)
