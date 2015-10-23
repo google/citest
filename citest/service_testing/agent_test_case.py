@@ -230,7 +230,8 @@ class AgentTestCase(base.BaseTestCase):
     return scenarioClass(bindings, agent)
 
   @classmethod
-  def main(cls, scenarioClass):
+  def main(cls, scenarioClass, default_binding_overrides=None):
     if not issubclass(scenarioClass, AgentTestScenario):
       raise Exception('scenarioClass must be derived from AgentTestScenario.')
-    return super(AgentTestCase, cls).main(scenarioClass)
+    return super(AgentTestCase, cls).main(
+        scenarioClass, default_binding_overrides=default_binding_overrides)

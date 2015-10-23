@@ -49,12 +49,16 @@ import logging.config
 import os.path
 import re
 import sys
+import time
 import unittest
 
 # Our modules.
 from . import args_util
 from . import html_scribe
 from .scribe import Doodle
+
+
+_DEFAULT_TEST_ID = time.strftime('%H%M%S')
 
 
 # If a -log_config is not provided, then use this.
@@ -105,6 +109,7 @@ class BaseTestScenario(object):
   define the OperationTestCases, using the parameters to determine
   the final values to use.
   """
+  DEFAULT_TEST_ID = _DEFAULT_TEST_ID
 
   @property
   def bindings(self):
@@ -113,6 +118,10 @@ class BaseTestScenario(object):
   @property
   def scenario(self):
     return self._scenario
+
+  @property
+  def test_id(self):
+    return self.__test_id
 
   def __init__(self, bindings):
     """Constructs instance.
@@ -124,6 +133,7 @@ class BaseTestScenario(object):
         for their needs.
     """
     self._bindings = bindings
+    self.__test_id = bindings.get('TEST_ID', _DEFAULT_TEST_ID)
 
   def substitute_variables(self, s):
     """Substitute $KEY with the bound value of KEY.
@@ -134,13 +144,17 @@ class BaseTestScenario(object):
     return args_util.replace(s, self._bindings)
 
   @classmethod
-  def initArgumentParser(cls, parser):
+  def initArgumentParser(cls, parser, defaults=None):
     """Adds arguments introduced by the BaseTestCase module.
 
     Args:
       parser: argparse.ArgumentParser instance to add to.
+      defaults: dictionary overriding default values.
     """
-    pass
+    defaults = defaults or {}
+    parser.add_argument(
+        '--test_id', default=defaults.get('TEST_ID', _DEFAULT_TEST_ID),
+        help='A short, [reasonably] unique identifier for this test')
 
 
 class BaseTestCase(unittest.TestCase):
@@ -151,6 +165,7 @@ class BaseTestCase(unittest.TestCase):
       The dictionary is initialized by setUpClass from the command line
       arguments, but the keys are all upper-cased.
   """
+  DEFAULT_TEST_ID = _DEFAULT_TEST_ID
   _scenario = None
 
   @staticmethod
@@ -211,11 +226,12 @@ class BaseTestCase(unittest.TestCase):
     return re.search(regex, name)
 
   @classmethod
-  def initArgumentParser(cls, parser):
+  def initArgumentParser(cls, parser, defaults=None):
     """Adds arguments introduced by the BaseTestCase module.
 
     Args:
       parser: argparse.ArgumentParser instance to add to.
+      defaults: dictionary overriding default values.
     """
     # This is used by IntegrationTest to filter individual test cases to run.
     parser.add_argument(
@@ -337,16 +353,18 @@ class BaseTestCase(unittest.TestCase):
     return loader.loadTestsFromTestCase(cls)
 
   @classmethod
-  def setupScenario(cls, scenarioClass):
+  def setupScenario(cls, scenarioClass, default_binding_overrides=None):
     """Setup this integration test class by binding a scenario.
 
     Args:
       scenarioClass: A class derived from BaseTestScenario that is used to
          create the scenario for instances of this class.
+    default_binding_overrides: A name/value binding dictionary containing
+         overrides from standard binding defaults.
     """
     parser = argparse.ArgumentParser()
-    cls.initArgumentParser(parser)
-    scenarioClass.initArgumentParser(parser)
+    cls.initArgumentParser(parser, defaults=default_binding_overrides)
+    scenarioClass.initArgumentParser(parser, defaults=default_binding_overrides)
     args_namespace = parser.parse_args()
     bindings = args_util.parser_args_to_bindings(args_namespace)
 
@@ -360,8 +378,9 @@ class BaseTestCase(unittest.TestCase):
     cls.finishReportScribe()
 
   @classmethod
-  def main(cls, scenarioClass=BaseTestScenario):
-    cls.setupScenario(scenarioClass)
+  def main(cls, scenarioClass=BaseTestScenario, default_binding_overrides=None):
+    cls.setupScenario(scenarioClass,
+                      default_binding_overrides=default_binding_overrides)
 
     try:
       # Create some separation in logs
