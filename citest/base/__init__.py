@@ -26,8 +26,7 @@ from html_scribe import(
     HTML_SCRIBE_REGISTRY,
     HtmlScribe)
 
-from base_test_case import (
-    BaseTestCase,
-    BaseTestScenario)
+from base_test_case import BaseTestCase
+from test_runner import TestRunner
 
 from test_package import run_all_tests_in_dir

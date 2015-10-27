@@ -18,6 +18,8 @@ import os.path
 import unittest
 import __main__
 
+from . import TestRunner
+
 def collect_suites_in_dir(dir):
   """Collect all the tests in the given directory.
 
@@ -57,4 +59,5 @@ def run_all_tests_in_dir(dir=None, recurse=False):
     suites = collect_suites_in_dir(dir)
 
   testSuite = unittest.TestSuite(suites)
-  text_runner = unittest.TextTestRunner(verbosity=2).run(testSuite)
+  runner = TestRunner(runner=unittest.TextTestRunner(verbosity=2))
+  runner.run(testSuite)
