@@ -206,7 +206,7 @@ class ContractClauseBuilder(object):
     self._observer = observer
 
   def __init__(self, title, observer=None, verifier_builder=None,
-               retryable_for_secs=0):
+               retryable_for_secs=0, strict=False):
     self._title = title
     self._observer = observer
     self._verifier_builder = (verifier_builder
