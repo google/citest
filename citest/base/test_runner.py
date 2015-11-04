@@ -235,6 +235,10 @@ class TestRunner(object):
         raise
     config = ast.literal_eval(args_util.replace(text, self.bindings))
     logging.config.dictConfig(config)
+    path = os.path.join(
+        self.bindings['LOG_DIR'], self.bindings['LOG_FILENAME'])
+    os.chmod(path, 0600)
+
 
   def start_report_scribe(self):
     """Sets up report_scribe and output file for high level reporting."""
@@ -255,6 +259,7 @@ class TestRunner(object):
         '<div class="title">{title}</div>\n'.format(title=title))
     self.__report_scribe.write_key_html(out)
     self.__report_file = open('{0}/{1}'.format(dirname, filename), 'w')
+    os.fchmod(self.__report_file.fileno(), 0600)  # Protect sensitive data in file.
     self.__report_file.write(str(out))
 
   def report(self, obj):
