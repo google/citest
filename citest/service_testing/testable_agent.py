@@ -22,17 +22,17 @@ from ..base.scribe import Scribable
 class AgentError(Exception, Scribable):
   """Denotes an error reported by a TestableAgent."""
   def _make_scribe_parts(self, scribe):
-    return [scribe.build_part('Message', self._message)]
+    return [scribe.build_part('Message', self.message)]
 
   def __init__(self, message):
-    self._message = message
+    super(AgentError, self).__init__(message)
 
   def __str__(self):
-    return self._message or self.__class__.__name__
+    return self.message or self.__class__.__name__
 
   def __eq__(self, error):
     return (self.__class__ == error.__class__
-            and self._message == error._message)
+            and self.message == error.message)
 
 
 class TestableAgent(object):

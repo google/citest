@@ -148,3 +148,6 @@ from contract import (
     ContractBuilder,
     ContractClause,
     ContractClauseBuilder)
+
+
+from json_error import JsonError
