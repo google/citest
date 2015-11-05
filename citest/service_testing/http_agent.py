@@ -41,6 +41,10 @@ class HttpResponseType(collections.namedtuple('HttpResponseType',
     return [scribe.build_part('HTTP Code', self.retcode),
             scribe.build_json_part(label, data)]
 
+  def ok(self):
+    """Return true if the result code indicates an OK HTTP response."""
+    return self.retcode >= 200 and self.retcode < 300
+
 
 class HttpOperationStatus(testable_agent.AgentOperationStatus):
   """Specialization of AgentOperationStatus for HttpAgent operations.
@@ -49,17 +53,13 @@ class HttpOperationStatus(testable_agent.AgentOperationStatus):
   still wish to refine this further. Especially if they use an additional
   protocol, such as returning references to asynchronous status updates.
   """
-  @staticmethod
-  def _is_ok(retcode):
-    return retcode >= 200 and retcode < 300
-
   @property
   def finished(self):
     return True
 
   @property
   def finished_ok(self):
-    return self._is_ok(self._http_response.retcode)
+    return self._http_response.ok()
 
   @property
   def detail(self):
@@ -83,18 +83,34 @@ class HttpOperationStatus(testable_agent.AgentOperationStatus):
     self._http_response = http_response
 
 
+class SynchronousHttpOperationStatus(HttpOperationStatus):
+  """An HttpOperationStatus for a synchronous request.
+
+  Really this just means that there is no need for a request ID
+  to track the request later.
+  """
+  @property
+  def id(self):
+    return None
+
+  @property
+  def timed_out(self):
+    return False
+
+
 class HttpAgent(testable_agent.TestableAgent):
   """A specialization of TestableAgent for interacting with HTTP services."""
   def __init__(self, address, protocol='http'):
     super(HttpAgent, self).__init__()
     self._protocol = protocol
     self._address = address
+    self.__status_class = HttpOperationStatus
 
   def _make_scribe_parts(self, scribe):
     return ([scribe.build_part('URL Netloc', self._address)]
             + super(HttpAgent, self)._make_scribe_parts(scribe))
 
-  def new_post_operation(self, title, path, data):
+  def new_post_operation(self, title, path, data, status_class=None):
     """Acts as an AgentOperation factory.
 
     Args:
@@ -104,31 +120,33 @@ class HttpAgent(testable_agent.TestableAgent):
 
       TODO(ewiseblatt): Will need to add headers.
     """
-    return HttpPostOperation(title, path, data, self)
+    return HttpPostOperation(title, path, data, self,
+                             status_class=status_class)
 
-  def _new_get_status(self, operation, http_response):
-    """Acts as an OperationStatus factory for GET requests.
+  def new_delete_operation(self, title, path, data, status_class=None):
+    """Acts as an AgentOperation factory.
+
+    Args:
+      title: See AgentOperation title
+      path: The URL path to DELETE to. The Agent provides the network location.
+      data: The HTTP payload to send to the server with the DELETE.
+
+      TODO(ewiseblatt): Will need to add headers.
+    """
+    return HttpDeleteOperation(title, path, data, self,
+                               status_class=status_class)
+
+  def _new_invoke_status(self, operation, http_response):
+    """Acts as an OperationStatus factory for HTTP invocation requests.
 
     This method is intended to be used internally and by subclasses, not
     by normal callers.
 
     Args:
       operation: The AgentOperation the status is for.
-      http_response: The HttpResponseType from the original GET response.
+      http_response: The HttpResponseType from the original HTTP response.
     """
-    return HttpOperationStatus(operation, http_response)
-
-  def _new_post_status(self, operation, http_response):
-    """Acts as an OperationStatus factory for POST requests.
-
-    This method is intended to be used internally and by subclasses, not
-    by normal callers.
-
-    Args:
-      operation: The AgentOperation the status is for.
-      http_response: The HttpResponseType from the original POST response.
-    """
-    return HttpOperationStatus(operation, http_response)
+    return self.__status_class(operation, http_response)
 
   def _send_http_request(
     self, path, http_type, data=None, headers=None, trace=True):
@@ -151,6 +169,7 @@ class HttpAgent(testable_agent.TestableAgent):
     url = '{0}://{1}/{2}'.format(self._protocol, self._address, path)
 
     req = urllib2.Request(url)
+    req.get_method = lambda: http_type
     for key, value in headers.items():
       req.add_header(key, value)
 
@@ -184,25 +203,55 @@ class HttpAgent(testable_agent.TestableAgent):
       path, 'POST', data=data,
       headers={'Content-Type': content_type}, trace=trace)
 
+  def delete(self, path, data, content_type='application/json', trace=True):
+    """Perform an HTTP DELETE."""
+    return self._send_http_request(
+      path, 'DELETE', data=data,
+      headers={'Content-Type': content_type}, trace=trace)
+
   def get(self, path, trace=True):
     """Perform an HTTP GET."""
     return self._send_http_request(path, 'GET', trace=trace)
 
 
-class HttpPostOperation(testable_agent.AgentOperation):
+class BaseHttpOperation(testable_agent.AgentOperation):
   """Specialization of AgentOperation that performs HTTP POST."""
-  def __init__(self, title, path, data, http_agent=None):
-    super(HttpPostOperation, self).__init__(title, http_agent)
+  @property
+  def path(self):
+    return self.__path
+
+  @property
+  def data(self):
+    return self.__data
+
+  @property
+  def status_class(self):
+    return self.__status_class
+
+  def __init__(self, title, path, data,
+               http_agent=None,  status_class=HttpOperationStatus):
+    """Construct a new operation.
+
+    Args:
+      title [string]: The name of the operation for reporting purposes.
+      path [string]: The URL path to invoke.
+      data [string]: If not empty, post this data with the invocation.
+      http_agent [HttpAgent]: If provided, invoke with this agent.
+      status_class [HttpOperationStatus]: If provided, use this for the
+         result status returned by the operation.
+    """
+    super(BaseHttpOperation, self).__init__(title, http_agent)
     if http_agent and not isinstance(http_agent, HttpAgent):
       raise TypeError('agent no HttpAgent: ' + http_agent.__class__.__name__)
 
-    self._path = path
-    self._data = data
+    self.__path = path
+    self.__data = data
+    self.__status_class = status_class
 
   def _make_scribe_parts(self, scribe):
-    return ([scribe.build_part('URL Path', self._path),
-             scribe.build_json_part('Payload Data', self._data)]
-            + super(HttpPostOperation, self)._make_scribe_parts(scribe))
+    return ([scribe.build_part('URL Path', self.__path),
+             scribe.build_json_part('Payload Data', self.__data)]
+            + super(BaseHttpOperation, self)._make_scribe_parts(scribe))
 
   def execute(self, agent=None, trace=True):
     if not self.agent:
@@ -210,8 +259,22 @@ class HttpPostOperation(testable_agent.AgentOperation):
         raise TypeError('agent no HttpAgent: ' + agent.__class__.__name__)
       self.bind_agent(agent)
 
-    http_response = agent.post(self._path, self._data, trace=trace)
-    status = agent._new_post_status(self, http_response)
+    status = self._do_invoke(agent, trace)
     if trace:
       agent.logger.debug('Returning status %s', status)
+    return status
+
+
+class HttpPostOperation(BaseHttpOperation):
+  """Specialization of AgentOperation that performs HTTP POST."""
+  def _do_invoke(self, agent, trace):
+    http_response = agent.post(self.path, self.data, trace=trace)
+    status = agent._new_invoke_status(self, http_response)
+    return status
+
+class HttpDeleteOperation(BaseHttpOperation):
+  """Specialization of AgentOperation that performs HTTP DELETE."""
+  def _do_invoke(self, agent, trace):
+    http_response = agent.delete(self.path, self.data, trace=trace)
+    status = agent._new_invoke_status(self, http_response)
     return status
