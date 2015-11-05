@@ -38,6 +38,11 @@ from http_agent import (
     HttpPostOperation,
     HttpResponseType)
 
+from http_observer import (
+    HttpObjectObserver,
+    HttpContractBuilder,
+    HttpContractClauseBuilder,
+    )
 
 # The operation_contract module combines AgentOperation and JsonContract.
 from operation_contract import OperationContract
