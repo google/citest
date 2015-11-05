@@ -246,6 +246,10 @@ class ObservationVerifier(predicate.ValuePredicate):
     builder = ObservationVerifyResultBuilder(observation)
     valid = False
 
+    if not self._dnf_verifiers:
+      logging.getLogger(__name__).warn(
+            'No verifiers were set, so "%s" will fail by default.', self.title)
+
     # Outer terms are or'd together.
     for term in self._dnf_verifiers:
        term_valid = True
