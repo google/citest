@@ -34,9 +34,11 @@ from cli_agent import (
 # The cli_agent module implements an agent that uses HTTP messaging.
 from http_agent import (
     HttpAgent,
+    HttpDeleteOperation,
     HttpOperationStatus,
     HttpPostOperation,
-    HttpResponseType)
+    HttpResponseType,
+    SynchronousHttpOperationStatus)
 
 
 # The operation_contract module combines AgentOperation and JsonContract.
