@@ -275,6 +275,15 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     self.assertGoodResult(operand, subset_pred, subset_pred(operand))
     self.assertBadResult(['b'], subset_pred, subset_pred(['b']))
 
+  def test_list_of_dict_subset(self):
+    operand = [{'a': 'A'}]
+    subset_pred = bp.LIST_SUBSET(operand)
+
+    self.assertGoodResult([{'a': 'A', 'b': 'B'}], subset_pred,
+                          subset_pred([{'a': 'A', 'b': 'B'}]))
+    self.assertGoodResult(operand, subset_pred, subset_pred(operand))
+    self.assertBadResult([{'b': 'B'}], subset_pred, subset_pred([{'b': 'B'}]))
+
   def test_standard_list_operator_type_mismatch(self):
     for value in [{'a':'A'}, 'a', 1]:
       for factory in [bp.LIST_EQ, bp.LIST_NE]:
