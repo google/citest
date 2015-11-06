@@ -48,7 +48,7 @@ class ScenarioTestRunner(TestRunner):
            runner=None, default_binding_overrides=None, test_case_list=None):
     scenario_runner = cls(scenarioClass, runner=runner)
     scenario_runner.set_default_binding_overrides(default_binding_overrides)
-    scenario_runner._do_main(test_case_list=test_case_list)
+    return scenario_runner._do_main(test_case_list=test_case_list)
 
   def __init__(self, scenarioClass, runner=None):
     ScenarioTestRunner.__global_scenario_runner = self
