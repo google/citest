@@ -64,6 +64,7 @@ from binary_predicate import (
     DICT_SUBSET,
     LIST_EQ,
     LIST_NE,
+    LIST_MEMBER,
     LIST_SUBSET,
     NUM_LE,
     NUM_EQ,

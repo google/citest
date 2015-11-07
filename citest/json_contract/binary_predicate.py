@@ -180,43 +180,129 @@ class DictSubsetPredicate(BinaryPredicate):
         valid=True, source=source, path=path, value=b, pred=self)
 
 
-class ListSubsetPredicate(BinaryPredicate):
-  """Implements binary predicate comparison predicates against list values."""
+class _BaseListMembershipPredicate(BinaryPredicate):
+  """Implements binary predicate comparison predicate for list membership."""
 
-  def __init__(self, operand):
+  @property
+  def strict(self):
+    return self.__strict
+
+  def __init__(self, name, operand, strict=False):
+    self.__strict = strict
+    super(_BaseListMembershipPredicate, self).__init__(name, operand)
+
+  def _verify_elem(self, elem, the_list):
+    """Verify if |elem| is in |the_list|
+
+    Args:
+      elem [object]: The value to test.
+      the_list [list]: The list of objects to test against.
+
+    Returns:
+      True if the value is a member of the list or strict checking is disabled
+           and the value is a subset of a member of the list.
+      False otherwise.
+    """
+    if self.__strict or isinstance(elem, (int, long, float, basestring)):
+      return elem in the_list
+
+    if self.__strict:
+      return False
+
+    pred = None
+    if isinstance(elem, list):
+      pred = LIST_SUBSET(elem)
+    elif isinstance(elem, dict):
+      pred = DICT_SUBSET(elem)
+    else:
+      raise TypeError('Unhandled type {0}'.format(elem.__class__))
+
+    for value in the_list:
+      if pred(value):
+        return True
+
+    return False
+  
+
+class ListSubsetPredicate(_BaseListMembershipPredicate):
+  """Implements binary predicate comparison predicate for list subsets."""
+
+  def __init__(self, operand, strict=False):
     if not isinstance(operand, list):
-      raise TypeError(
-          '{0} is not a list: {1!r}'.format(operand.__class__, operand))
-    super(ListSubsetPredicate, self).__init__('has-subset', operand)
+        raise TypeError(
+            '{0} is not a list: {1!r}'.format(operand.__class__, operand))
+    super(ListSubsetPredicate, self).__init__(
+        'has-subset', operand, strict=strict)
 
   def __call__(self, value):
+    """Determine if |operand| is a subset of |value|."""
     if not isinstance(value, list):
       return jc.JsonTypeMismatchResult(list, value.__class__, value)
-    return self._is_subset(value, None, self.operand, value)
 
-  def _is_subset(self, source, path, a, b):
-    """Determine if |a| is a subset of |b|."""
-
-    ## FOR EACH element of operand...
-    for index, elem in enumerate(a):
-      if isinstance(elem, (int, long, float, basestring, list)):
-        if elem in b:
-          continue
-        return jc.JsonFoundValueResult(value=b, valid=False, pred=self)
-
-      # Dictionaries
-      pred = DICT_SUBSET(elem)
-      found = None
-      for b_elem in b:
-          found = pred(b_elem)
-          if found:
-            break
-      if found:
-        continue
-      return jc.JsonFoundValueResult(value=b, valid=False, pred=self)
+    for index, elem in enumerate(self.operand):
+      if not self._verify_elem(elem, the_list=value):
+         return jc.JsonFoundValueResult(value=value, valid=False, pred=self)
 
     return jc.JsonFoundValueResult(
-        valid=True, source=source, path=path, value=b, pred=self)
+        valid=True, source=None, path=None, value=value, pred=self)
+
+
+class ListMembershipPredicate(_BaseListMembershipPredicate):
+  """Implements binary predicate comparison predicate for list membership."""
+
+  def __init__(self, operand, strict=False):
+    super(ListMembershipPredicate, self).__init__(
+        'has-elem', operand, strict=strict)
+
+  def __call__(self, value):
+    """Determine if |operand| is a member of |value|."""
+    valid = self._verify_elem(self.operand, the_list=value)
+    return jc.JsonFoundValueResult(
+        valid=valid, source=None, path=None, value=value, pred=self)
+
+
+class ContainsPredicate(BinaryPredicate):
+  """Specifies a predicate that expects the value "contains" the operand.
+
+  The interpretation of "contains" depends on the value's type:
+        type        | operand interpretation
+        ------------+-----------------------
+        basestring  | 'is-substring-of'
+        dict        | 'is-subset-of'
+        list        | 'is-subset-of' if operand is a list.
+                    | EXISTS and element that CONTAINS operand otherwise.
+        numeric     | '=='
+  """
+
+  def __init__(self, operand):
+    super(ContainsPredicate, self).__init__('Contains', operand)
+
+  def __call__(self, value):
+    if isinstance(value, basestring):
+      return STR_SUBSTR(self._operand)(value)
+    if isinstance(value, dict):
+      return DICT_SUBSET(self._operand)(value)
+    if isinstance(value, int or long or float):
+      return NUM_EQ(self._operand)(value)
+    if not isinstance(value, list):
+      raise NotImplementedError(
+          'Unhandled value class {0}'.format(value.__class__))
+    if isinstance(self._operand, list):
+      return LIST_SUBSET(self._operand)(value)
+
+    # The value is a list but operand is not a list.
+    # So we'll look for existance of the operand in the list
+    # by recursing on each element of the list until we find something
+    # or exhaust the list.
+    bad_values = []
+    for elem in value:
+      result = self(elem)
+      if result:
+        return result
+      bad_values.append(elem)
+
+    return jc.JsonFoundValueResult(valid=False, pred=self,
+                                   source=value, value=bad_values)
 
 
 class ContainsPredicate(BinaryPredicate):
@@ -343,7 +429,10 @@ LIST_EQ = StandardBinaryPredicateFactory(
     '==', lambda a, b: a == b, operand_type=list)
 LIST_NE = StandardBinaryPredicateFactory(
     '!=', lambda a, b: a != b, operand_type=list)
-LIST_SUBSET = lambda operand: ListSubsetPredicate(operand)
+LIST_MEMBER = (lambda operand, strict=False:
+                 ListMembershipPredicate(operand, strict=strict))
+LIST_SUBSET = (lambda operand, strict=False:
+                 ListSubsetPredicate(operand, strict=strict))
 
 CONTAINS = ContainsPredicate
 EQUIVALENT = EquivalentPredicate
