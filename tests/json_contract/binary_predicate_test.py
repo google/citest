@@ -275,7 +275,7 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     self.assertGoodResult(operand, subset_pred, subset_pred(operand))
     self.assertBadResult(['b'], subset_pred, subset_pred(['b']))
 
-  def test_list_of_dict_subset(self):
+  def test_list_of_dict_subset_nonstrict(self):
     operand = [{'a': 'A'}]
     subset_pred = bp.LIST_SUBSET(operand)
 
@@ -283,6 +283,33 @@ class JsonBinaryPredicateTest(unittest.TestCase):
                           subset_pred([{'a': 'A', 'b': 'B'}]))
     self.assertGoodResult(operand, subset_pred, subset_pred(operand))
     self.assertBadResult([{'b': 'B'}], subset_pred, subset_pred([{'b': 'B'}]))
+
+  def test_list_of_dict_subset_strict(self):
+    operand = [{'a': 'A'}]
+    subset_pred = bp.LIST_SUBSET(operand, strict=True)
+
+    self.assertBadResult([{'a': 'A', 'b': 'B'}], subset_pred,
+                          subset_pred([{'a': 'A', 'b': 'B'}]))
+    self.assertGoodResult(operand, subset_pred, subset_pred(operand))
+    self.assertBadResult([{'b': 'B'}], subset_pred, subset_pred([{'b': 'B'}]))
+
+  def test_list_of_dict_member_nonstrict(self):
+    operand = {'a': 'A'}
+    member_pred = bp.LIST_MEMBER(operand)
+
+    self.assertGoodResult([{'a': 'A', 'b': 'B'}], member_pred,
+                          member_pred([{'a': 'A', 'b': 'B'}]))
+    self.assertGoodResult([operand], member_pred, member_pred([operand]))
+    self.assertBadResult([{'b': 'B'}], member_pred, member_pred([{'b': 'B'}]))
+
+  def test_list_of_dict_member_strict(self):
+    operand = {'a': 'A'}
+    member_pred = bp.LIST_MEMBER(operand, strict=True)
+
+    self.assertBadResult([{'a': 'A', 'b': 'B'}], member_pred,
+                         member_pred([{'a': 'A', 'b': 'B'}]))
+    self.assertGoodResult([operand], member_pred, member_pred([operand]))
+    self.assertBadResult([{'b': 'B'}], member_pred, member_pred([{'b': 'B'}]))
 
   def test_standard_list_operator_type_mismatch(self):
     for value in [{'a':'A'}, 'a', 1]:
