@@ -7,5 +7,8 @@ setup(
   author_email = 'ewiseblatt@google.com',
   packages = ['citest'],
   license = 'APL2',
-  long_description = open('README.md').read(),
+  install_requires = [
+    "pyyaml"
+  ],
+  long_description = open('README.md').read()
 )
