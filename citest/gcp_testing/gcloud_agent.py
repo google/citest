@@ -285,8 +285,9 @@ class GCloudAgent(cli_agent.CliAgent):
     Returns:
       cli.CliResponseType with execution results.
     """
+    escaped_command = command.replace('"', '\\"').replace('$', '\\$')
     pid, fd = self.pty_fork_ssh(
-        instance, ['--command', '"%s"' % command], async=False)
+        instance, ['--command', '"%s"' % escaped_command], async=False)
     output = PassphraseInjector(
         fd=fd, ssh_passphrase_file=self._ssh_passphrase_file)()
     retcode = os.waitpid(pid, os.WNOHANG)[1]
