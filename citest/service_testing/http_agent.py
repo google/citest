@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+import base64
 import collections
 import logging
 import urllib2
@@ -44,6 +45,12 @@ class HttpResponseType(collections.namedtuple('HttpResponseType',
   def ok(self):
     """Return true if the result code indicates an OK HTTP response."""
     return self.retcode >= 200 and self.retcode < 300
+
+  def check_ok(self):
+    """Raise ValueError if the result code does not indicate an OK response."""
+    if not self.ok():
+      raise ValueError('Unexpected HTTP response {code}:\n{body}'.format(
+          code=self.retcode, body=self.error or self.content))
 
 
 class HttpOperationStatus(testable_agent.AgentOperationStatus):
@@ -100,14 +107,38 @@ class SynchronousHttpOperationStatus(HttpOperationStatus):
 
 class HttpAgent(testable_agent.TestableAgent):
   """A specialization of TestableAgent for interacting with HTTP services."""
-  def __init__(self, address, protocol='http'):
+
+  @property
+  def headers(self):
+    return self.__headers
+
+  @property
+  def baseUrl(self):
+    return self.__baseUrl
+
+  def __init__(self, baseUrl):
     super(HttpAgent, self).__init__()
-    self._protocol = protocol
-    self._address = address
+    self.__baseUrl = baseUrl
     self.__status_class = HttpOperationStatus
+    self.__headers = {}
+
+  def add_header(self, key, value):
+    """Specifies a header to add to each request that follows.
+
+    Args:
+      key: Header key to add.
+      value: Header value to add.
+    """
+    self.__headers[key] = value
+
+  def add_basic_auth_header(self, user, password):
+    """Adds an Authorization header for HTTP Basic Authentication."""
+    encoded_auth = base64.encodestring('{user}:{password}'.format(
+            user=user, password=password))[:-1]  # strip eoln
+    self.add_header('Authorization', 'Basic ' + encoded_auth)
 
   def _make_scribe_parts(self, scribe):
-    return ([scribe.build_part('URL Netloc', self._address)]
+    return ([scribe.build_part('Base URL', self._baseUrl)]
             + super(HttpAgent, self)._make_scribe_parts(scribe))
 
   def new_post_operation(self, title, path, data, status_class=None):
@@ -163,15 +194,17 @@ class HttpAgent(testable_agent.TestableAgent):
       HttpResponseType
     """
     if headers == None:
-      headers = {}
+      all_headers = self.__headers
+    else:
+      all_headers = self.__headers.copy()
+      all_headers.update(headers)
+
     if path[0] == '/':
       path = path[1:]
-    url = '{0}://{1}/{2}'.format(self._protocol, self._address, path)
+    url = '{0}/{1}'.format(self.__baseUrl, path)
 
-    req = urllib2.Request(url)
+    req = urllib2.Request(url=url, data=data, headers=all_headers)
     req.get_method = lambda: http_type
-    for key, value in headers.items():
-      req.add_header(key, value)
 
     if trace:
       self.logger.debug('%s url=%s data=%s', http_type, url, data)
@@ -179,7 +212,7 @@ class HttpAgent(testable_agent.TestableAgent):
     output = None
     error = None
     try:
-      response = urllib2.urlopen(req, data)
+      response = urllib2.urlopen(req)
       code = response.getcode()
       output = response.read()
       if trace:
