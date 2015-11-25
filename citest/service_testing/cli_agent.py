@@ -22,6 +22,7 @@ from ..base.scribe import Scribable
 from .. import json_contract as jc
 from . import testable_agent
 
+
 class CliResponseType(collections.namedtuple('CliResponseType',
                                              ['retcode', 'output', 'error']),
                       Scribable):
@@ -124,7 +125,7 @@ class CliAgentRunError(testable_agent.AgentError):
 class CliAgent(testable_agent.TestableAgent):
   """A specialization of TestableAgent for invoking command-line programs."""
 
-  def __init__(self, program):
+  def __init__(self, program, output_scrubber=None):
     """Standard constructor.
 
     Args:
@@ -133,6 +134,7 @@ class CliAgent(testable_agent.TestableAgent):
     super(CliAgent, self).__init__()
     self._program = program
     self._strip_trailing_eoln = True
+    self.__output_scrubber = output_scrubber
 
   def _make_scribe_parts(self, scribe):
     return ([scribe.build_part('Program', self._program)]
@@ -144,7 +146,7 @@ class CliAgent(testable_agent.TestableAgent):
   def _new_status(self, operation, cli_response):
     return CliRunStatus(operation, cli_response)
 
-  def run(self, args, trace=True):
+  def run(self, args, trace=True, output_scrubber=None):
     """Run the specified command.
 
     Args:
@@ -154,21 +156,31 @@ class CliAgent(testable_agent.TestableAgent):
     Returns:
       CliResponseType tuple containing program execution results.
     """
-    cmd = [self._program] + args
+    command = [self._program] + args
     if trace:
       logger = logging.getLogger(__name__)
-      logger.debug(cmd)
+      logger.debug(command)
+
     process = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output, error = process.communicate()
+        command,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+    stdout, stderr = process.communicate()
+
+    scrubber = output_scrubber or self.__output_scrubber
+    if scrubber:
+      if trace:
+        logger.debug('Scrubbing output with {0}'.format(
+            scrubber.__class__.__name__))
+      stdout = scrubber(stdout)
+                       
+    # Strip leading/trailing eolns that program may add to errors and output.
+    stderr = stderr.strip()
+    stdout = stdout.strip()
     code = process.returncode
 
-    # Strip off leading/trailing eolns that program added to errors and output.
-    error = error.strip()
-    output = output.strip()
     if trace:
-      logger.debug('-> %d: err=[%s] %s', code, error, output)
-    return CliResponseType(code, output, error)
+      logger.debug('-> %d: err=[%s] %s', code, stderr, stdout)
+    return CliResponseType(code, stdout, stderr)
 
 
 class CliRunOperation(testable_agent.AgentOperation):
