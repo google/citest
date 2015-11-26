@@ -68,7 +68,7 @@ class TestableAgentTest(unittest.TestCase):
 
     # Test operation's max_wait_secs is derived from agent value.
     self.assertEqual(-1, operation.max_wait_secs)
-    agent._default_max_wait_secs = 10
+    agent.default_max_wait_secs = 10
     self.assertEqual(10, operation.max_wait_secs)
 
   def test_status_constructor(self):
@@ -140,7 +140,7 @@ class TestableAgentTest(unittest.TestCase):
 
   def test_wait_timeout(self):
     agent = FakeAgent()
-    agent._default_max_wait_secs = 5
+    agent.default_max_wait_secs = 5
 
     operation = st.AgentOperation('TestStatus', agent=agent)
     status = FakeStatus(operation)
@@ -163,7 +163,7 @@ class TestableAgentTest(unittest.TestCase):
 
   def test_wait_timeout_with_override(self):
     agent = FakeAgent()
-    agent._default_max_wait_secs = 5
+    agent.default_max_wait_secs = 5
     operation = st.AgentOperation('TestStatus', agent=agent)
     status = FakeStatus(operation)
 

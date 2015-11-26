@@ -12,9 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""This package contains modules for testing services with citest.
+
+The testable_agent module provides an adapter for external system interactions
+as generic citest operations that can be controlled and reported using
+core citest components.
+
+The operation_contract module provides a means for specifying "test cases"
+using agent operations to be performed and contracts with observations and
+rules to verify their effects.
+
+The http_agent and cli_agent provide concrete base classes for agents
+that interact with external systems using either HTTP messaging or
+invocation of command-line programs.
+"""
 
 # The testable_agent module contains the base definitions.
-from testable_agent import(
+from .testable_agent import(
     AgentError,
     AgentOperation,
     AgentOperationStatus,
@@ -22,7 +36,7 @@ from testable_agent import(
 
 
 # The cli_agent module implements an agent that uses command-line programs.
-from cli_agent import (
+from .cli_agent import (
     CliAgent,
     CliAgentObservationFailureVerifier,
     CliAgentRunError,
@@ -32,7 +46,7 @@ from cli_agent import (
 
 
 # The cli_agent module implements an agent that uses HTTP messaging.
-from http_agent import (
+from .http_agent import (
     HttpAgent,
     HttpDeleteOperation,
     HttpOperationStatus,
@@ -40,19 +54,19 @@ from http_agent import (
     HttpResponseType,
     SynchronousHttpOperationStatus)
 
-from http_observer import (
+from .http_observer import (
     HttpObjectObserver,
     HttpContractBuilder,
     HttpContractClauseBuilder,
     )
 
 # The operation_contract module combines AgentOperation and JsonContract.
-from operation_contract import OperationContract
+from .operation_contract import OperationContract
 
 
-# The service_testing module adds support for writing tests around TestableAgent
-from agent_test_case import (
+# The service_testing module adds support for writing tests with TestableAgent.
+from .agent_test_case import (
     AgentTestCase,
     AgentTestScenario)
 
-from scenario_test_runner import ScenarioTestRunner
+from .scenario_test_runner import ScenarioTestRunner

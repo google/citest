@@ -13,9 +13,11 @@
 # limitations under the License.
 
 
+"""Provides base support for TestableAgents based on HTTP interactions."""
+
 import base64
 import collections
-import logging
+import httplib
 import urllib2
 
 from ..base.scribe import Scribable
@@ -34,9 +36,10 @@ class HttpResponseType(collections.namedtuple('HttpResponseType',
   """
   def __str__(self):
     return 'retcode={0} output={1!r} error={2!r}'.format(
-      self.retcode, self.output, self.error)
+        self.retcode, self.output, self.error)
 
   def _make_scribe_parts(self, scribe):
+    """Implements Scribbable_make_scribe_parts interface."""
     label = 'Response Error' if self.error else 'Response Data'
     data = self.error if self.error else self.output
     return [scribe.build_part('HTTP Code', self.retcode),
@@ -50,7 +53,7 @@ class HttpResponseType(collections.namedtuple('HttpResponseType',
     """Raise ValueError if the result code does not indicate an OK response."""
     if not self.ok():
       raise ValueError('Unexpected HTTP response {code}:\n{body}'.format(
-          code=self.retcode, body=self.error or self.content))
+          code=self.retcode, body=self.error or self.output))
 
 
 class HttpOperationStatus(testable_agent.AgentOperationStatus):
@@ -60,34 +63,40 @@ class HttpOperationStatus(testable_agent.AgentOperationStatus):
   still wish to refine this further. Especially if they use an additional
   protocol, such as returning references to asynchronous status updates.
   """
+  # pylint: disable=missing-docstring
   @property
   def finished(self):
     return True
 
   @property
+  def timed_out(self):
+    return self.__http_response.retcode in [httplib.REQUEST_TIMEOUT,
+                                            httplib.GATEWAY_TIMEOUT]
+
+  @property
   def finished_ok(self):
-    return self._http_response.ok()
+    return self.__http_response.ok()
 
   @property
   def detail(self):
-    return self._http_response.output
+    return self.__http_response.output
 
   @property
   def error(self):
-    return self._http_response.error
+    return self.__http_response.error
 
   def __init__(self, operation, http_response):
     super(HttpOperationStatus, self).__init__(operation)
-    self._http_response = http_response
+    self.__http_response = http_response
 
   def __cmp__(self, response):
-    return self._http_response.__cmp__(response._http_response)
+    return self.__http_response.__cmp__(response.__http_response)
 
   def __str__(self):
-    return 'http_response={0}'.format(self._http_response)
+    return 'http_response={0}'.format(self.__http_response)
 
   def set_http_response(self, http_response):
-    self._http_response = http_response
+    self.__http_response = http_response
 
 
 class SynchronousHttpOperationStatus(HttpOperationStatus):
@@ -96,6 +105,7 @@ class SynchronousHttpOperationStatus(HttpOperationStatus):
   Really this just means that there is no need for a request ID
   to track the request later.
   """
+  # pylint: disable=missing-docstring
   @property
   def id(self):
     return None
@@ -110,15 +120,25 @@ class HttpAgent(testable_agent.TestableAgent):
 
   @property
   def headers(self):
+    """Returns the dictionary specifying default headers to send with messages.
+
+    Use add_header() to add additional headers.
+    """
     return self.__headers
 
   @property
   def baseUrl(self):
-    return self.__baseUrl
+    """Returns the bound base URL used when sending messages."""
+    return self.__base_url
 
-  def __init__(self, baseUrl):
+  def __init__(self, base_url):
+    """Constructs instance.
+
+    Args:
+      base_url: [string] Specifies the base url to this agent's HTTP endpoint.
+    """
     super(HttpAgent, self).__init__()
-    self.__baseUrl = baseUrl
+    self.__base_url = base_url
     self.__status_class = HttpOperationStatus
     self.__headers = {}
 
@@ -134,11 +154,12 @@ class HttpAgent(testable_agent.TestableAgent):
   def add_basic_auth_header(self, user, password):
     """Adds an Authorization header for HTTP Basic Authentication."""
     encoded_auth = base64.encodestring('{user}:{password}'.format(
-            user=user, password=password))[:-1]  # strip eoln
+        user=user, password=password))[:-1]  # strip eoln
     self.add_header('Authorization', 'Basic ' + encoded_auth)
 
   def _make_scribe_parts(self, scribe):
-    return ([scribe.build_part('Base URL', self._baseUrl)]
+    """Implements Scribbable_make_scribe_parts interface."""
+    return ([scribe.build_part('Base URL', self.__base_url)]
             + super(HttpAgent, self)._make_scribe_parts(scribe))
 
   def new_post_operation(self, title, path, data, status_class=None):
@@ -167,8 +188,8 @@ class HttpAgent(testable_agent.TestableAgent):
     return HttpDeleteOperation(title, path, data, self,
                                status_class=status_class)
 
-  def _new_invoke_status(self, operation, http_response):
-    """Acts as an OperationStatus factory for HTTP invocation requests.
+  def _new_messaging_status(self, operation, http_response):
+    """Acts as an OperationStatus factory for HTTP messaging requests.
 
     This method is intended to be used internally and by subclasses, not
     by normal callers.
@@ -179,16 +200,16 @@ class HttpAgent(testable_agent.TestableAgent):
     """
     return self.__status_class(operation, http_response)
 
-  def _send_http_request(
-    self, path, http_type, data=None, headers=None, trace=True):
+  def _send_http_request(self, path, http_type,
+                         data=None, headers=None, trace=True):
     """Send an HTTP message.
 
     Args:
-      path: The URL path to send to (without network location)
-      http_type: The HTTP message type (e.g. POST)
-      data: Data payload to send, if any.
-      headers: Headers to write, if any.
-      trace: True if should log request and response.
+      path: [string] The URL path to send to (without network location)
+      http_type: [string] The HTTP message type (e.g. POST)
+      data: [string] Data payload to send, if any.
+      headers: [dict] Headers to write, if any.
+      trace: [bool] True if should log request and response.
 
     Returns:
       HttpResponseType
@@ -201,7 +222,7 @@ class HttpAgent(testable_agent.TestableAgent):
 
     if path[0] == '/':
       path = path[1:]
-    url = '{0}/{1}'.format(self.__baseUrl, path)
+    url = '{0}/{1}'.format(self.__base_url, path)
 
     req = urllib2.Request(url=url, data=data, headers=all_headers)
     req.get_method = lambda: http_type
@@ -217,30 +238,30 @@ class HttpAgent(testable_agent.TestableAgent):
       output = response.read()
       if trace:
         self.logger.debug('  -> http=%d: %s', code, output)
-    except urllib2.HTTPError as e:
-      code = e.getcode()
-      error = e.read()
+    except urllib2.HTTPError as ex:
+      code = ex.getcode()
+      error = ex.read()
       if trace:
         self.logger.debug('  -> http=%d: %s', code, error)
-    except urllib2.URLError as e:
+    except urllib2.URLError as ex:
       if trace:
-        self.logger.debug('  *** except: %s', e)
+        self.logger.debug('  *** except: %s', ex)
       code = -1
-      error = str(e)
+      error = str(ex)
     return HttpResponseType(code, output, error)
 
 
   def post(self, path, data, content_type='application/json', trace=True):
     """Perform an HTTP POST."""
     return self._send_http_request(
-      path, 'POST', data=data,
-      headers={'Content-Type': content_type}, trace=trace)
+        path, 'POST', data=data,
+        headers={'Content-Type': content_type}, trace=trace)
 
   def delete(self, path, data, content_type='application/json', trace=True):
     """Perform an HTTP DELETE."""
     return self._send_http_request(
-      path, 'DELETE', data=data,
-      headers={'Content-Type': content_type}, trace=trace)
+        path, 'DELETE', data=data,
+        headers={'Content-Type': content_type}, trace=trace)
 
   def get(self, path, trace=True):
     """Perform an HTTP GET."""
@@ -251,18 +272,21 @@ class BaseHttpOperation(testable_agent.AgentOperation):
   """Specialization of AgentOperation that performs HTTP POST."""
   @property
   def path(self):
+    """The path component of the URL to message to."""
     return self.__path
 
   @property
   def data(self):
+    """The HTTP payload data to send, or None if there is no payload."""
     return self.__data
 
   @property
   def status_class(self):
+    """The class to instantiate for the OperationStatus."""
     return self.__status_class
 
   def __init__(self, title, path, data,
-               http_agent=None,  status_class=HttpOperationStatus):
+               http_agent=None, status_class=HttpOperationStatus):
     """Construct a new operation.
 
     Args:
@@ -282,6 +306,7 @@ class BaseHttpOperation(testable_agent.AgentOperation):
     self.__status_class = status_class
 
   def _make_scribe_parts(self, scribe):
+    """Implements Scribbable_make_scribe_parts interface."""
     return ([scribe.build_part('URL Path', self.__path),
              scribe.build_json_part('Payload Data', self.__data)]
             + super(BaseHttpOperation, self)._make_scribe_parts(scribe))
@@ -292,22 +317,31 @@ class BaseHttpOperation(testable_agent.AgentOperation):
         raise TypeError('agent no HttpAgent: ' + agent.__class__.__name__)
       self.bind_agent(agent)
 
-    status = self._do_invoke(agent, trace)
+    status = self._send_message(agent, trace)
     if trace:
       agent.logger.debug('Returning status %s', status)
     return status
 
+  def _send_message(self, agent, trace):
+    """Placeholder for specializations to perform actual HTTP messaging."""
+    raise NotImplementedError()
+
 
 class HttpPostOperation(BaseHttpOperation):
   """Specialization of AgentOperation that performs HTTP POST."""
-  def _do_invoke(self, agent, trace):
+  def _send_message(self, agent, trace):
+    """Implements BaseHttpOperation interface."""
+    # pylint: disable=protected-access
     http_response = agent.post(self.path, self.data, trace=trace)
-    status = agent._new_invoke_status(self, http_response)
+    status = agent._new_messaging_status(self, http_response)
     return status
+
 
 class HttpDeleteOperation(BaseHttpOperation):
   """Specialization of AgentOperation that performs HTTP DELETE."""
-  def _do_invoke(self, agent, trace):
+  def _send_message(self, agent, trace):
+    """Implements BaseHttpOperation interface."""
+    # pylint: disable=protected-access
     http_response = agent.delete(self.path, self.data, trace=trace)
-    status = agent._new_invoke_status(self, http_response)
+    status = agent._new_messaging_status(self, http_response)
     return status

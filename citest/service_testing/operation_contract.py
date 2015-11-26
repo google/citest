@@ -13,33 +13,43 @@
 # limitations under the License.
 
 
+"""Specifies test cases using TestableAgents."""
+
 from ..base.scribe import Scribable
 
 
 class OperationContract(Scribable):
+  """Specifies a testable operation and contract to verify it.
+
+  This is essentially a "test case" using  TestableAgents.
+  """
   @property
   def title(self):
+    """The name of the test case."""
     return self._operation.title
 
   @property
   def operation(self):
+    """The AgentOperation to perform."""
     return self._operation
 
   @property
   def contract(self):
+    """The json.Contract to verify the operation."""
     return self._contract
 
   def _make_scribe_parts(self, scribe):
-    return [scribe.part_builder.build_nested_part(
-               'Operation', self._operation),
+    """Implements Scribbable_make_scribe_parts interface."""
+    return [scribe.part_builder.build_nested_part('Operation',
+                                                  self._operation),
             scribe.part_builder.build_nested_part('Contract', self._contract)]
 
   def __init__(self, operation, contract):
     """Construct instance.
 
     Args:
-      operation: service_testing.AgentOperation to be performed.
-      contract: json_contract.JsonContract to verify operation.
+      operation: [AgentOperation] To be performed.
+      contract: [JsonContract] To verify operation.
     """
     self._operation = operation
     self._contract = contract
