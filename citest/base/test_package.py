@@ -20,17 +20,18 @@ import __main__
 
 from . import TestRunner
 
-def collect_suites_in_dir(dir):
+def collect_suites_in_dir(dirname):
   """Collect all the tests in the given directory.
 
   Args:
-    dir: The directory to search in.
+    dirname: The directory to search in.
 
   Returns:
-    A list of test suites loaded from all the modules named *_test.py in dir.
+    A list of test suites loaded from all the modules named *_test.py in
+    dirname.
   """
-  prefix = dir.replace('/', '.') + '.'
-  test_file_names = glob.glob(dir + '/*_test.py')
+  prefix = dirname.replace('/', '.') + '.'
+  test_file_names = glob.glob(dirname + '/*_test.py')
   module_names = [os.path.basename(test_file[0:-3])
                   for test_file in test_file_names]
   if not module_names:
@@ -40,23 +41,24 @@ def collect_suites_in_dir(dir):
           for test_file in module_names]
 
 
-def run_all_tests_in_dir(dir=None, recurse=False):
+def run_all_tests_in_dir(dirname=None, recurse=False):
   """Run all the *_test.py files in the provided directory.
 
   Args:
-    dir: Path to directory containing tests. If not defined, use the directory
-        that the __main__.__file__ is in.
+    dirname: Path to directory containing tests. If not defined, use the
+        directory that the __main__.__file__ is in.
     recurse: True if should recurse the directory tree for all the tests.
   """
-  if not dir:
-    dir = os.path.dirname(__main__.__file__)
+  if not dirname:
+    dirname = os.path.dirname(__main__.__file__)
 
   if recurse:
     suites = []
-    for dir_name, subdir_list, file_list in os.walk(dir):
-        suites.extend(collect_suites_in_dir(dir_name))
+    for walk_dir, subdir_list, file_list in os.walk(dirname):
+
+      suites.extend(collect_suites_in_dir(walk_dir))
   else:
-    suites = collect_suites_in_dir(dir)
+    suites = collect_suites_in_dir(dirname)
 
   testSuite = unittest.TestSuite(suites)
   runner = TestRunner(runner=unittest.TextTestRunner(verbosity=2))

@@ -31,7 +31,7 @@ def parser_args_to_bindings(args_namespace):
   """
   bindings = {}
 
-  for key,value in vars(args_namespace).items():
+  for key, value in vars(args_namespace).items():
     bindings[key.upper()] = value
   return bindings
 

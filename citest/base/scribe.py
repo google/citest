@@ -12,17 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import collections
-import inspect
-import json
-import re
-
-
 """Implements a registry and scribe to custom render class instances."""
 
 
+import collections
+import inspect
+import json
+
+# pylint: disable=bad-continuation
 class ScribeRendererPart(
-      collections.namedtuple(
+        collections.namedtuple(
           'ScribeRendererPart',
           ['name', 'value', 'explicit_renderer', 'relation'])):
   """Holds a name/value pair for conveying structured information.
@@ -47,39 +46,42 @@ class ScribeRendererSection(object):
 
   A different renderer for this class can be added to a registry to change
   how these groups are displayed.
-
-  Attributes:
-    parts: The list of ScribeRendererPart comprising the section content.
-    title: The string name of the section.
   """
 
   @property
   def parts(self):
-    return self._parts
+    """A list of ScribeRendererPart comprising the section content."""
+    return self.__parts
 
   @property
   def title(self):
-    return self._title
+    """The section title string."""
+    return self.__title
 
   def __init__(self, title=None):
+    """Constructs the section.
+
+    Args:
+      title: [string] The name of the section, if provided.
+    """
     # Starting the section with an empty part will force a break,
     # especially if we render a title, so the section starts on a new line.
     # Later we strip these so that adjacent section boundries collapse
     # down to one eoln.
-    self._parts = [ScribeRendererPart(None, '', Scribe.render_nothing, None)]
-    self._title = title or ''
+    self.__parts = [ScribeRendererPart(None, '', Scribe.render_nothing, None)]
+    self.__title = title or ''
 
   @staticmethod
   def render(out, section):
     """Custom renderer for rendering parts in a section.
 
     Args:
-      out: The Doodle to render to.
-      section: The ScribeRendererSection to render.
+      out: [Doodle] The doodle to render intoto.
+      section: [ScribeRendererSection] The section to render.
     """
     out.push_level()
     try:
-      return out.scribe.render_parts(out, section._parts)
+      return out.scribe.render_parts(out, section.parts)
     finally:
       out.pop_level()
 
@@ -87,44 +89,65 @@ class ScribeRendererSection(object):
 class ScribeClassRegistryEntry(object):
   """Holds the registration info for a slot in the ScribeClassRegisry.
 
-  Attributes:
-    renderer: The callable function used to render instances.
-       It takes the scribe Doodle to write to and the object to render
-       and will render the object into the doodle.
-
-    part_builder: A callable that takes the object and renderer and returns
-       a list of ScribeRendererPart that can be later fed back into the scribe
-       to render the values. This can be None if it is not supported.
-
-       For registrations using part_builder, the registry can provide the
-       renderer, thus allowing the registerer to write a single method that
-       decomposes the structure of the data object independent of the
-       formatting. This still means each format will have similar structure,
-       but is still less work that providing custom renderers for each
-       supported format.
+     For registrations using part_builder, the registry can provide the
+     renderer, thus allowing the registerer to write a single method that
+     decomposes the structure of the data object independent of the
+     formatting. This still means each format will have similar structure,
+     but is still less work that providing custom renderers for each
+     supported format.
   """
 
   @property
   def renderer(self):
-    return self._renderer
+    """A callable function used to render object instances.
+
+    Takes a (Doodle, object) where it renders the object into the Doodle.
+    """
+    return self.__renderer
 
   @property
   def part_builder(self):
-    return self._part_builder
+    """A callable that returns a list of ScribeRendererPart for a data object.
+
+    This function has a signature [ScribeRendererPart](object, Scribe)
+    where the returned renderer parts can be later fed back into the scribe
+    to render the actual values.
+
+    The returned list may be None if not supported on the given object.
+    """
+    return self.__part_builder
 
   def __init__(self, renderer=None, part_builder=None):
+    """Constructs the entry.
+
+    Args:
+      renderer: The value for the |renderer| property.
+      part_builder: The value for the |part_builder| property
+    """
     if not renderer and not part_builder:
       raise ValueError()
-    self._part_builder = part_builder
-    self._renderer = renderer or self._do_render_parts
+    self.__part_builder = part_builder
+    self.__renderer = renderer or self.__do_render_parts
 
-  def _do_render_parts(self, out, obj):
+  def __do_render_parts(self, out, obj):
+    """Implements a renderer that uses the |part_builder| property.
+
+    Args:
+      out: [Doodle] The doodle to render into.
+      obj: [object] The data object to render.
+    """
     scribe = out.scribe
-    parts = self._part_builder(obj, scribe)
+    parts = self.__part_builder(obj, scribe)
     return scribe.render_parts(out, parts)
 
   def __call__(self, out, obj):
-    return self._renderer(out, obj)
+    """Performs the rendering.
+
+    Args:
+      out [Doodle]: The doodle to render into.
+      obj [object]: The data object to render.
+    """
+    return self.__renderer(out, obj)
 
 
 class _BaseScribeClassRegistry(object):
@@ -141,23 +164,25 @@ class _BaseScribeClassRegistry(object):
   This base class is intended just to implement the DEFAULT_SCRIBE_REGISTRY.
   Other custom registries derive from the ScribeRegistry specialization
   which inherits from the DEFAULT_SCRIBE_REGISTRY by default.
-
-  Attributes:
-    default_renderer: The default catch-all to use when classes are not known.
-    name: The name of the registry for reporting purposes only.
   """
 
   @property
   def default_renderer(self):
-    return self._default_renderer
+    """The default catch all renderer to use when classes are not known.
+
+    A renderer is a callable taking a (Doodle, object).
+    """
+    return self.__default_renderer
 
   @default_renderer.setter
   def default_renderer(self, func):
-    self._default_renderer = func
+    """Sets the |default_renderer|."""
+    self.__default_renderer = func
 
   @property
   def name(self):
-    return self._name
+    """The name of the registry is used for reporting purposes only."""
+    return self.__name
 
   def __init__(self, name, overrides_registry=None):
     """Constructor.
@@ -167,37 +192,43 @@ class _BaseScribeClassRegistry(object):
       overrides_registry: Specifies the _BaseScribeClassRegistry to override,
           or None.
     """
-    self._name = name
-    self._registry = {}
-    self._overrides_registry = overrides_registry
-    self._default_renderer = (lambda out, value: out.write(repr(value)))
+    self.__name = name
+    self.__registry = {}
+    self.__overrides_registry = overrides_registry
+    self.__default_renderer = (lambda out, value: out.write(repr(value)))
 
   def add_part_builder(self, klass, function):
-    if klass in self._registry:
+    """Registers a part builder for a given class.
+
+    Args:
+      kclass: [class] The class being registered.
+      function: [(Scribable, Scribe)] The renderer for the class.
+    """
+    if klass in self.__registry:
       raise ValueError('Class {0} already registered.'.format(
           klass.__class__.__name__))
-    self._registry[klass] = ScribeClassRegistryEntry(part_builder=function)
+    self.__registry[klass] = ScribeClassRegistryEntry(part_builder=function)
 
   def add(self, klass, renderer):
     """Adds a class renderer to the registry.
 
     Args:
-      klass: The type being registered.
-      renderer: A callable returning a string, taking object to render and
-          the scribe to render with. This is the renderer for the given type.
+      kclass: [class] The class being registered.
+      renderer: [string(object, Scribe] renderer for instances of |klass|.
     """
-    if klass in self._registry:
+    if klass in self.__registry:
       raise ValueError('Class {0} already registered.'.format(
           klass.__class__.__name__))
-    self._registry[klass] = ScribeClassRegistryEntry(renderer=renderer)
+    self.__registry[klass] = ScribeClassRegistryEntry(renderer=renderer)
 
   def find_or_none(self, obj, search=True):
     """Returns the closest registered renderer for the given object.
 
     Args:
-      obj: The object or type to lookup. If it is not a type, lookup its type.
-      search: If no renderer is found, and search is True, fail over to the
-          overriden registry chain.
+      obj: [object] The object or type to lookup. If it is not a type,
+          lookup its type.
+      search: [bool] If no renderer is found, and search is True,
+          fail over to the overriden registry chain.
     Returns:
       The registered renderer on the closest type that is found first while
           searching the registry hierarchy. For example, if this registry
@@ -209,27 +240,27 @@ class _BaseScribeClassRegistry(object):
     """
     obj_class = obj if inspect.isclass(obj) else obj.__class__
     for klass in inspect.getmro(obj_class):
-      if klass in self._registry:
-        return self._registry[klass]
-    if search and self._overrides_registry:
-      return self._overrides_registry.find_or_none(obj, search)
+      if klass in self.__registry:
+        return self.__registry[klass]
+    if search and self.__overrides_registry:
+      return self.__overrides_registry.find_or_none(obj, search)
     return None
 
   def find_with_default(self, obj, default_renderer=None, search=True):
     """Similiar to find_or_none but returns the default if not found.
 
     Args:
-      obj: The object or type to lookup.
+      obj: [object] The object or type to lookup.
       default_renderer: The default to return if not found, or None to use
          the registries bound default.
-      search: Whether to search the registry chain before returning the
+      search: [bool] Whether to search the registry chain before returning the
          default. Only the default from this registry will be considered.
     """
     found = self.find_or_none(obj, search=search)
     if found:
       return found
 
-    func = default_renderer or self._default_renderer
+    func = default_renderer or self.__default_renderer
     if not func:
       return None
     return ScribeClassRegistryEntry(renderer=func)
@@ -251,63 +282,61 @@ class Doodle(object):
 
   Typical usage is to pass the doodle into scribe.render as a caller,
   or receive the doodle as an argument and write text directly into it.
-
-  Attributes:
-    scribe: The scribe used to write to the doodle. It is kept here for
-      convinence so only the doodle needs to be passed around.
-    line_indent: Current indentation string.
-    level: Numeric 'depth' of indentation levels.
-    indent_factor: Number of spaces to indent per level.
   """
 
   @property
   def scribe(self):
-    return self._scribe
+    """The scribe used to write the doodle."""
+    return self.__scribe
 
   @property
   def segments(self):
-    return self._segments
+    return self.__segments
 
   @property
   def line_indent(self):
-    return self._make_level_indent(self._level)
+    """Current indentation string."""
+    return self.__make_level_indent(self.__level)
 
   @property
   def level(self):
-    return self._level
+    """Numeric 'depth' of indentation levels."""
+    return self.__level
 
   @property
   def indent_factor(self):
-    return self._indent_factor
+    """Number of spaces to indent per level."""
+    return self.__indent_factor
 
   @indent_factor.setter
-  def indent_factor(self):
-    self._indent_factor = factor
+  def indent_factor(self, factor):
+    self.__indent_factor = factor
 
   def __init__(self, scribe):
-    self._scribe = scribe
-    self._level = 0
-    self._indent_factor = 2
-    self._segments = []
-    self._sep = None
+    self.__scribe = scribe
+    self.__level = 0
+    self.__indent_factor = 2
+    self.__segments = []
+    self.__sep = None
 
   def __str__(self):
-    return ''.join(self._segments)
+    return ''.join(self.__segments)
 
   def reset(self):
     """Reset the doodle back to its initial empty state.
 
     Presumably this is after flushing it.
     """
-    self._level = 0
-    self._segments = []
-    self._sep = None
+    self.__level = 0
+    self.__segments = []
+    self.__sep = None
 
   def new_at_level(self):
     """Create a new empty doodle that is at the current level."""
-    out = self.__class__(self._scribe)
-    out._level = self._level
-    out._indent_factor = self._indent_factor
+    # pylint: disable=protected-access
+    out = self.__class__(self.__scribe)
+    out.__level = self.__level
+    out.__indent_factor = self.__indent_factor
     return out
 
   def render_to_string(self, obj, renderer=None):
@@ -321,52 +350,54 @@ class Doodle(object):
     renderer(tmp, obj) if renderer else self.scribe.render(tmp, obj)
     return str(tmp)
 
+
   def write_sep(self, sep):
     """Write separator into doodle, but only if content will follow.
 
     This will clear any existing separator. The separator will be written
-    at most once."""
-    self._sep = sep
+    at most once.
+    """
+    self.__sep = sep
 
   def write(self, text):
     """Writes text into doodle. Will precede it with a separator if one exists.
 
     Args:
-      text: The text to write.
+      text: [string] The text to write.
     """
-    if self._sep:
+    if self.__sep:
       if text and text[0] != '\n':
-        text = '{sep}{text}'.format(sep=self._sep, text=text)
-      self._sep = None
+        text = '{sep}{text}'.format(sep=self.__sep, text=text)
+      self.__sep = None
 
     if text:
-      self._segments.append(text)
+      self.__segments.append(text)
 
   def push_level(self, count=1):
     """Increment indentation level.
 
     Args:
-      count: If specified, the number of levels to increment by.
+      count: [int] If specified, the number of levels to increment by.
     """
     if count < 0:
       raise ValueError('count={0} cannot be negative'.format(count))
-    self._level += count
+    self.__level += count
 
   def pop_level(self, count=1):
     """Decrement indentation level.
 
     Args:
-      count: If specified, the number of levels to decrement by.
+      count: [int] If specified, the number of levels to decrement by.
     """
     if count < 0:
       raise ValueError('count={0} cannot be negative'.format(count))
-    if self._level < count:
+    if self.__level < count:
       raise ValueError('Popped too far.')
-    self._level -= count
+    self.__level -= count
 
-  def _make_level_indent(self, level):
+  def __make_level_indent(self, level):
     """Helper function providing the indentation string for the given level."""
-    return ' ' * level * self._indent_factor
+    return ' ' * level * self.__indent_factor
 
 
 class ScribePartBuilder(object):
@@ -393,22 +424,22 @@ class ScribePartBuilder(object):
   parts that are analysis data along with the validity conclusion of it.
   """
 
-  ERROR='ERROR'      # Used to report errors
-  VALID='VALID'      # A valid analysis (data or derived object).
-  INVALID='INVALID'  # An invalid analysis (data or derived object).
-  DATA='DATA'        # Typically input or output depending on perspective.
-  INPUT='INPUT'      # An input parameter (data or object containing data).
-  OUTPUT='OUTPUT'    # An output parameter (data or object containing data ).
-  CONTROL='CONTROL'  # A configuration/control parameter (data).
-  MECHANISM='MECHANISM'  # A mechanism that was used (component).
+  ERROR = 'ERROR'      # Used to report errors
+  VALID = 'VALID'      # A valid analysis (data or derived object).
+  INVALID = 'INVALID'  # An invalid analysis (data or derived object).
+  DATA = 'DATA'        # Typically input or output depending on perspective.
+  INPUT = 'INPUT'      # An input parameter (data or object containing data).
+  OUTPUT = 'OUTPUT'    # An output parameter (data or object containing data ).
+  CONTROL = 'CONTROL'  # A configuration/control parameter (data).
+  MECHANISM = 'MECHANISM'  # A mechanism that was used (component).
 
   def __init__(self, scribe):
     """Construct a part builder helper.
 
     Args:
-      scribe: The Scribe this is helping serves as the actual part factory.
+      scribe: [Scribe] serves as the actual part factory.
     """
-    self._scribe = scribe
+    self.__scribe = scribe
 
   def determine_verified_relation(self, obj):
     return self.VALID if obj else self.INVALID
@@ -440,7 +471,7 @@ class ScribePartBuilder(object):
 
   def build_nested_part(self, name, value, renderer=None,
                         summary=None, relation=None):
-    scribe = self._scribe
+    scribe = self.__scribe
     if inspect.isclass(summary):
       summary = summary.__name__
     section = scribe.make_section(title=summary)
@@ -458,13 +489,7 @@ class ScribePartBuilder(object):
 
 
 class Scribe(object):
-  """Renders custom strings using a ScribeClassRegistry.
-
-  Attributes:
-    registry: Bound ScribeClassRegistry used to lookup renderers.
-    part_builder: Contains helper functions for defining parts of a composed
-        data model.
-  """
+  """Renders custom strings using a ScribeClassRegistry."""
 
   @property
   def empty_list(self):
@@ -472,20 +497,22 @@ class Scribe(object):
 
   @property
   def registry(self):
-    return self._registry
+    """The ScribeClassRegistry used to lookup renderers."""
+    return self.__registry
 
   @property
   def part_builder(self):
-    return self._part_builder
+    """ScribePartBuilder containing functions for composing data model."""
+    return self.__part_builder
 
   def __init__(self, registry=None):
     """Constructor
 
     Args:
-      registry: The ScribeClassRegistry to bind. If None use the default.
+      registry: [ScribeClassRegistry] to bind. If None use the default.
     """
-    self._registry = registry or DEFAULT_SCRIBE_REGISTRY
-    self._part_builder = ScribePartBuilder(self)
+    self.__registry = registry or DEFAULT_SCRIBE_REGISTRY
+    self.__part_builder = ScribePartBuilder(self)
 
   def render_to_string(self, obj, default_renderer=None):
     out = Doodle(self)
@@ -501,12 +528,12 @@ class Scribe(object):
     """Render the given object by calling its registered renderer.
 
     Args:
-     out: The Doodle to render to.
-     obj: The object to render.
+     out: [Doodle] to render to.
+     obj: [object] to render.
      unknown: If there is no renderer, and unknown is provided, return that.
     """
-    default_renderer = default_renderer or self._registry.default_renderer
-    renderer = self._registry.find_with_default(obj, default_renderer)
+    default_renderer = default_renderer or self.__registry.default_renderer
+    renderer = self.__registry.find_with_default(obj, default_renderer)
     orig_level = out.level
     try:
       renderer(out, obj)
@@ -528,8 +555,8 @@ class Scribe(object):
     structure.
 
     Args:
-      out: The Doodle to render to.
-      part: The ScribeRegistererPart to render.
+      out: [Doodle] To render to.
+      part: [ScribeRegistererPart] To render.
     """
 
     part_out = out.new_at_level()
@@ -551,8 +578,8 @@ class Scribe(object):
     """Renders an sequence of ScribeRegistererPart.
 
     Args:
-      out: The Doodle to render to.
-      parts: A list of ScribeRegistererPart.
+      out: [Doodle] To render to.
+      parts: [list of ScribeRegistererPart] To render.
     """
     sep = ''
     for part in parts:
@@ -570,7 +597,7 @@ class Scribe(object):
 
   def build_json_part(self, name, value, relation=None, summary=None):
     """ScribeRendererPart factory using render_json_if_possible."""
-    return self._part_builder.build_nested_part(
+    return self.__part_builder.build_nested_part(
         name, value, renderer=self.render_json_if_possible,
         summary=summary, relation=relation)
 
@@ -617,8 +644,8 @@ class Scribe(object):
     """Method for rendering lists.
 
     Args:
-       out: The Doodle to render to.
-       obj: The list to render.
+      out: [Doodle] To render to.
+      obj: [list of object] To render.
     """
     sep = ''
     scribe = out.scribe
@@ -653,8 +680,8 @@ class Scribable(object):
     parts.
 
     Args:
-      scribable: The object to render should be derived from this class
-      scribe: The Scribe to scribe the scribable with.
+      scribable: [Scribable] object to render should be derived from this class
+      scribe: [Scribe] to scribe the |scribable| with.
 
     Returns:
       A list of ScribeRendererPart to be rendered.
