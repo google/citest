@@ -77,23 +77,23 @@ def _escape(source, quote=False):
   """Escape source string into valid HTML.
 
   Args:
-    source: String to be escaped.
-    quote: If True then also escape quote characters.
+    source: [string] To be escaped.
+    quote: [bool] If True then also escape quote characters.
   Returns:
     Escaped HTML string.
   """
-  s = source.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+  text = source.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
   if quote:
-    s = s.replace('"', '&quot').replace("'", '&apos')
-  return s
+    text = text.replace('"', '&quot').replace("'", '&apos')
+  return text
 
 
 def _escape_repr_renderer(out, obj):
   """A renderer that escapes a python object string representation into HTML.
 
   Args:
-    out: The Doodle to render to.
-    obj: A python object to render as a string.
+    out: [Doodle] To render to.
+    obj: [object] To render as a string.
   """
   out.write(_escape(str(obj)))
 
@@ -102,8 +102,8 @@ def _exception_renderer(out, obj):
   """A renderer for exceptions as HTML.
 
   Args:
-    out: The Doodle to render to.
-    obj: A python Exception to render as a string.
+    out: [Doodle] To render to.
+    obj: [Exception] To render as a string.
   """
   # TODO(ewiseblatt): 20150810
   # This is assuming we're calling this from an exception handler,
@@ -115,8 +115,8 @@ def _exception_renderer(out, obj):
   preformatted_trace = _escape(''.join(traceback.format_tb(tb)))
   html = ('<div class="error">{message}<br/>\n'
           '<pre><code>{traceback}</code></pre></div>\n').format(
-           message=_escape(str(obj)),
-           traceback=preformatted_trace.replace('\\n', '\n'))
+            message=_escape(str(obj)),
+            traceback=preformatted_trace.replace('\\n', '\n'))
   out.write(html)
 
 
@@ -148,8 +148,8 @@ class HtmlScribe(scribe_module.Scribe):
     The HEAD section will contain the standard Javascript and CSS used within.
 
     Args:
-      out: The Doodle to write into.
-      title: The unescaped text title of HTML will be escaped.
+      out: [Doodle] To render to.
+      title: [string] The unescaped text title of HTML will be escaped.
     """
     out.write('<head><title>{title}</title>{javascript}{css}</head>\n'.format(
         javascript=_javascript, css=_css, title=_escape(title)))
@@ -158,8 +158,8 @@ class HtmlScribe(scribe_module.Scribe):
     """Writes a new html document up to the openening BODY tag.
 
     Args:
-      out: The Doodle to write into.
-      title: The unescaped text title of the HTML.
+      out: [Doodle] To render to.
+      title: [string] The unescaped text title of HTML will be escaped.
     """
     html_out = out.new_at_level()
     self.write_html_head_block(html_out, title),
@@ -176,15 +176,15 @@ class HtmlScribe(scribe_module.Scribe):
     """Writes an HTML div section that is not toggleable.
 
     Args:
-      out: The Doodle to write to.
-      html: The html to render inside the DIV tag.
-      css: The CSS style name to use, if any.
+      out: [Doodle] To render to.
+      html: [string] The html to render inside the DIV tag.
+      css: [string] The CSS style name to use, if any.
     """
     lines = ['<div class="{css}" style="display:block">'.format(css=css)]
     out.push_level()
     lines.append('{indent}{html}'.format(indent=out.line_indent, html=html))
     out.pop_level()
-    lines.append('{indent}</div>'.format(out.line_indent))
+    lines.append('{indent}</div>'.format(indent=out.line_indent))
     out.write('\n'.join(lines))
 
   def write_expandable_content(
@@ -193,22 +193,22 @@ class HtmlScribe(scribe_module.Scribe):
     """Writes an expandable DIV block.
 
     Args:
-      out: The Doodle to write to.
-      summary_html: The HTML to display when the block is not expanded.
-         This is also displayed to close the block when expanded.
-      detail_html: This is the HTML to display when the block is expanded.
-      detail_css: This is the CSS stylesheet to use for the detail_html.
-      id: The javascript ID value to associate with this block must be unique
-          within the document.
-      default_visible: True if should be visible by default, False otherwise.
+      out: [Doodle] To write to.
+      summary_html: [string] The HTML to display when the block is not
+         expanded. This is also displayed to close the block when expanded.
+      detail_html: [string] The HTML to display when the block is expanded.
+      detail_css: [string] The CSS stylesheet to use for the detail_html.
+      id: [string] The javascript ID value to associate with this block must
+         be unique within the document.
+      default_visible: [bool] True should be visible by default.
     """
 
     # The summary line is a link.
     lines = ['<a class="toggle"'
              ' onclick="toggle_visibility(\'{id}\');">'.format(id=id)]
     out.push_level()
-    lines.append('{indent}{summary}'.format(
-            indent=out.line_indent, summary=summary_html))
+    lines.append('{indent}{summary}'
+                 .format(indent=out.line_indent, summary=summary_html))
     out.pop_level()
     lines.append('{indent}</a><br/>'.format(indent=out.line_indent))
 
@@ -220,8 +220,8 @@ class HtmlScribe(scribe_module.Scribe):
         '{indent}<div id="{id}"{visibility}>'.format(
             indent=out.line_indent, id=id, visibility=visibility))
     out.push_level()
-    lines.append('{indent}{detail}'.format(
-            indent=out.line_indent, detail=detail_html))
+    lines.append('{indent}{detail}'
+                 .format(indent=out.line_indent, detail=detail_html))
     out.pop_level()
     lines.append('{indent}</div>'.format(indent=out.line_indent))
 
@@ -235,13 +235,13 @@ class HtmlScribe(scribe_module.Scribe):
     part, followed by the parts that were in the section.
 
     Args:
-      parts: List of ScribeRendererPart
+      parts: [list of ScribeRendererPart]
 
     Returns:
       List of ScribeRendererPart
     """
     if parts[0].name == 'CLASS':
-      return [parts[0]] + parts[1].value._parts
+      return [parts[0]] + parts[1].value.parts
     else:
       return parts
 
@@ -249,27 +249,27 @@ class HtmlScribe(scribe_module.Scribe):
   # Only special relations change the style. Otherwise the style
   # is inherited from its scope.
   _RELATION_TO_TD_CSS = {
-    scribe_module.ScribePartBuilder.ERROR: 'error',
-    scribe_module.ScribePartBuilder.VALID: 'valid',
-    scribe_module.ScribePartBuilder.INVALID: 'invalid',
-    scribe_module.ScribePartBuilder.DATA: 'data',
-    scribe_module.ScribePartBuilder.INPUT: 'input',
-    scribe_module.ScribePartBuilder.OUTPUT: 'output',
-    scribe_module.ScribePartBuilder.CONTROL: 'control',
-    scribe_module.ScribePartBuilder.MECHANISM: 'mechanism'
+      scribe_module.ScribePartBuilder.ERROR: 'error',
+      scribe_module.ScribePartBuilder.VALID: 'valid',
+      scribe_module.ScribePartBuilder.INVALID: 'invalid',
+      scribe_module.ScribePartBuilder.DATA: 'data',
+      scribe_module.ScribePartBuilder.INPUT: 'input',
+      scribe_module.ScribePartBuilder.OUTPUT: 'output',
+      scribe_module.ScribePartBuilder.CONTROL: 'control',
+      scribe_module.ScribePartBuilder.MECHANISM: 'mechanism'
   }
 
   # Map part relation to the CSS style to render the label with.
   # Only special relations change the style. Otherwise the style
   # is inherited from its scope.
   _RELATION_TO_TH_CSS = {
-    scribe_module.ScribePartBuilder.ERROR: 'error',
-    scribe_module.ScribePartBuilder.VALID: 'valid',
-    scribe_module.ScribePartBuilder.INVALID: 'invalid',
+      scribe_module.ScribePartBuilder.ERROR: 'error',
+      scribe_module.ScribePartBuilder.VALID: 'valid',
+      scribe_module.ScribePartBuilder.INVALID: 'invalid',
   }
 
   def write_key_html(self, out):
-    table="""
+    table = """
 <table>
   <tr><th class="valid">Good</th>
       <td class="valid">The attribute is a result value or analysis that passed validated</td>
@@ -302,8 +302,8 @@ class HtmlScribe(scribe_module.Scribe):
     """Returns decorator string for HTML tag using the CSS style in d, if any.
 
     Args:
-      d: A dictionary whose values are CSS style names.
-      key: The key to lookup in the dictionary
+      d: [dict] Values are CSS style names.
+      key: [string] The key to lookup in the dictionary.
 
     Returns:
       An HTML tag class attribute binding, or empty string.
@@ -315,20 +315,20 @@ class HtmlScribe(scribe_module.Scribe):
     """Determine the CSS style for a given part.
 
     Args:
-      part: The ScribeRendererPart to be rendered.
+      part: [ScribeRendererPart] to be rendered.
     Returns:
       pair of attribute decorators for TH and TD HTML tags.
     """
     return (
-      self.determine_css_decorator(self._RELATION_TO_TH_CSS, part.relation),
-      self.determine_css_decorator(self._RELATION_TO_TD_CSS, part.relation))
+        self.determine_css_decorator(self._RELATION_TO_TH_CSS, part.relation),
+        self.determine_css_decorator(self._RELATION_TO_TD_CSS, part.relation))
 
   def render_parts(self, out, parts):
     """Implements scribe part rendering method to produce a [nested] table.
 
     Args:
-      out: The Doodle to write to.
-      parts: List of ScribeRendererPart
+      out: [Doodle] To write to.
+      parts: [list of ScribeRendererPart]
     """
     parts = self.maybe_rewrite_class_parts(parts)
 
@@ -343,9 +343,9 @@ class HtmlScribe(scribe_module.Scribe):
       th_css, td_css = self.determine_part_css(p)
 
       lines.append('{indent}<tr><th{th_css}>{label}</th><td{td_css}>\n'
-                   '{indent}{detail}</td>'.format(
-          indent=out.line_indent, label=label, detail=detail,
-          th_css=th_css, td_css=td_css))
+                   '{indent}{detail}</td>'
+                   .format(indent=out.line_indent, label=label, detail=detail,
+                           th_css=th_css, td_css=td_css))
     out.pop_level()
     lines.append('{indent}</table>'.format(indent=out.line_indent))
     out.write('\n'.join(lines))
@@ -358,19 +358,19 @@ class HtmlScribe(scribe_module.Scribe):
     rendered object within.
 
     Args:
-      out: The Scribable to write to.
-      section: The ScribeRendererSection to render.
+      out: [Scribable] to write to.
+      section: [ScribeRendererSection] to render.
     """
     scribe = out.scribe
     id = scribe.next_section_id
-    summary_html=section.title or 'Details'
+    summary_html = section.title or 'Details'
     detail_out = out.new_at_level()
-    scribe.render_parts(detail_out, section._parts)
+    scribe.render_parts(detail_out, section.parts)
     detail_html = str(detail_out)
     if len(re.sub(' +', ' ', detail_html)) < 120:
       out.write(detail_html)
     else:
-      detail_css=None
+      detail_css = None
       scribe.write_expandable_content(
           out, summary_html, detail_html, detail_css, id)
 
@@ -392,8 +392,8 @@ class HtmlScribe(scribe_module.Scribe):
     """Scribe rendering method for rendering python lists as HTML.
 
     Args:
-      cls: The HtmlScribe class rendering the list.
-      out: The Doodle to write to.
+      cls: [class] The HtmlScribe class rendering the list.
+      out: [Doodle] To write to.
       l: The python list to render.
     """
     lines = ['<ul>']

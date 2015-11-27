@@ -100,8 +100,9 @@ class TestRunner(object):
   def options(self):
     """Returns a ArgumentParserNamespace with the commandline option values.
 
-    The intention is for the bindings to be a more complete collection, but options
-    are here for convienence in controlled circumstances (e.g. 'private' options).
+    The intention is for the bindings to be a more complete collection, but
+    options are here for convienence in controlled circumstances
+    (e.g. 'private' options).
     """
     return self.__options
 
@@ -109,9 +110,9 @@ class TestRunner(object):
   def bindings(self):
     """Returns a dictionary with name/value bindings.
 
-    The keys in the binding dictionary are upper case by convention to help distinguish
-    them. The default bindings are derived from the "options", however the program
-    is free to add additional bindings.
+    The keys in the binding dictionary are upper case by convention to help
+    distinguish them. The default bindings are derived from the "options",
+    however the program is free to add additional bindings.
     """
     return self.__bindings
 
@@ -120,9 +121,10 @@ class TestRunner(object):
     """A dictionary keyed by the binding key used to initialize options.
 
     The purpose of this dictionary is to provide default values when adding
-    argumentParser arguments. This dictionary is passed to the initArgumentParser method
-    in the BaseTestCase when initializing the ArgumentParser. Programs can use this
-    to inject the default submodule values they'd like to override.
+    argumentParser arguments. This dictionary is passed to the
+    initArgumentParser method in the BaseTestCase when initializing the
+    ArgumentParser. Programs can use this to inject the default submodule
+    values they'd like to override.
     """
     return self.__default_binding_overrides
 
@@ -145,6 +147,17 @@ class TestRunner(object):
   def main(cls, runner=None,
            default_binding_overrides=None,
            test_case_list=None):
+    """Implements a main method for running tests.
+
+    This main will instantiate an instance of the class |cls| then
+    pass control to the _do_main method on the instantiated runner.
+
+    Args:
+      runner: If provided, then delegate to this runner to run the tests.
+      default_binding_overrides: Provides a means to inject default values
+          to use for bindings.
+      test_case_list: If provided, a list of test cases to run.
+    """
     runner = cls(runner=runner)
     runner.set_default_binding_overrides(default_binding_overrides)
     return runner._do_main(test_case_list=test_case_list)
@@ -152,13 +165,16 @@ class TestRunner(object):
   def set_default_binding_overrides(self, overrides):
     """Provides a means for setting the default_binding_overrides attribute.
 
-    This is intentionall not an assignment because it is not intended to be called,
-    but is here in case it is no possible to use the "main()" method.
+    This is intentionall not an assignment because it is not intended to be
+    called, but is here in case it is no possible to use the "main()" method.
     """
     self.__default_binding_overrides = overrides or {}
 
   def _do_main(self, default_binding_overrides=None, test_case_list=None):
     """Helper function used by main() once a TestRunner instance exists."""
+    # pylint: disable=unused-argument
+    # default_binding_overrides is declared as a prototype for derived classes
+    # but not actually used here.
     logger = logging.getLogger(__name__)
     logger.info('Building test suite')
     suite = self.build_suite(test_case_list)
@@ -171,28 +187,33 @@ class TestRunner(object):
     return len(result.failures) + len(result.errors)
 
   def __init__(self, runner=None):
-     TestRunner.__global_runner = self
-     self.__delegate = runner or unittest.TextTestRunner(verbosity=2)
-     self.__options = None
-     self.__bindings = {}
-     self.__default_binding_overrides = {}
-     self.__report_scribe = None
-     self.__report_file = None
+    TestRunner.__global_runner = self
+    self.__delegate = runner or unittest.TextTestRunner(verbosity=2)
+    self.__options = None
+    self.__bindings = {}
+    self.__default_binding_overrides = {}
+    self.__report_scribe = None
+    self.__report_file = None
 
   def run(self, obj_or_suite):
-     self._prepare()
+    """Run tests.
 
-     logger = logging.getLogger(__name__)
-     logging.info('Running tests')
+    Args:
+      obj_or_suite: The TestCase or TestSuite to run.
+    """
+    self._prepare()
 
-     try:
-       result = self.__delegate.run(obj_or_suite)
-     finally:
-       if sys.exc_info()[0] != None:
-         sys.stderr.write('Terminated early due to an exception\n')
-       self._cleanup()
+    logger = logging.getLogger(__name__)
+    logger.info('Running tests')
 
-     return result
+    try:
+      result = self.__delegate.run(obj_or_suite)
+    finally:
+      if sys.exc_info()[0] != None:
+        sys.stderr.write('Terminated early due to an exception\n')
+      self._cleanup()
+
+    return result
 
   def initArgumentParser(self, parser, defaults=None):
     """Adds arguments introduced by the TestRunner module.
@@ -205,7 +226,7 @@ class TestRunner(object):
     try:
       basename = os.path.basename(sys.argv[0])
       main_filename = os.path.splitext(basename)[0] + '.log'
-    except:
+    except IndexError:
       main_filename = 'debug.log'
 
     defaults = defaults or {}
@@ -213,14 +234,14 @@ class TestRunner(object):
     parser.add_argument('--log_filename',
                         default=defaults.get('LOG_FILENAME', main_filename))
     parser.add_argument(
-      '--log_config', default=defaults.get('LOG_CONFIG', ''),
-      help='Path to text file containing custom logging configuration. The'
-      ' contents of this path can contain variable references in the form $KEY'
-      ' where --KEY is a command-line argument that whose value should be'
-      ' substituted. Otherwise this is a standard python logging configuration'
-      ' schema as described in'
-      ' https://docs.python.org/2/library/logging.config.html'
-      '#logging-config-dictschema')
+        '--log_config', default=defaults.get('LOG_CONFIG', ''),
+        help='Path to text file containing custom logging configuration. The'
+        ' contents of this path can contain variable references in the form'
+        ' $KEY where --KEY is a command-line argument that whose value should'
+        ' be substituted. Otherwise this is a standard python logging'
+        ' configuration schema as described in'
+        ' https://docs.python.org/2/library/logging.config.html'
+        '#logging-config-dictschema')
 
   def start_logging(self):
     """Setup default logging from the --log_config parameter."""
@@ -230,8 +251,8 @@ class TestRunner(object):
       try:
         with open(path, 'r') as f:
           text = f.read()
-      except Exception as e:
-        print 'ERROR reading LOGGING_CONFIG from {0}: {1}'.format(path, e)
+      except Exception as ex:
+        print 'ERROR reading LOGGING_CONFIG from {0}: {1}'.format(path, ex)
         raise
     config = ast.literal_eval(args_util.replace(text, self.bindings))
     logging.config.dictConfig(config)
@@ -243,7 +264,7 @@ class TestRunner(object):
   def start_report_scribe(self):
     """Sets up report_scribe and output file for high level reporting."""
     if self.__report_scribe is not None:
-       raise ValueError('report_scribe already started.')
+      raise ValueError('report_scribe already started.')
 
     dirname = self.bindings.get('LOG_DIR', '.')
     filename = os.path.basename(self.bindings.get('LOG_FILENAME'))
@@ -259,27 +280,32 @@ class TestRunner(object):
         '<div class="title">{title}</div>\n'.format(title=title))
     self.__report_scribe.write_key_html(out)
     self.__report_file = open('{0}/{1}'.format(dirname, filename), 'w')
-    os.fchmod(self.__report_file.fileno(), 0600)  # Protect sensitive data in file.
+    os.fchmod(self.__report_file.fileno(), 0600)  # Protect sensitive data.
     self.__report_file.write(str(out))
 
   def report(self, obj):
+    """Add object to report.
+
+    Args:
+      obj: The object to write into the report.
+    """
     self.__report_file.write(self.__report_scribe.render_to_string(obj))
 
   def finish_report_scribe(self):
     """Finish the reporting scribe and close the file."""
     if self.__report_scribe is None:
-        return
+      return
     out = Doodle(self.__report_scribe)
     self.__report_scribe.write_end_html_document(out)
     self.__report_file.write(str(out))
     self.__report_file.close()
-    self.__report_scribe  = None
+    self.__report_scribe = None
     self.__report_file = None
 
   def build_suite(self, test_case_list):
     """Build the TestSuite of tests to run."""
     if not test_case_list:
-        raise ValueError('No test cases provided.')
+      raise ValueError('No test cases provided.')
 
     loader = unittest.TestLoader()
 
@@ -296,10 +322,10 @@ class TestRunner(object):
     return suite
 
   def _prepare(self):
-    """Helper function when running a suite that finishes initialization of global context.
+    """Suite helper function finishes initialization of global context.
 
-    This  includes processing command-line arguments to set the bindings in the runner,
-    and initializing the reporting scribe.
+    This includes processing command-line arguments to set the bindings in
+    the runner, and initializing the reporting scribe.
     """
     # Customize commandline arguments
     parser = argparse.ArgumentParser()
