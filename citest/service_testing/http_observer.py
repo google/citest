@@ -36,8 +36,8 @@ class HttpObjectObserver(jc.ObjectObserver):
     """Construct observer.
 
     Args:
-      agent: HttpAgent instance to use.
-      path: Path to GET from server that agent is bound to.
+      agent: [HttpAgent] Instance to use.
+      path: [string] Path to GET from server that agent is bound to.
     """
     super(HttpObjectObserver, self).__init__(filter)
     self.__agent = agent
@@ -57,10 +57,10 @@ class HttpObjectObserver(jc.ObjectObserver):
     # collect some thing out of the results.
     result = self.agent.get(self.__path, trace=trace)
     if not result.ok():
-       error = 'Observation failed with HTTP %d.' % result.retcode
-       logging.getLogger(__name__).error(error)
-       observation.add_error(AgentError(error))
-       return []
+      error = 'Observation failed with HTTP %d.' % result.retcode
+      logging.getLogger(__name__).error(error)
+      observation.add_error(AgentError(error))
+      return []
 
     return self._do_decode_objects(result.output, observation)
 
@@ -80,14 +80,14 @@ class HttpObjectObserver(jc.ObjectObserver):
       if not isinstance(doc, list):
         doc = [doc]
       observation.add_all_objects(doc)
-    except Exception as e:
+    except ValueError as ex:
       error = 'Invalid JSON in response: %s' % content
       logging.getLogger(__name__).info('%s\n%s\n----------------\n',
                                        error, traceback.format_exc())
-      observation.add_error(jc.JsonError(error, e))
+      observation.add_error(jc.JsonError(error, ex))
       return []
 
-    return observation._objects
+    return observation.objects
 
 
 class HttpContractBuilder(jc.ContractBuilder):
@@ -101,9 +101,9 @@ class HttpContractBuilder(jc.ContractBuilder):
     """
     super(HttpContractBuilder, self).__init__(
         lambda title, retryable_for_secs=0, strict=False:
-          HttpContractClauseBuilder(
-              title=title, agent=agent,
-              retryable_for_secs=retryable_for_secs, strict=strict))
+            HttpContractClauseBuilder(
+                title=title, agent=agent,
+                retryable_for_secs=retryable_for_secs, strict=strict))
 
 
 class HttpContractClauseBuilder(jc.ContractClauseBuilder):
@@ -131,6 +131,6 @@ class HttpContractClauseBuilder(jc.ContractClauseBuilder):
     """
     self.observer = HttpObjectObserver(self.__agent, path)
     observation_builder = jc.ValueObservationVerifierBuilder(
-          'Get ' + path, strict=self.__strict)
+        'Get ' + path, strict=self.__strict)
     self.verifier_builder.append_verifier_builder(observation_builder)
     return observation_builder

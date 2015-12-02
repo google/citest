@@ -163,7 +163,7 @@ class CliAgent(testable_agent.TestableAgent):
     output, error = process.communicate()
     code = process.returncode
 
-    # Strip off leading/trailing eolns that program may add to errors and output.
+    # Strip off leading/trailing eolns that program added to errors and output.
     error = error.strip()
     output = output.strip()
     if trace:
