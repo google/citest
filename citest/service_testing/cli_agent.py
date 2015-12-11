@@ -19,13 +19,14 @@ import re
 import subprocess
 
 from ..base.scribe import Scribable
+from ..base import JsonSnapshotable
 from .. import json_contract as jc
 from . import testable_agent
 
 
 class CliResponseType(collections.namedtuple('CliResponseType',
                                              ['retcode', 'output', 'error']),
-                      Scribable):
+                      Scribable, JsonSnapshotable):
   """Holds the results from running the command-line program.
 
   Attributes:
@@ -35,11 +36,18 @@ class CliResponseType(collections.namedtuple('CliResponseType',
   """
   def __str__(self):
     return 'retcode={0} output={1!r} error={2!r}'.format(
-      self.retcode, self.output, self.error)
+        self.retcode, self.output, self.error)
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    builder = snapshot.edge_builder
+    builder.make(entity, 'Exit Code', self.retcode)
+    if self.error:
+      builder.make_error(entity, 'stderr', self.error, format='json')
+    if self.output:
+      builder.make_output(entity, 'stdout', self.output, format='json')
 
   def _make_scribe_parts(self, scribe):
-    label = 'Response Error' if self.error else 'Response Data'
-    data = self.error if self.error else self.output
     parts = [scribe.build_part('Exit Code', self.retcode)]
     if self.error:
       parts.append(scribe.build_json_part('stderr', self.error))
@@ -98,6 +106,12 @@ class CliAgentRunError(testable_agent.AgentError):
   def run_response(self):
     return self._run_response
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    super(CliAgentRunError, self).export_to_json_snapshot(snapshot, entity)
+    snapshot.edge_builder.make_data(
+        entity, 'Cli Response', self._run_response)
+
   def _make_scribe_parts(self, scribe):
     return (super(CliAgentRunError, self)._make_scribe_parts(scribe)
             + [scribe.part_builder.build_nested_part('Cli Response',
@@ -135,6 +149,11 @@ class CliAgent(testable_agent.TestableAgent):
     self._program = program
     self._strip_trailing_eoln = True
     self.__output_scrubber = output_scrubber
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_mechanism(entity, 'Program', self._program)
+    super(CliAgent, self).export_to_json_snapshot(snapshot, entity)
 
   def _make_scribe_parts(self, scribe):
     return ([scribe.build_part('Program', self._program)]
@@ -192,6 +211,11 @@ class CliRunOperation(testable_agent.AgentOperation):
           'cli_agent is not CliAgent: {0}'.format(cli_agent.__class__))
     self._args = list(args)
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_control(entity, 'Args', self._args)
+    super(CliRunOperation, self).export_to_json_snapshot(snapshot, entity)
+
   def _make_scribe_parts(self, scribe):
     return ([scribe.build_part('Args', self._args)]
             + super(CliRunOperation, self)._make_scribe_parts(scribe))
@@ -222,6 +246,12 @@ class CliAgentObservationFailureVerifier(jc.ObservationFailureVerifier):
     """
     super(CliAgentObservationFailureVerifier, self).__init__(title)
     self._error_regex = error_regex
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_control(entity, 'Regex', self._error_regex)
+    super(CliAgentObservationFailureVerifier, self).export_to_json_snapshot(
+        snapshot, entity)
 
   def _make_scribe_parts(self, scribe):
     parts = [scribe.build_part(

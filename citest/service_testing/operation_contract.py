@@ -16,9 +16,10 @@
 """Specifies test cases using TestableAgents."""
 
 from ..base.scribe import Scribable
+from ..base import JsonSnapshotable
 
 
-class OperationContract(Scribable):
+class OperationContract(Scribable, JsonSnapshotable):
   """Specifies a testable operation and contract to verify it.
 
   This is essentially a "test case" using  TestableAgents.
@@ -37,6 +38,11 @@ class OperationContract(Scribable):
   def contract(self):
     """The json.Contract to verify the operation."""
     return self._contract
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make(entity, 'Operation', self._operation)
+    snapshot.edge_builder.make(entity, 'Contract', self._contract)
 
   def _make_scribe_parts(self, scribe):
     """Implements Scribbable_make_scribe_parts interface."""

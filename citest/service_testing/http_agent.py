@@ -21,12 +21,13 @@ import httplib
 import urllib2
 
 from ..base.scribe import Scribable
+from ..base import JsonSnapshotable
 from . import testable_agent
 
 
 class HttpResponseType(collections.namedtuple('HttpResponseType',
                                               ['retcode', 'output', 'error']),
-                       Scribable):
+                       Scribable, JsonSnapshotable):
   """Holds the results from an HTTP message.
 
   Attributes:
@@ -37,6 +38,15 @@ class HttpResponseType(collections.namedtuple('HttpResponseType',
   def __str__(self):
     return 'retcode={0} output={1!r} error={2!r}'.format(
         self.retcode, self.output, self.error)
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    builder = snapshot.edge_builder
+    builder.make_output(entity, 'HTTP Code', self.retcode)
+    if self.error:
+      builder.make_error(entity, 'Response Error', self.error)
+    if self.output:
+      builder.make_data(entity, 'Response Output', self.output)
 
   def _make_scribe_parts(self, scribe):
     """Implements Scribbable_make_scribe_parts interface."""
@@ -156,6 +166,11 @@ class HttpAgent(testable_agent.TestableAgent):
     encoded_auth = base64.encodestring('{user}:{password}'.format(
         user=user, password=password))[:-1]  # strip eoln
     self.add_header('Authorization', 'Basic ' + encoded_auth)
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_control(entity, 'Base URL', self.__base_url)
+    super(HttpAgent, self).export_to_json_snapshot(snapshot, entity)
 
   def _make_scribe_parts(self, scribe):
     """Implements Scribbable_make_scribe_parts interface."""
@@ -304,6 +319,12 @@ class BaseHttpOperation(testable_agent.AgentOperation):
     self.__path = path
     self.__data = data
     self.__status_class = status_class
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_control(entity, 'URL Path', self.__path)
+    snapshot.edge_builder.make_data(entity, 'Payload Data', self.__data)
+    super(BaseHttpOperation, self).export_to_json_snapshot(snapshot, entity)
 
   def _make_scribe_parts(self, scribe):
     """Implements Scribbable_make_scribe_parts interface."""

@@ -30,10 +30,16 @@ import logging
 import time
 
 from ..base.scribe import Scribable
+from ..base import JsonSnapshotable
 
 
-class AgentError(Exception, Scribable):
+class AgentError(Exception, Scribable, JsonSnapshotable):
   """Denotes an error reported by a TestableAgent."""
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_error(entity, 'Message', self.message)
+
   def _make_scribe_parts(self, scribe):
     return [scribe.build_part('Message', self.message)]
 
@@ -84,7 +90,7 @@ class TestableAgent(object):
     self.__config_dict = {}
 
 
-class AgentOperationStatus(Scribable):
+class AgentOperationStatus(Scribable, JsonSnapshotable):
   """Base class for current Status on AgentOperation.
 
   The operations performed by testable agents have disparate results depending
@@ -154,6 +160,27 @@ class AgentOperationStatus(Scribable):
   def agent(self):
     """A reference to the TestableAgent that executed the |operation|."""
     return self._operation.agent
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    builder = snapshot.edge_builder
+    builder.make(entity, 'ID', self.id)
+    builder.make_output(entity, 'Finished', self.finished)
+    if self.finished:
+      builder.make(entity, 'Finished OK', self.finished_ok,
+                   relation='VALID' if self.finished_ok else 'INVALID')
+    else:
+      builder.make(entity, 'Timed Out', self.timed_out)
+    if self.error:
+      builder.make_error(entity, 'Error', self.error)
+    if self.detail:
+      builder.make(entity, 'Detail', self.detail, format='json')
+    if self.exception_details:
+      builder.make_error(entity, 'Exception Details', self.exception_details,
+                         format='json')
+    builder.make_input(entity, 'Operation', self.operation)
+    builder.make_mechanism(
+        entity, 'Agent Class', self.agent.__class__.__name__)
 
   def _make_scribe_parts(self, scribe):
     """Implements Scribbable._make_scribe_parts."""
@@ -251,7 +278,7 @@ class AgentOperationStatus(Scribable):
     time.sleep(secs)
 
 
-class AgentOperation(Scribable):
+class AgentOperation(Scribable, JsonSnapshotable):
   """Base class abstraction for a testable operation executed through an agent.
 
   AgentOperation is a first-class operation that can be executed at some point
@@ -306,6 +333,14 @@ class AgentOperation(Scribable):
     self._title = title
     self._agent = agent
     self._max_wait_secs = None
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    builder = snapshot.edge_builder
+    builder.make(entity, 'Title', self.title)
+    builder.make_mechanism(
+        entity, 'Agent Class', self.agent.__class__.__name__)
+    builder.make_control(entity, 'Max Wait Secs', self.max_wait_secs)
 
   def _make_scribe_parts(self, scribe):
     """Implements Scribbable._make_scribe_parts."""

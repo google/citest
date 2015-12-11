@@ -46,6 +46,12 @@ class HttpObjectObserver(jc.ObjectObserver):
   def __str__(self):
     return 'HttpObjectObserver({0})'.format(self.__agent)
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_mechanism(entity, 'Agent', self.__agent)
+    snapshot.edge_builder.make_control(entity, 'Path', self.__path)
+    super(HttpObjectObserver, self).export_to_json_snapshot(snapshot, entity)
+
   def _make_scribe_parts(self, scribe):
     parts = [scribe.part_builder.build_mechanism_part('Agent:', self.__agent),
              scribe.part_builder.build_control_part('Path:', self.__path)]
