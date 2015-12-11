@@ -54,6 +54,14 @@ class AwsAgent(st.CliAgent):
     self.trace = trace
     self.logger = logging.getLogger(__name__)
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    builder = snapshot.edge_builder
+    builder.make_control(entity, 'Profile', self._profile)
+    builder.make_control(entity, 'Region', self._region)
+    builder.make_control(entity, 'Trace', self._trace)
+    super(AwsAgent, self).export_to_json_snapshot(snapshot, entity)
+
   def _make_scribe_parts(self, scribe):
     parts = [
       scribe.build_part('Profile', self._profile),

@@ -41,6 +41,11 @@ class GCloudObjectObserver(jc.ObjectObserver):
     self._gcloud = gcloud
     self._args = args
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_control(entity, 'Args', self._args)
+    super(GCloudObjectObserver, self).export_to_json_snapshot(snapshot, entity)
+
   def _make_scribe_parts(self, scribe):
     parts = [scribe.build_part('Args', self._args)]
     inherited = super(GCloudObjectObserver, self)._make_scribe_parts(scribe)

@@ -15,7 +15,7 @@
 
 import unittest
 
-from citest.base.scribe import Scribe
+from citest.base import JsonSnapshotHelper
 import citest.gcp_testing as gt
 import citest.json_contract as jc
 import citest.service_testing as st
@@ -86,7 +86,7 @@ class GceContractTest(unittest.TestCase):
     contract = contract_builder.build()
     verification_result = contract.verify()
     self.assertTrue(verification_result,
-                    Scribe().render_to_string(verification_result))
+                    JsonSnapshotHelper.ValueToEncodedJson(verification_result))
 
     command = gcloud.build_gcloud_command_args(
         'instances', ['describe', 'test_name'] + extra_args,
