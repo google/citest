@@ -15,7 +15,7 @@
 
 import unittest
 
-from citest.base import Scribe
+from citest.base import JsonSnapshotHelper
 import citest.json_contract as jc
 
 
@@ -31,12 +31,8 @@ _MULTI_ARRAY = [ _LETTER_DICT, _NUMBER_DICT, _LETTER_DICT, _NUMBER_DICT]
 
 
 class JsonValueObservationVerifierTest(unittest.TestCase):
-  def assertEqual(self, a, b, msg=''):
-    if not msg:
-      msg = 'EXPECT\n{0}\nGOT\n{1}'.format(
-        Scribe().render_to_string(a),
-        Scribe().render_to_string(b))
-    super(JsonValueObservationVerifierTest, self).assertEqual(a, b, msg)
+  def assertEqual(self, expect, have, msg=''):
+    JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
 
   def test_verifier_builder_add_constraint(self):
       aA = jc.PathPredicate('a', jc.STR_EQ('A'))
@@ -267,17 +263,13 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
     self.assertEqual(verify_results.observation, observation)
 
     ok = verify_results.__nonzero__()
-    scribe = Scribe()
-    error_msg = '{expect_ok}!={ok}\n{errors}'.format(
-        expect_ok=expect_ok, ok=ok,
-        errors=scribe.render_to_string(verify_results.bad_results))
     if dump:
       print 'GOT RESULTS:\n{0}\n'.format(
-          scribe.render_to_string(verify_results))
-      print '\nEXPECTED:\n{0}\n'.format(
-          scribe.render_to_string(expect_results))
+        JsonSnapshotHelper.ValueToEncodedJson(verify_results))
+      print '\nExpected:\n{0}\n'.format(
+        JsonSnapshotHelper.ValueToEncodedJson(expect_results))
 
-    self.assertEqual(expect_ok, ok, error_msg)
+    self.assertEqual(expect_ok, ok)
     if expect_results:
       self.assertEqual(expect_results, verify_results)
 

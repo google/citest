@@ -42,6 +42,20 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
           unmapped_constraints=self._constraints,
           strict=self._strict)
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_control(entity, 'Strict', self._strict)
+    if len(self._constraints) == 1:
+      # Optimize model for single-element list
+      snapshot.edge_builder.make_control(
+        entity, 'Constraint', self._constraints[0])
+    else:
+      snapshot.edge_builder.make_control(
+        entity, 'Constraints', self._constraints)
+
+    super(ValueObserverVerifierBuilder, self).export_to_json_snapshot(
+        snapshot, entity)
+
   def _make_scribe_parts(self, scribe):
     parts = [scribe.build_part('Strict', self._strict,
                                relation=scribe.part_builder.CONTROL),
@@ -113,6 +127,14 @@ class ValueObservationVerifier(ov.ObservationVerifier):
   @property
   def strict(self):
     return self._strict
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_control(entity, 'Strict', self._strict)
+    snapshot.edge_builder.make_control(
+        entity, 'Constraints', self._constraints)
+    super(ValueObservationVerifier, self).export_to_json_snapshot(
+        snapshot, entity)
 
   def _make_scribe_parts(self, scribe):
     parts = [scribe.build_part('Strict', self._strict,

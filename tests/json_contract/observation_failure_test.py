@@ -15,7 +15,7 @@
 
 import unittest
 
-from citest.base import Scribe
+from citest.base import JsonSnapshotHelper
 import citest.json_contract as jc
 
 
@@ -27,12 +27,8 @@ class TestIoErrorFailureVerifier(jc.ObservationFailureVerifier):
 
 
 class ObservationFailureTest(unittest.TestCase):
-  def assertEqual(self, a, b, msg=''):
-    if not msg:
-      scribe = Scribe()
-      msg = 'EXPECT\n{0}\nGOT\n{1}'.format(
-        scribe.render_to_string(a), scribe.render_to_string(b))
-    super(ObservationFailureTest, self).assertEqual(a, b, msg)
+  def assertEqual(self, expect, have, msg=''):
+    JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
 
   def testObservationFailedErrorEqual(self):
       self.assertEqual(
@@ -59,22 +55,18 @@ class ObservationFailureTest(unittest.TestCase):
       self.assertEqual(valid, result.valid)
 
       if valid:
+        attempt = jc.ObjectResultMapAttempt(
+            observation, jc.ObservationFailedError([error], valid=valid))
         self.assertFalse(result.bad_results)
-        self.assertEqual(
-            [jc.ObjectResultMapAttempt(
-                    observation,
-                    jc.ObservationFailedError([error], valid=valid))],
-            result.good_results)
+        self.assertEqual([attempt], result.good_results)
         self.assertEqual('HAVE Could not connect', result.comment)
       else:
+        attempt = jc.ObjectResultMapAttempt(
+            observation,
+            jc.PredicateResult(
+                valid=False, comment='Expected error was not found.'))
         self.assertFalse(result.good_results)
-        self.assertEqual(
-            [jc.ObjectResultMapAttempt(
-                    observation,
-                    jc.PredicateResult(
-                        valid=False,
-                        comment='Expected error was not found.'))],
-            result.bad_results)
+        self.assertEqual([attempt], result.bad_results)
         self.assertEqual('Expected error was not found.', result.comment)
 
   def testObservationFailureVerifierWithExpectedError(self):

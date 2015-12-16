@@ -14,20 +14,17 @@
 
 
 import unittest
+
+from citest.base import JsonSnapshotHelper
 import citest.json_contract as jc
-from citest.base import Scribe
 
 
 _LETTER_DICT = { 'a':'A', 'b':'B', 'z':'Z' }
 
 
 class LogicPredicateTest(unittest.TestCase):
-  def assertEqual(self, a, b, msg=''):
-    if not msg:
-      msg = 'EXPECTED\n{0}\n\nACTUAL\n{1}'.format(
-          Scribe().render_to_string(a),
-          Scribe().render_to_string(b))
-    super(LogicPredicateTest, self).assertEqual(a, b, msg)
+  def assertEqual(self, expect, have, msg=''):
+    JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
 
   def test_conjunction_true(self):
     aA = jc.PathEqPredicate('a', 'A')
@@ -47,7 +44,7 @@ class LogicPredicateTest(unittest.TestCase):
     bB = jc.PathEqPredicate('b', 'B')
     conjunction = jc.AND([aA, b2, bB])
     expect = jc.CompositePredicateResult(
-        valid=True, pred=conjunction,
+        valid=False, pred=conjunction,
         results=[aA(_LETTER_DICT), b2(_LETTER_DICT)])
 
     result = conjunction(_LETTER_DICT)

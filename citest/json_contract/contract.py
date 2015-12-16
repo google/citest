@@ -16,8 +16,8 @@
 import logging
 import time
 
+from ..base import JsonSnapshotable
 from ..base.scribe import Scribable
-from ..base.scribe import Scribe
 from . import predicate
 from . import observer as ob
 from . import observation_verifier as ov
@@ -60,6 +60,18 @@ class ContractClauseVerifyResult(predicate.PredicateResult):
         self._clause.title,
         self._verify_results.enumerated_summary_message)
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    builder = snapshot.edge_builder
+    entity.add_metadata('_title',
+                        'Verification of "{0}"'.format(self._clause.title))
+
+    relation = builder.determine_valid_relation(self._verify_results)
+    builder.make_control(entity, 'Clause', self._clause)
+    builder.make(entity, 'Results', self._verify_results, relation=relation)
+    super(ContractClauseVerifyResult, self).export_to_json_snapshot(
+        snapshot, entity)
+
   def _make_scribe_parts(self, scribe):
     summary = 'Verified' if self._verify_results else 'FAILED'
     relation = scribe.part_builder.determine_verified_relation(
@@ -98,6 +110,13 @@ class ContractClause(predicate.ValuePredicate):
 
   def __str__(self):
     return 'Clause {0}  verifier={1}'.format(self._title, self._verifier)
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    entity.add_metadata('_title', self._title)
+    snapshot.edge_builder.make(entity, 'Title', self._title)
+    snapshot.edge_builder.make_mechanism(entity, 'Observer', self._observer)
+    snapshot.edge_builder.make_mechanism(entity, 'Verifier', self._verifier)
 
   def _make_scribe_parts(self, scribe):
     return [
@@ -246,6 +265,13 @@ class ContractVerifyResult(predicate.PredicateResult):
         '\n'.join(
             [c.enumerated_summary_message for c in self._clause_results]))
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    relation = snapshot.edge_builder.determine_valid_relation(self)
+    snapshot.edge_builder.make(
+        entity, 'Clause Results', self._clause_results, relation=relation)
+    super(ContractVerifyResult, self).export_to_json_snapshot(snapshot, entity)
+
   def _make_scribe_parts(self, scribe):
     summary = 'Verified' if self else 'FAILED'
     relation = scribe.part_builder.determine_verified_relation(self)
@@ -258,7 +284,7 @@ class ContractVerifyResult(predicate.PredicateResult):
     return parts + inherited
 
 
-class Contract(Scribable):
+class Contract(Scribable, JsonSnapshotable):
   """A contract holds a collection of ContractClause.
 
   Attributes:
@@ -270,6 +296,10 @@ class Contract(Scribable):
 
   def __init__(self):
     self._clauses = []
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_control(entity, 'Clauses', self._clauses)
 
   def _make_scribe_parts(self, scribe):
     return [scribe.part_builder.build_control_part('Clauses', self._clauses)]

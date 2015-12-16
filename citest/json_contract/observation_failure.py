@@ -26,6 +26,12 @@ class ObservationFailedError(predicate.PredicateResult):
     super(ObservationFailedError, self).__init__(valid)
     self._failures = failures
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    super(ObservationFailedError, self).export_to_json_snapshot(
+        snapshot, entity)
+    snapshot.edge_builder.make(entity, 'Failures', self._failures)
+
   def _make_scribe_parts(self, scribe):
     inherited = super(ObservationFailedError, self)._make_scribe_parts(scribe)
     return [scribe.build_part('Failures', self._failures)] + inherited

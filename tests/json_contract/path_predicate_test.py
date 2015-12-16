@@ -14,7 +14,10 @@
 
 
 import unittest
+
+from citest.base import JsonSnapshotHelper
 import citest.json_contract as jc
+
 
 _LETTER_ARRAY = ['a', 'b', 'c']
 _LETTER_DICT = {'a': 'A', 'b': 'B', 'z': 'Z'}
@@ -32,10 +35,8 @@ def _make_found(source, path_trace, pred, valid=True):
 
 
 class JsonPathPredicateTest(unittest.TestCase):
-  def assertEqual(self, a, b, msg=''):
-    if not msg:
-      msg = 'EXPECTED\n{0}\n\nGOT\n{1}'.format(a, b)
-    super(JsonPathPredicateTest, self).assertEqual(a, b, msg)
+  def assertEqual(self, expect, have, msg=''):
+    JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
 
   def test_clone_type_mismatch_none_context(self):
     result = jc.JsonTypeMismatchResult(list, dict, 'ORIGINAL')

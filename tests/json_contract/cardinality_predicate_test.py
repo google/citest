@@ -15,7 +15,7 @@
 
 import unittest
 
-from citest.base.scribe import Scribe
+from citest.base import JsonSnapshotHelper
 import citest.json_contract as jc
 import citest.json_contract.cardinality_predicate as cp
 import citest.json_contract.map_predicate as mp
@@ -30,13 +30,8 @@ _AorB = jc.OR([_eq_A, _eq_B])
 
 
 class CardinalityPredicateTest(unittest.TestCase):
-  def assertEqual(self, a, b, msg=''):
-    if not msg:
-      scribe = Scribe()
-      msg = 'EXPECT\n{0}\nGOT\n{1}'.format(
-        scribe.render_to_string(a), scribe.render_to_string(b))
-    super(CardinalityPredicateTest, self).assertEqual(a, b, msg)
-
+  def assertEqual(self, expect, have, msg=''):
+    JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
 
   def test_cardinality_bounds_1(self):
     for min in range(0, 2):
@@ -47,18 +42,18 @@ class CardinalityPredicateTest(unittest.TestCase):
         predicate = jc.CardinalityPredicate(_AorX, min=min, max=max)
         expect_ok = min <= 1 and max >= 1
 
+        attempt_a = jc.ObjectResultMapAttempt('A', _AorX('A'))
+        attempt_b = jc.ObjectResultMapAttempt('B', _AorX('B'))
+        attempt_c = jc.ObjectResultMapAttempt('C', _AorX('C'))
         expect_composite_result = jc.MapPredicateResult(
           valid=expect_ok, pred=_AorX,
           obj_list=_CAB,
-          good_map=[
-            jc.ObjectResultMapAttempt('A', _AorX('A'))],
-          bad_map=[
-            jc.ObjectResultMapAttempt('C', _AorX('C')),
-            jc.ObjectResultMapAttempt('B', _AorX('B'))],
-          all_results=[_AorX('C'), _AorX('A'), _AorX('B')])
+          good_map=[attempt_a],
+          bad_map=[attempt_c, attempt_b],
+          all_results=[attempt_c.result, attempt_a.result, attempt_b.result])
 
         self.assertEqual(expect_composite_result,
-                         jc.MapPredicate(_AorX)(_CAB))
+                         jc.MapPredicate(_AorX, min=min, max=max)(_CAB))
         if expect_ok:
           expect_result = cp.ConfirmedCardinalityResult(
             _CAB, 1, predicate, expect_composite_result)
@@ -72,6 +67,7 @@ class CardinalityPredicateTest(unittest.TestCase):
         try:
           result = predicate(_CAB)
           self.assertEqual(expect_result, result)
+          return
           self.assertEqual(expect_ok, result.__nonzero__())
         except:
           print 'FAILED min={0}, max={1}'.format(min, max)
@@ -86,18 +82,18 @@ class CardinalityPredicateTest(unittest.TestCase):
         predicate = jc.CardinalityPredicate(_AorB, min=min, max=max)
         expect_ok = min <= 2 and max >= 2
 
+        a_attempt = jc.ObjectResultMapAttempt('A', _AorB('A'))
+        b_attempt = jc.ObjectResultMapAttempt('B', _AorB('B'))
+        c_attempt = jc.ObjectResultMapAttempt('C', _AorB('C'))
         expect_composite_result = jc.MapPredicateResult(
           valid=expect_ok, pred=_AorB,
           obj_list=_CAB,
-          good_map=[
-            jc.ObjectResultMapAttempt('A', _AorB('A')),
-            jc.ObjectResultMapAttempt('B', _AorB('B'))],
-          bad_map=[
-            jc.ObjectResultMapAttempt('C', _AorB('C'))],
-          all_results=[_AorB('C'), _AorB('A'), _AorB('B')])
+          good_map=[a_attempt, b_attempt],
+          bad_map=[c_attempt],
+          all_results=[c_attempt.result, a_attempt.result, b_attempt.result])
 
         self.assertEqual(expect_composite_result,
-                         jc.MapPredicate(_AorB)(_CAB))
+                         jc.MapPredicate(_AorB, min=min, max=max)(_CAB))
         if expect_ok:
           expect_result = cp.ConfirmedCardinalityResult(
             _CAB, 2, predicate, expect_composite_result)

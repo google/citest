@@ -14,10 +14,17 @@
 
 
 from ..base.scribe import Scribable
+from ..base import JsonSnapshotable
 
 
-class JsonError(ValueError, Scribable):
+class JsonError(ValueError, Scribable, JsonSnapshotable):
   """Denotes an error relatived to invalid JSON."""
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.new(entity, 'Message', self.message)
+    if self.__cause:
+      snapshot.edge_builder.make(entity, 'CausedBy', str(self.__cause))
 
   def _make_scribe_parts(self, scribe):
     parts = [scribe.build_part('Message', self.message)]

@@ -15,7 +15,7 @@
 
 import unittest
 
-import citest.base.scribe
+from citest.base import JsonSnapshotHelper
 import citest.json_contract as jc
 import citest.json_contract.binary_predicate as bp
 
@@ -36,10 +36,8 @@ def bad_result(value, pred):
 
 
 class JsonBinaryPredicateTest(unittest.TestCase):
-  def assertEqual(self, a, b, msg=''):
-    if not msg:
-      msg = 'EXPECTED\n{0}\n\nGOT\n{1}'.format(a, b)
-    super(JsonBinaryPredicateTest, self).assertEqual(a, b, msg)
+  def assertEqual(self, expect, have, msg=''):
+    JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
 
   def assertGoodResult(self, expect_value, pred, got_result):
     """Assert that got_result is expect_value returned by pred as valid."""

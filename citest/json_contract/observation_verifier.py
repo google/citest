@@ -19,6 +19,7 @@
 import logging
 
 from ..base.scribe import Scribable
+from ..base import JsonSnapshotable
 from . import predicate
 
 
@@ -143,6 +144,21 @@ class ObservationVerifyResult(predicate.PredicateResult):
     self._bad_results = bad_results
     self._failed_constraints = failed_constraints
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    super(ObservationVerifyResult, self).export_to_json_snapshot(
+        snapshot, entity)
+    builder = snapshot.edge_builder
+    builder.make_input(entity, 'Observation', self._observation)
+    builder.make(entity, 'Failed Constraints', self._failed_constraints)
+    builder.make_output(entity, 'All results', self._all_results)
+    edge = builder.make(entity, 'Good Results', self._good_results)
+    if self._good_results:
+      edge.add_metadata('relation', 'VALID')
+    edge = builder.make(entity, 'Bad Results', self._bad_results)
+    if self._bad_results:
+      edge.add_metadata('relation', 'INVALID')
+
   def _make_scribe_parts(self, scribe):
     part_builder = scribe.part_builder
     parts = [
@@ -182,6 +198,42 @@ class ObservationVerifier(predicate.ValuePredicate):
   @property
   def title(self):
     return self._title
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    entity.add_metadata('_title', self._title)
+    disjunction = self._dnf_verifiers
+    builder = snapshot.edge_builder
+    builder.make(entity, 'Title', self._title)
+    if not disjunction:
+      builder.make_control(entity, 'Verifiers', None)
+      return
+
+    all_conjunctions = []
+    for conjunction in disjunction:
+      if len(conjunction) == 1:
+        # A special case to optimize the report to remove the conjunction
+        # wrapper since there is only one component anyway
+        all_conjunctions.append(snapshot.make_entity_for_data(conjunction[0]))
+      else:
+        conjunction_entity = snapshot.new_entity(summary='AND predicates')
+        builder.make(
+            conjunction_entity, 'Conjunction', conjunction, join='AND')
+        all_conjunctions.append(conjunction_entity)
+
+    if len(all_conjunctions) > 1:
+      # The general case of what we actually model
+      disjunction_entity = snapshot.new_entity(summary='OR expressions')
+      builder.make(
+        disjunction_entity, 'Disjunction', all_conjunctions, join='OR')
+    elif len(all_conjunctions) == 1:
+      # A special case to optimize the report to remove the disjunction
+      # since there is only one component anyay.
+      disjunction_entity = all_conjunctions[0]
+    else:
+      disjunction_entity = None
+
+    builder.make_control(entity, 'Verifiers', disjunction_entity)
 
   def _make_scribe_parts(self, scribe):
     def render_disjunction(out, disjunction):
@@ -275,7 +327,7 @@ class _VerifierBuilderWrapper(object):
     return self._verifier
 
 
-class ObservationVerifierBuilder(Scribable):
+class ObservationVerifierBuilder(Scribable, JsonSnapshotable):
   @property
   def title(self):
     return self._title
@@ -301,6 +353,15 @@ class ObservationVerifierBuilder(Scribable):
 
     # This is the term we're currently building.
     self._current_builder = None
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    entity.add_metadata('_title', self._title)
+    snapshot.edge_builder.make(entity, 'Title', self._title)
+    snapshot.edge_builder.make(
+        entity, 'Verifiers', self._dnf_verifier_builders)
+    super(ObservationVerifierBuilder, self).export_to_json_snapshot(
+        snapshot, entity)
 
   def _make_scribe_parts(self, scribe):
     parts = [

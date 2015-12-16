@@ -74,6 +74,14 @@ class UniversalOrExistentialPredicate(predicate.ValuePredicate):
             and self._is_universal == op._is_universal
             and self._element_pred == op._element_pred)
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    builder = snapshot.edge_builder
+    # 2200 is FORALL
+    # 2203 is EXISTS
+    builder.make_control(
+        entity, 'Operator', u'\u2200' if self._is_universal else u'\u2203')
+    builder.make_mechanism(entity, 'Elem Pred', self._element_pred)
+
   def _apply_existential(self, value):
     """Helper function that interprets predicate as existential predicate.
 
