@@ -26,6 +26,7 @@ from html_scribe import(
     HTML_SCRIBE_REGISTRY,
     HtmlScribe)
 
+from json_scrubber import JsonScrubber
 from base_test_case import BaseTestCase
 from test_runner import TestRunner
 

@@ -23,7 +23,7 @@ import threading
 # Our modules.
 from ..service_testing import cli_agent
 from ..service_testing import testable_agent
-
+from ..base.json_scrubber import JsonScrubber
 
 class PassphraseInjector(object):
   """Monitors a file descriptor and injects passphrases as requested."""
@@ -160,7 +160,7 @@ class GCloudAgent(cli_agent.CliAgent):
           The file should be made user read-only (400) for security.
       trace: Whether to trace all the calls by default for debugging.
     """
-    super(GCloudAgent, self).__init__('gcloud')
+    super(GCloudAgent, self).__init__('gcloud', output_scrubber=JsonScrubber())
     self._project = project
     self._zone = zone
     self._ssh_passphrase_file = ssh_passphrase_file
@@ -312,7 +312,7 @@ class GCloudAgent(cli_agent.CliAgent):
     cmdline = self.build_gcloud_command_args(
       gce_type, args, format=format, project=self._project,
       zone=self._zone if needs_zone else None)
-    return self.run(cmdline, self.trace)
+    return self.run(cmdline, trace=self.trace)
 
 
   def describe_resource(self, gce_type, name, format='json', extra_args=None):
@@ -333,5 +333,5 @@ class GCloudAgent(cli_agent.CliAgent):
         gce_type, args, format=format, project=self._project,
         zone=self._zone if needs_zone else None)
 
-    return self.run(cmdline, self.trace)
+    return self.run(cmdline, trace=self.trace)
 
