@@ -48,6 +48,11 @@ class BinaryPredicate(predicate.ValuePredicate):
             and self._name == op._name
             and self._operand == op._operand)
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make(entity, 'Name', self._name)
+    snapshot.edge_builder.make_control(entity, 'Operand', self._operand)
+
   def _make_scribe_parts(self, scribe):
     # Do not inherit from the base class because it will add our string
     # value, which would be superfluous.
@@ -151,9 +156,9 @@ class DictSubsetPredicate(BinaryPredicate):
       # THEN ensure that |a_item| is a subset of |b_item|.
       if isinstance(b_value, list):
         elem_pred = (LIST_SUBSET
-                       if isinstance(a_value, list)
-                       else qp.UniversalOrExistentialPredicateFactory(
-                           False, CONTAINS))
+                        if isinstance(a_value, list)
+                        else qp.UniversalOrExistentialPredicateFactory(
+                            False, CONTAINS))
         result = elem_pred(a_value)(b_value)
         if not result:
           return result.clone_with_new_context(source, namepath)
@@ -229,8 +234,8 @@ class ListSubsetPredicate(_BaseListMembershipPredicate):
 
   def __init__(self, operand, strict=False):
     if not isinstance(operand, list):
-        raise TypeError(
-            '{0} is not a list: {1!r}'.format(operand.__class__, operand))
+      raise TypeError(
+          '{0} is not a list: {1!r}'.format(operand.__class__, operand))
     super(ListSubsetPredicate, self).__init__(
         'has-subset', operand, strict=strict)
 
@@ -430,9 +435,9 @@ LIST_EQ = StandardBinaryPredicateFactory(
 LIST_NE = StandardBinaryPredicateFactory(
     '!=', lambda a, b: a != b, operand_type=list)
 LIST_MEMBER = (lambda operand, strict=False:
-                 ListMembershipPredicate(operand, strict=strict))
+                  ListMembershipPredicate(operand, strict=strict))
 LIST_SUBSET = (lambda operand, strict=False:
-                 ListSubsetPredicate(operand, strict=strict))
+                  ListSubsetPredicate(operand, strict=strict))
 
 CONTAINS = ContainsPredicate
 EQUIVALENT = EquivalentPredicate

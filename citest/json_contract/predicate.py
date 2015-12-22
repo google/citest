@@ -16,8 +16,10 @@
 
 
 from ..base.scribe import Scribable
+from ..base import JsonSnapshotable
 
-class ValuePredicate(Scribable):
+
+class ValuePredicate(Scribable, JsonSnapshotable):
   """Base class denoting a predicate that determines if a JSON value is ok.
 
    This class must be specialized with a __call__ method that takes a single
@@ -48,7 +50,7 @@ class ValuePredicate(Scribable):
     return not self.__eq__(op)
 
 
-class PredicateResult(Scribable):
+class PredicateResult(Scribable, JsonSnapshotable):
   """Base class for predicate results.
 
   Attributes:
@@ -76,6 +78,19 @@ class PredicateResult(Scribable):
   @property
   def valid(self):
     return self._valid
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    builder = snapshot.edge_builder
+    verified_relation = builder.determine_valid_relation(self._valid)
+    builder.make(entity, 'Valid', self._valid, relation=verified_relation)
+    if self._comment:
+      builder.make(entity, 'Comment', self._comment)
+    if self._cause:
+      builder.make(entity, 'Cause', self._cause)
+
+    # Set a default relation so that this can be picked up when it appears
+    # as a list element.
+    entity.add_metadata('_default_relation', verified_relation)
 
   def _make_scribe_parts(self, scribe):
     parts = []
@@ -141,11 +156,27 @@ class CompositePredicateResult(PredicateResult):
   def results(self):
     return self._results
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    builder = snapshot.edge_builder
+    summary = builder.object_count_to_summary(
+        self._results, subject='mapped result')
+    builder.make_mechanism(entity, 'Predicate', self._pred)
+    builder.make(entity, '#', len(self._results))
+
+    result_entity = snapshot.new_entity(summary='Composite Results')
+    for index, result in enumerate(self._results):
+        builder.make(result_entity, '[{0}]'.format(index), result,
+                     relation=builder.determine_valid_relation(result),
+                     summary=result.summary)
+    builder.make(entity, 'Results', result_entity,
+                 relation=builder.determine_valid_relation(self))
+    super(CompositePredicateResult, self).export_to_json_snapshot(
+        snapshot, entity)
+
   def _make_scribe_parts(self, scribe):
     parts = []
     parts.append(
-        scribe.part_builder.build_mechanism_part('Predicate', self._pred,
-                                                 summary=self._pred.__class__))
+        scribe.part_builder.build_mechanism_part('Predicate', self._pred))
 
     summary = scribe.make_object_count_summary(
         self._results, subject='mapped result')

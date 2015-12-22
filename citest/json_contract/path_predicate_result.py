@@ -38,6 +38,13 @@ class JsonPathResult(predicate.PredicateResult):
   def source(self):
     return self._source
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    builder = snapshot.edge_builder
+    builder.make_control(entity, 'Path', self._path)
+    builder.make_input(entity, 'Source', self._source, format='json')
+    builder.make_output(entity, 'Trace', self._path_trace)
+    super(JsonPathResult, self).export_to_json_snapshot(snapshot, entity)
+
   def _make_scribe_parts(self, scribe):
     parts = [scribe.build_part('Path', self._path,
                                relation=scribe.part_builder.CONTROL),
@@ -111,6 +118,12 @@ class JsonFoundValueResult(JsonPathResult):
   @property
   def pred(self):
     return self._pred
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    snapshot.edge_builder.make_mechanism(entity, 'Predicate', self._pred)
+    snapshot.edge_builder.make_input(entity, 'Value', self._value,
+                                     format='json')
+    super(JsonFoundValueResult, self).export_to_json_snapshot(snapshot, entity)
 
   def _make_scribe_parts(self, scribe):
     parts = [scribe.build_part('Predicate', self._pred,

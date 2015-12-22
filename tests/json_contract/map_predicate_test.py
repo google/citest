@@ -15,7 +15,7 @@
 
 import unittest
 
-from citest.base import Scribe
+from citest.base import JsonSnapshotHelper
 import citest.json_contract as jc
 import citest.json_contract.map_predicate as mp
 
@@ -32,10 +32,8 @@ _MULTI_ARRAY = [ _LETTER_DICT, _NUMBER_DICT, _LETTER_DICT, _NUMBER_DICT]
 
 
 class JsonMapPredicateTest(unittest.TestCase):
-  def assertEqual(self, a, b, msg=''):
-    if not msg:
-      msg = 'EXPECT\n{0}\nGOT\n{1}'.format(a, b)
-    super(JsonMapPredicateTest, self).assertEqual(a, b, msg)
+  def assertEqual(self, expect, have, msg=''):
+    JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
 
   def _try_map(self, pred, obj, expect_ok, expect_map_result=None,
                   dump=False, min=1):
@@ -51,13 +49,11 @@ class JsonMapPredicateTest(unittest.TestCase):
     """
     map_result = jc.MapPredicate(pred, min=min)(obj)
     if dump:
-      print 'MAP_RESULT:\n{0}\n'.format(Scribe().render_to_string(map_result))
+      print 'MAP_RESULT:\n{0}\n'.format(
+        JsonSnapshotHelper.ValueToEncodedJson(map_result))
 
     if expect_map_result:
-      self.assertEqual(
-        expect_map_result, map_result,
-        '\nEXPECT {0}\n\nACTUAL {1}'.format(
-            expect_map_result, map_result))
+      self.assertEqual(expect_map_result, map_result)
     error_msg = '{expect_ok} != {ok}\n{map_result}'.format(
       expect_ok=expect_ok, ok=map_result.__nonzero__(),
       map_result=map_result)
@@ -66,10 +62,11 @@ class JsonMapPredicateTest(unittest.TestCase):
   def test_map_predicate_good_1(self):
     aA = jc.PathPredicate('a', jc.STR_EQ('A'))
 
+    aA_attempt = mp.ObjectResultMapAttempt(_LETTER_DICT, aA(_LETTER_DICT))
     expect_result = mp.MapPredicateResult(
       valid=True, pred=aA,
-      obj_list=[_LETTER_DICT], all_results=[aA(_LETTER_DICT)],
-      good_map=[mp.ObjectResultMapAttempt(_LETTER_DICT, aA(_LETTER_DICT))],
+      obj_list=[_LETTER_DICT], all_results=[aA_attempt.result],
+      good_map=[aA_attempt],
       bad_map=[])
 
     self._try_map(aA, _LETTER_DICT, True, expect_result)
@@ -78,7 +75,7 @@ class JsonMapPredicateTest(unittest.TestCase):
     aA = jc.PathPredicate('a', jc.STR_EQ('A'))
 
     expect_result = mp.MapPredicateResult(
-      valid=True, pred=aA,
+      valid=False, pred=aA,
       obj_list=[_NUMBER_DICT], all_results=[aA(_NUMBER_DICT)],
       bad_map=[mp.ObjectResultMapAttempt(_NUMBER_DICT, aA(_NUMBER_DICT))],
       good_map=[])
@@ -88,12 +85,16 @@ class JsonMapPredicateTest(unittest.TestCase):
   def test_map_predicate_good_and_bad_min_1(self):
     aA = jc.PathPredicate('a', jc.STR_EQ('A'))
 
+    aa_number_attempt = mp.ObjectResultMapAttempt(_NUMBER_DICT,
+                                                  aA(_NUMBER_DICT))
+    aa_letter_attempt = mp.ObjectResultMapAttempt(_LETTER_DICT,
+                                                  aA(_LETTER_DICT))
     expect_result = mp.MapPredicateResult(
       valid=True, pred=aA,
       obj_list=[_NUMBER_DICT, _LETTER_DICT],
-      all_results=[aA(_NUMBER_DICT), aA(_LETTER_DICT)],
-      good_map=[mp.ObjectResultMapAttempt(_LETTER_DICT, aA(_LETTER_DICT))],
-      bad_map=[mp.ObjectResultMapAttempt(_NUMBER_DICT, aA(_NUMBER_DICT))])
+      all_results=[aa_number_attempt.result, aa_letter_attempt.result],
+      good_map=[aa_letter_attempt],
+      bad_map=[aa_number_attempt])
 
     self._try_map(aA, [_NUMBER_DICT, _LETTER_DICT], True, expect_result)
 
@@ -113,11 +114,12 @@ class JsonMapPredicateTest(unittest.TestCase):
   def test_map_not_found(self):
     aA = jc.PathPredicate('a', jc.STR_EQ('A'))
 
+    aa_composite_attempt = mp.ObjectResultMapAttempt(_COMPOSITE_DICT,
+                                                     aA(_COMPOSITE_DICT))
     expect_result = mp.MapPredicateResult(
-      valid=True, pred=aA,
-      obj_list=[_COMPOSITE_DICT], all_results=[aA(_COMPOSITE_DICT)],
-      bad_map=[mp.ObjectResultMapAttempt(_COMPOSITE_DICT,
-                                          aA(_COMPOSITE_DICT))],
+      valid=False, pred=aA,
+      obj_list=[_COMPOSITE_DICT], all_results=[aa_composite_attempt.result],
+      bad_map=[aa_composite_attempt],
       good_map=[])
 
     self._try_map(aA, _COMPOSITE_DICT, False, expect_result)

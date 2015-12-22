@@ -14,10 +14,11 @@
 
 """Support module for locating JSON objects that have certain field values."""
 
+from . import binary_predicate
 from . import lookup_predicate as lookup
 from . import path_predicate_result
 from . import predicate
-from . import quantification_predicate
+from . import quantification_predicate2
 
 
 class PathPredicate(predicate.ValuePredicate):
@@ -34,6 +35,11 @@ class PathPredicate(predicate.ValuePredicate):
   @property
   def pred(self):
     return self._pred
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_control(entity, 'Path', self._path)
+    snapshot.edge_builder.make_mechanism(entity, 'Predicate', self._pred)
 
   def _make_scribe_parts(self, scribe):
     parts = [scribe.build_part('Path', self._path,
@@ -117,4 +123,4 @@ class PathElementsContainPredicate(PathPredicate):
   """Specialization of PathPredicate that forces EXISTS_CONTAINS predicate."""
   def __init__(self, path, operand):
     super(PathElementsContainPredicate, self).__init__(
-        path, quantification_predicate.EXISTS_CONTAINS(operand))
+        path, quantification_predicate2.EXISTS_CONTAINS(operand))

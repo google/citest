@@ -36,6 +36,11 @@ class ConjunctivePredicate(predicate.ValuePredicate):
     return (self.__class__ == pred.__class__
             and self._conjunction == pred._conjunction)
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make(entity, 'Conjunction', self._conjunction,
+                               join='AND')
+
   def _make_scribe_parts(self, scribe):
     parts = []
     for operand in self._conjunction:
@@ -78,6 +83,11 @@ class DisjunctivePredicate(predicate.ValuePredicate):
   def append(self, pred):
     self._disjunction.append(pred)
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make(entity, 'Disjunction', self._disjunction,
+                               join='OR')
+
   def _make_scribe_parts(self, scribe):
     parts = []
     for operand in self._disjunction:
@@ -107,8 +117,8 @@ class NegationPredicate(predicate.ValuePredicate):
   def predicate(self):
     return self._pred
 
-  def __init__(self, predicate):
-    self._pred = predicate
+  def __init__(self, pred):
+    self._pred = pred
 
   def __str__(self):
     return 'NOT ({0})'.format(self._pred)
@@ -116,6 +126,10 @@ class NegationPredicate(predicate.ValuePredicate):
   def __eq__(self, other):
     return (self.__class__ == other.__class__
             and self._pred == other._pred)
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_mechanism(entity, 'Predicate', self._pred)
 
   def _make_scribe_parts(self, scribe):
     return [scribe.part_builder.build_mechanism_part('Predicate', self._pred)]
@@ -175,6 +189,11 @@ class ConditionalPredicate(predicate.ValuePredicate):
     return (self.__class__ == other.__class__
             and self._if_pred == other._if_pred
             and self._then_pred == other._then_pred)
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_mechanism(entity, 'If', self._if_pred)
+    snapshot.edge_builder.make_mechanism(entity, 'Then', self._then_pred)
 
   def _make_scribe_parts(self, scribe):
     return [scribe.part_builder.build_mechanism_part('If', self._if_pred),

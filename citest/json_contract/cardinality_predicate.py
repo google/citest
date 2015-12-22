@@ -39,7 +39,7 @@ class CardinalityResult(predicate.PredicateResult):
 
   def summary_string(self):
     raise NotImplemented('{0}.summary_string not implemented.'.format(
-            self.__class__))
+        self.__class__))
 
   def __init__(self, source, count, pred, pred_result, valid=False):
     super(CardinalityResult, self).__init__(valid)
@@ -50,7 +50,7 @@ class CardinalityResult(predicate.PredicateResult):
 
   def __str__(self):
     return '{summary} detail={detail}'.format(
-      summary=self.summary_string(), detail=self._pred_result)
+        summary=self.summary_string(), detail=self._pred_result)
 
   def __eq__(self, event):
     return (self.__class__ == event.__class__
@@ -58,6 +58,16 @@ class CardinalityResult(predicate.PredicateResult):
             and self._pred == event._pred
             and self._source == event._source
             and self._pred_result == event._pred_result)
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    builder = snapshot.edge_builder
+    count_relation = builder.determine_valid_relation(self)
+    result_relation = builder.determine_valid_relation(self._pred_result)
+    builder.make(entity, 'Count', self._count, relation=count_relation)
+    builder.make_mechanism(entity, 'Predicate', self._pred)
+    builder.make_input(entity, 'Source', self._source, format='json')
+    builder.make(entity, 'Result', self._pred_result, relation=result_relation)
 
   def _make_scribe_parts(self, scribe):
     count_relation = scribe.part_builder.determine_verified_relation(self)
@@ -74,9 +84,9 @@ class ConfirmedCardinalityResult(CardinalityResult):
   """Denotes a CardinalityPredicate that was satisfied."""
 
   def __init__(self, source, count, pred, pred_result, valid=True):
-      super(ConfirmedCardinalityResult, self).__init__(
-          source=source, count=count, pred=pred, pred_result=pred_result,
-          valid=valid)
+    super(ConfirmedCardinalityResult, self).__init__(
+        source=source, count=count, pred=pred, pred_result=pred_result,
+        valid=valid)
 
   def summary_string(self):
     if not self.count:
@@ -109,9 +119,9 @@ class MissingValueCardinalityResult(FailedCardinalityResult):
   """Denotes a failure because a value did not exist where one was expected."""
 
   def __init__(self, source, pred, pred_result, valid=True, count=0):
-      super(MissingValueCardinalityResult, self).__init__(
-          valid=valid,
-          source=source, count=count, pred=pred, pred_result=pred_result)
+    super(MissingValueCardinalityResult, self).__init__(
+        valid=valid,
+        source=source, count=count, pred=pred, pred_result=pred_result)
 
   # pred is a CardinalityPredicate
   def summary_string(self):
@@ -159,6 +169,13 @@ class CardinalityPredicate(predicate.ValuePredicate):
   def predicate_string(self):
     return str(self.pred)
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.pred)
+    snapshot.edge_builder.make_control(entity, 'Min', self._min)
+    snapshot.edge_builder.make_control(entity, 'Max',
+                                       'Any' if self._max < 0 else self._max)
+
   def _make_scribe_parts(self, scribe):
     return [scribe.part_builder.build_mechanism_part('Predicate', self.pred),
             scribe.build_part('Min', self._min,
@@ -175,8 +192,8 @@ class CardinalityPredicate(predicate.ValuePredicate):
       max: The maximum number of path values we expect to find when applied.
     """
     if not isinstance(pred, predicate.ValuePredicate):
-     raise TypeError(
-        'Got {0}, expected jc.ValuePredicate'.format(pred.__class__))
+      raise TypeError(
+          'Got {0}, expected jc.ValuePredicate'.format(pred.__class__))
 
     self._map_pred = map_predicate.MapPredicate(pred, min=min, max=max)
     self._min = min
