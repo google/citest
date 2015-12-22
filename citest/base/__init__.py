@@ -13,6 +13,18 @@
 # limitations under the License.
 
 
+from snapshot import (
+    JsonSnapshotable,
+    JsonSnapshotHelper,
+    JsonSnapshot,
+    Edge,
+    SnapshotEntity)
+
+from journal import Journal
+
+# DEPRECATED(ewiseblatt): 20151214
+# Scribes are deprecated by snapshoting and journaling
+# however these are not yet integrated.
 from scribe import(
     Doodle,
     Scribable,
@@ -22,6 +34,10 @@ from scribe import(
     DEFAULT_SCRIBE_REGISTRY,
     DETAIL_SCRIBE_REGISTRY)
 
+# DEPRECATED(ewiseblatt): 20151214
+# Scribes are deprecated by snapshoting and journaling
+# however these are not yet integrated, nor is there an HTML converter
+# for journals yet.
 from html_scribe import(
     HTML_SCRIBE_REGISTRY,
     HtmlScribe)
