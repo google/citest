@@ -167,6 +167,15 @@ class GCloudAgent(cli_agent.CliAgent):
     self.trace = trace
     self.logger = logging.getLogger(__name__)
 
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    builder = snapshot.edge_builder
+    builder.make_control(entity, 'Project', self._project)
+    builder.make_control(entity, 'Zone', self._zone)
+    builder.make_control(entity, 'Passphrase File', self._ssh_passphrase_file)
+    builder.make(entity, 'Trace', self._trace)
+    super(GCloudAgent, self).export_to_json_snapshot(snapshot, entity)
+
   def _make_scribe_parts(self, scribe):
     parts = [
       scribe.build_part('Project', self._project),
@@ -334,4 +343,3 @@ class GCloudAgent(cli_agent.CliAgent):
         zone=self._zone if needs_zone else None)
 
     return self.run(cmdline, trace=self.trace)
-
