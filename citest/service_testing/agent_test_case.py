@@ -38,11 +38,162 @@ import traceback
 # Our modules.
 from ..base import args_util
 from ..base import scribe as base_scribe
+from ..base import JsonSnapshotable
 from .. import base
 from .scenario_test_runner import ScenarioTestRunner
 
 
 _DEFAULT_TEST_ID = time.strftime('%H%M%S')
+
+
+class OperationContractExecutionAttempt(JsonSnapshotable):
+  """Represents an individual attempt at running an OperationContract test case.
+
+  This class captures the attempt and results so that it can be recorded in
+  a snapshot.
+  """
+
+  @property
+  def default_relation(self):
+    """The default relation to assume when snapshotting.
+
+    In practice this attempt is one of many in a list. The default_relation
+    permits different elements to distinguish valid/invalid relationships.
+    """
+    if self.__verification is not None:
+      return 'VALID' if self.__verification else 'INVALID'
+    elif self.__exception is not None:
+      return 'ERROR'
+    else:
+      return None
+
+  def __init__(self, name):
+    """Constructor.
+
+    Args:
+      name: [string] The name of the operation is only used for reporting.
+    """
+    self.__start = time.time()
+    self.__stop = None
+    self.__name = name
+    self.__verification = None
+    self.__verification_summary = None
+    self.__status = None
+    self.__status_summary = None
+    self.__exception = None
+
+  def set_status(self, status, summary=""):
+    """Sets the final status of the operation.
+
+    Args:
+      status: [AgentOperationStatus] The citest status from the operation.
+      summary: [string] An optional summary of the status for reporting.
+    """
+    self.__stop = time.time()
+    self.__status = status
+    self.__status_summary = summary
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    builder = snapshot.edge_builder
+    default_relation = self.default_relation
+    if default_relation  is not None:
+      entity.add_metadata('_default_relation', default_relation)
+
+    if self.__status_summary:
+      entity.add_metadata('summary', self.__status_summary)
+    builder.make(entity, 'Name', self.__name)
+    builder.make(entity, 'Duration', self.__stop - self.__start)
+
+    if self.__status is not None:
+      edge = builder.make(entity, 'OperationStatus', self.__status)
+      if self.__status.finished:
+        edge.add_metadata(
+            'relation',
+            builder.determine_valid_relation(self.__status.finished_ok))
+
+    if self.__verification:
+      edge = builder.make(
+          entity, 'Verification', self.__verification,
+          relation=builder.determine_valid_relation(self.__verification))
+      if self.__verification_summary:
+        edge.add_metadata('summary', self.__verification_summary)
+
+
+class OperationContractExecutionTrace(JsonSnapshotable):
+  """Represents the execution and evaluation of an OperationContract test case.
+  """
+
+  def __init__(self, test_case):
+    """Constructor."""
+    self.__test_case = test_case
+    self.__start = time.time()
+    self.__end = None
+    self.__verify_results = None
+    self.__operation_end = None
+    self.__operation_summary = None
+    self.__exception = None
+    self.__attempts = []
+
+  def set_verify_results(self, verify_results):
+    """Sets the verification results once they are known."""
+    self.__end = time.time()
+    self.__verify_results = verify_results
+
+  def set_exception(self, ex):
+    """Sets the exception if one was encountered."""
+    self.__end = time.time()
+    self.__exception = ex
+
+  def set_operation_summary(self, summary):
+    """Sets the summary for this execution trace, if one is known."""
+    self.__operation_end = time.time()
+    self.__operation_summary = summary
+
+  def new_attempt(self):
+    """Adds a new attempt record.
+
+    The details of the attempt should be added into the result.
+
+    Returns:
+       OperationContractExecutionAttempt to update with attempt details.
+    """
+    attempt = OperationContractExecutionAttempt(len(self.__attempts))
+    self.__attempts.append(attempt)
+    return attempt
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    entity.add_metadata('_title', self.__test_case.operation.title)
+    builder = snapshot.edge_builder
+    builder.make(entity, 'Test Case', self.__test_case)
+    if self.__verify_results is not None:
+      entity.add_metadata(
+          '_default_relation',
+          builder.determine_valid_relation(self.__verify_results))
+      builder.make(
+          entity, 'Verification', self.__verify_results,
+          relation=builder.determine_valid_relation(self.__verify_results))
+    elif self.__exception is not None:
+      entity.add_metadata('_default_relation', 'ERROR')
+
+    if self.__attempts:
+      edge = builder.make(entity, 'Attempts', list(reversed(self.__attempts)))
+      final_relation = self.__attempts[-1].default_relation
+      if final_relation is not None:
+        edge.add_metadata('relation', final_relation)
+        entity.add_metadata('_default_relation', final_relation)
+
+    builder.make(entity, 'TestDuration', self.__end - self.__start)
+    if self.__exception:
+      builder.make_error(entity, 'Exception', self.__exception,
+                         format='pre')
+
+    if self.__operation_end is not None:
+      builder.make(entity, 'OperationDuration',
+                   self.__operation_end - self.__start)
+      builder.make(entity, 'VerificationDuration',
+                   self.__end - self.__operation_end)
 
 
 class AgentTestScenario(object):
@@ -139,6 +290,11 @@ class AgentTestCase(base.BaseTestCase):
     """The Scribe used for producing the test report."""
     return ScenarioTestRunner.global_runner().report_scribe
 
+  @property
+  def report_journal(self):
+    """The Journal used for producing the test report."""
+    return ScenarioTestRunner.global_runner().report_journal
+
   def report(self, obj):
     """Write the object state into the test report."""
     ScenarioTestRunner.global_runner().report(obj)
@@ -153,12 +309,15 @@ class AgentTestCase(base.BaseTestCase):
     """Return the primary TestableAgent for the current test scenario."""
     return self.scenario.agent
 
-  def assertContract(self, contract, report_section):
+  def verifyContract(self, contract, report_section):
     """Verify the specified contract holds.
 
     Args:
       contract: [JsonContract] To verify.
       report_section: [ScribeRendererSection] To report verification into.
+
+    Returns:
+      ContractVerifyResults
     """
     # pylint: disable=invalid-name
     verify_results = contract.verify()
@@ -182,7 +341,23 @@ class AgentTestCase(base.BaseTestCase):
         self.report_scribe.part_builder.build_nested_part(
             name='Verification', value=verify_results,
             summary=summary, relation=relation))
+    return verify_results
 
+  def assertContract(self, contract, report_section):
+    """Verify the specified contract holds, raise and exception if not."""
+    # pylint: disable=invalid-name
+    verify_results = self.verifyContract(contract, report_section)
+    self.assertVerifyResults(verify_results)
+
+  def assertVerifyResults(self, verify_results):
+    """Assert that the results are valid.
+    Args:
+        verify_results: [ContractVerifyResults]
+    Raises:
+        AssertionError if not.
+    """
+    # pylint: disable=invalid-name
+    scribe = base_scribe.Scribe(base_scribe.DETAIL_SCRIBE_REGISTRY)
     self.assertTrue(
         verify_results,
         'Contract clauses failed:\n{summary}\n{detail}'.format(
@@ -291,21 +466,28 @@ class AgentTestCase(base.BaseTestCase):
               secs=retry_interval_secs))
 
     section = self.make_test_case_report_section(test_case)
+    execution_trace = OperationContractExecutionTrace(test_case)
+    verify_results = None
+
     try:
       max_tries = 1 + max_retries
       for i in range(max_tries):
+        attempt_info = execution_trace.new_attempt()
         status = None
         status = test_case.operation.execute(agent=self.testable_agent)
         status.wait(trace_every=full_trace)
 
         summary = status.error or ('Operation status OK' if status.finished_ok
                                    else 'Operation status Unknown')
+        attempt_info.set_status(status, summary)
+
         section.parts.append(
             self.report_scribe.part_builder.build_input_part(
                 name='Attempt {count}'.format(count=i),
                 value=status, summary=summary))
 
         if not status.exception_details:
+          execution_trace.set_operation_summary('Completed test.')
           break
         if max_tries - i > 1:
           self.logger.warning(
@@ -313,17 +495,25 @@ class AgentTestCase(base.BaseTestCase):
               status.exception_details, retry_interval_secs)
           time.sleep(retry_interval_secs)
         elif max_tries > 1:
-          self.logger.error('Giving up retries.')
+          execution_trace.set_operation_summary('Gave up retrying operation.')
+          self.logger.error('Giving up retrying test.')
 
-      self.assertFinalStatusOk(status, timeout_ok=timeout_ok)
-      self.assertContract(test_case.contract, section)
-    except Exception as ex:
+      verify_results = self.verifyContract(test_case.contract, section)
+      execution_trace.set_verify_results(verify_results)
+    except BaseException as ex:
       error = base_scribe.Scribe().render_to_string(status)
+      execution_trace.set_exception(ex)
+      section.parts.append(self.report_scribe.build_part('EXCEPTION', ex))
       self.logger.error('Test failed with exception: %s', ex)
+
       self.logger.error('Last status was:\n%s', error)
       self.logger.debug('Exception was at:\n%s', traceback.format_exc())
-      section.parts.append(self.report_scribe.build_part('EXCEPTION', ex))
       raise
     finally:
       self.log_end_test(test_case.title)
       self.report(section)
+      self.report(execution_trace)
+
+      self.assertFinalStatusOk(status, timeout_ok=timeout_ok)
+      if verify_results is not None:
+        self.assertVerifyResults(verify_results)
