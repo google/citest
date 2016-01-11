@@ -54,16 +54,23 @@ class OperationContractExecutionAttempt(JsonSnapshotable):
   """
 
   @property
+  def completed(self):
+    return self.__stop is not None
+
+  @property
   def default_relation(self):
     """The default relation to assume when snapshotting.
+
+    For more information on the use of the default_relation snapshotting
+    annotation, see base/snapshot.py SnapshotEntity.
 
     In practice this attempt is one of many in a list. The default_relation
     permits different elements to distinguish valid/invalid relationships.
     """
-    if self.__verification is not None:
-      return 'VALID' if self.__verification else 'INVALID'
-    elif self.__exception is not None:
+    if self.__exception is not None:
       return 'ERROR'
+    elif self.__verification is not None:
+      return 'VALID' if self.__verification else 'INVALID'
     else:
       return None
 
@@ -81,6 +88,10 @@ class OperationContractExecutionAttempt(JsonSnapshotable):
     self.__status = None
     self.__status_summary = None
     self.__exception = None
+
+  def set_exception(self, exception):
+    self.__stop = time.time()
+    self.__exception = exception
 
   def set_status(self, status, summary=""):
     """Sets the final status of the operation.
@@ -111,6 +122,9 @@ class OperationContractExecutionAttempt(JsonSnapshotable):
         edge.add_metadata(
             'relation',
             builder.determine_valid_relation(self.__status.finished_ok))
+
+    if self.__exception is not None:
+      builder.make_error(entity, 'Exception', self.__exception)
 
     if self.__verification:
       edge = builder.make(
@@ -165,17 +179,14 @@ class OperationContractExecutionTrace(JsonSnapshotable):
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     entity.add_metadata('_title', self.__test_case.operation.title)
+
     builder = snapshot.edge_builder
     builder.make(entity, 'Test Case', self.__test_case)
-    if self.__verify_results is not None:
-      entity.add_metadata(
-          '_default_relation',
-          builder.determine_valid_relation(self.__verify_results))
-      builder.make(
-          entity, 'Verification', self.__verify_results,
-          relation=builder.determine_valid_relation(self.__verify_results))
-    elif self.__exception is not None:
-      entity.add_metadata('_default_relation', 'ERROR')
+
+    my_default_relation = None
+    if self.__exception is not None:
+      my_default_relation = 'ERROR'
+      builder.make_error(entity, 'Exception', self.__exception, format='pre')
 
     if self.__attempts:
       edge = builder.make(entity, 'Attempts', list(reversed(self.__attempts)))
@@ -184,10 +195,16 @@ class OperationContractExecutionTrace(JsonSnapshotable):
         edge.add_metadata('relation', final_relation)
         entity.add_metadata('_default_relation', final_relation)
 
+    if self.__verify_results is not None:
+      verification_relation = builder.determine_valid_relation(
+          self.__verify_results)
+      my_default_relation = my_default_relation or verification_relation
+      builder.make(
+          entity, 'Verification', self.__verify_results,
+          relation=verification_relation)
+
+    entity.add_metadata('_default_relation', my_default_relation)
     builder.make(entity, 'TestDuration', self.__end - self.__start)
-    if self.__exception:
-      builder.make_error(entity, 'Exception', self.__exception,
-                         format='pre')
 
     if self.__operation_end is not None:
       builder.make(entity, 'OperationDuration',
@@ -364,7 +381,8 @@ class AgentTestCase(base.BaseTestCase):
             summary=verify_results.enumerated_summary_message,
             detail=scribe.render_to_string(verify_results)))
 
-  def assertFinalStatusOk(self, status, timeout_ok=False):
+  def verifyFinalStatusOk(self, status, timeout_ok=False,
+                          final_attempt=None, execution_trace=None):
     """Verify that an agent request completed successfully.
 
     This is used to verify the messaging with the agent completed as expected
@@ -373,7 +391,18 @@ class AgentTestCase(base.BaseTestCase):
     Args:
       status: [AgentOperationStatus] The operation status.
       timeout_ok: [bool] If True then a timeout status is acceptable.
+      final_attempt: [OperationContractExecutionAttempt]
+      execution_trace: [OperationContractExecutionTrace]
+
+    Returns:
+      True if final status is ok, otherwise false.
     """
+    if status is None:
+      error = 'Never received a final status.'
+      final_attempt.set_exception(error)
+      execution_trace.set_exception(error)
+      return False
+
     # pylint: disable=invalid-name
     # This is not because we dont want there to be an "exception".
     # Rather, we want the unit test to directly report what they were.
@@ -383,20 +412,33 @@ class AgentTestCase(base.BaseTestCase):
 
     if not status.finished:
       if timeout_ok:
+        warning = 'Never completed, but timeouts are ok'
+        final_attempt.set_exception(warning)
+        execution_trace.set_exception(warning)
         self.logger.warning(
             'WARNING: request never completed [%s], but that is ok.',
             status.current_state)
-        return
+        return True
 
     if status.timed_out:
+      warning = 'Request timed out and never completed.'
+      final_attempt.set_exception(warning)
+      execution_trace.set_exception(warning)
       self.logger.warning(
           'WARNING: It appears the status has timed out. Continuing anyway.')
-      return
+      return True
 
+    if not status.finished_ok:
+      final_attempt.set_exception('Did not finish OK.')
+      execution_trace.set_exception('Did not finish OK.')
+      return False
+
+    return True
+
+  def raiseFinalStatusFailed(self, status, final_attempt):
     scribe = base_scribe.Scribe(base_scribe.DETAIL_SCRIBE_REGISTRY)
     error = scribe.render_to_string(status)
-    self.assertTrue(
-        status.finished_ok, 'Did not finish_ok:\n{error}'.format(error=error))
+    raise AssertionError('{0}\n{1}'.format(status.exception, error))
 
   def make_test_case_report_section(self, test_case):
     """Creates a new section in the test report for the given test case.
@@ -468,9 +510,14 @@ class AgentTestCase(base.BaseTestCase):
     section = self.make_test_case_report_section(test_case)
     execution_trace = OperationContractExecutionTrace(test_case)
     verify_results = None
-
+    final_status_ok = None
     try:
       max_tries = 1 + max_retries
+
+      # We attempt the operation on the agent multiple times until the agent
+      # thinks that it succeeded. But we will only verify once the agent thinks
+      # it succeeded. We do not give multiple chances to satisfy the
+      # verification.
       for i in range(max_tries):
         attempt_info = execution_trace.new_attempt()
         status = None
@@ -498,22 +545,44 @@ class AgentTestCase(base.BaseTestCase):
           execution_trace.set_operation_summary('Gave up retrying operation.')
           self.logger.error('Giving up retrying test.')
 
+      # We're always going to verify the contract, even if the request itself
+      # failed. We set the verification on the attempt here, but do not assert
+      # anything. We'll assert below outside this try/catch handler.
       verify_results = self.verifyContract(test_case.contract, section)
       execution_trace.set_verify_results(verify_results)
+      final_status_ok = self.verifyFinalStatusOk(
+          status, timeout_ok=timeout_ok,
+          final_attempt=attempt_info,
+          execution_trace=execution_trace)
     except BaseException as ex:
-      error = base_scribe.Scribe().render_to_string(status)
       execution_trace.set_exception(ex)
-      section.parts.append(self.report_scribe.build_part('EXCEPTION', ex))
-      self.logger.error('Test failed with exception: %s', ex)
+      if not attempt_info.completed:
+        # Exception happened during the attempt as opposed to during our
+        # veriifcation afterwards.
+        attempt_info.set_exception(ex)
 
-      self.logger.error('Last status was:\n%s', error)
-      self.logger.debug('Exception was at:\n%s', traceback.format_exc())
+      try:
+        error = base_scribe.Scribe().render_to_string(status)
+        section.parts.append(self.report_scribe.build_part('EXCEPTION', ex))
+        self.logger.error('Test failed with exception: %s', ex)
+
+        self.logger.error('Last status was:\n%s', error)
+        self.logger.debug('Exception was at:\n%s', traceback.format_exc())
+      except BaseException as unexpected:
+        self.logger.error(
+          'Unexpected error {0}\nHandling original exception {1}',
+          unexpected, ex)
+        self.logger.debug('Unexpected exception was at:\n%s',
+                          traceback.format_exc())
       raise
     finally:
       self.log_end_test(test_case.title)
       self.report(section)
       self.report(execution_trace)
 
-      self.assertFinalStatusOk(status, timeout_ok=timeout_ok)
-      if verify_results is not None:
-        self.assertVerifyResults(verify_results)
+    if not final_status_ok:
+      self.raiseFinalStatusNotOk(status, attempt_info)
+
+    if verify_results is not None:
+      self.assertVerifyResults(verify_results)
+

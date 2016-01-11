@@ -40,13 +40,35 @@ class HttpResponseType(collections.namedtuple('HttpResponseType',
         self.retcode, self.output, self.error)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotable interface.
+
+    The payload will be emitted as a string. Consider calling
+    export_to_json_snapshot_with_format instead to specify the payload format.
+    """
+    self.export_to_json_snapshot_with_format(snapshot, entity, format=None)
+
+  def export_to_json_snapshot_with_format(self, snapshot, entity, format):
+    """Helper function for JsonSnapshotable, allowing a format specification.
+
+    Args:
+      snapshot: [JsonSnapshot] The snapshot owning the entity.
+      entity: [SnapshotEnityt] The snapshot entity to export into.
+      format: [string] If specified, add this value as a "format" metadata tag
+          for the payload value.
+    """
     builder = snapshot.edge_builder
-    builder.make_output(entity, 'HTTP Code', self.retcode)
+    edge = builder.make(entity, 'HTTP Code', self.retcode)
+    if not self.ok():
+      edge.add_metadata('relation', 'ERROR')
     if self.error:
-      builder.make_error(entity, 'Response Error', self.error)
-    if self.output:
-      builder.make_data(entity, 'Response Output', self.output)
+      edge = builder.make_error(entity, 'Response Error', self.error)
+      if format:
+        edge.add_metadata('format', format)
+    if self.output or not self.error:
+      # If no output on success, explicitly show that.
+      edge = builder.make_output(entity, 'Response Output', self.output)
+      if format:
+        edge.add_metadata('format', format)
 
   def _make_scribe_parts(self, scribe):
     """Implements Scribbable_make_scribe_parts interface."""
@@ -95,9 +117,14 @@ class HttpOperationStatus(testable_agent.AgentOperationStatus):
   def error(self):
     return self.__http_response.error
 
+  @property
+  def snapshot_format(self):
+    return self.__snapshot_format
+
   def __init__(self, operation, http_response):
     super(HttpOperationStatus, self).__init__(operation)
     self.__http_response = http_response
+    self.__snapshot_format = None
 
   def __cmp__(self, response):
     return self.__http_response.__cmp__(response.__http_response)
@@ -105,8 +132,21 @@ class HttpOperationStatus(testable_agent.AgentOperationStatus):
   def __str__(self):
     return 'http_response={0}'.format(self.__http_response)
 
+  def set_snapshot_format(self, format):
+    """Sets the snapshot format.
+
+    This could be a property setter, but is intended to be called by base
+    classes and not really by consumers.
+    """
+    self.__snapshot_format = format
+
   def set_http_response(self, http_response):
     self.__http_response = http_response
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    super(HttpOperationStatus, self).export_to_json_snapshot(snapshot, entity)
+    self.__http_response.export_to_json_snapshot_with_format(
+        snapshot, entity, format=self.__snapshot_format)
 
 
 class SynchronousHttpOperationStatus(HttpOperationStatus):
@@ -319,11 +359,17 @@ class BaseHttpOperation(testable_agent.AgentOperation):
     self.__path = path
     self.__data = data
     self.__status_class = status_class
+    self.__snapshot_format = None
+
+  def set_snapshot_format(self, format):
+    self.__snapshot_format = format
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     snapshot.edge_builder.make_control(entity, 'URL Path', self.__path)
-    snapshot.edge_builder.make_data(entity, 'Payload Data', self.__data)
+    edge = snapshot.edge_builder.make_data(entity, 'Payload Data', self.__data)
+    if self.__snapshot_format:
+      edge.add_metadata('format', self.__snapshot_format)
     super(BaseHttpOperation, self).export_to_json_snapshot(snapshot, entity)
 
   def _make_scribe_parts(self, scribe):

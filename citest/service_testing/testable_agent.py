@@ -30,8 +30,8 @@ import logging
 import time
 
 from ..base.scribe import Scribable
+from ..base import JsonScrubber
 from ..base import JsonSnapshotable
-
 
 class AgentError(Exception, Scribable, JsonSnapshotable):
   """Denotes an error reported by a TestableAgent."""
@@ -54,7 +54,7 @@ class AgentError(Exception, Scribable, JsonSnapshotable):
             and self.message == error.message)
 
 
-class TestableAgent(object):
+class TestableAgent(JsonSnapshotable):
   """Base class for adapting services and observers into the citest framework.
 
   The base class does not introduce any significant behavior, but the intent
@@ -88,6 +88,14 @@ class TestableAgent(object):
     self.logger = logging.getLogger(__name__)
     self.__default_max_wait_secs = -1
     self.__config_dict = {}
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    builder = snapshot.edge_builder
+
+    # Make sure there arent passwords in here.
+    scrubbed_config = JsonScrubber()(self.__config_dict)
+    builder.make_control(entity, 'Max Wait Secs', self.__default_max_wait_secs)
+    builder.make_control(entity, 'Configuration', scrubbed_config)
 
 
 class AgentOperationStatus(Scribable, JsonSnapshotable):
@@ -174,7 +182,7 @@ class AgentOperationStatus(Scribable, JsonSnapshotable):
     if self.error:
       builder.make_error(entity, 'Error', self.error)
     if self.detail:
-      builder.make(entity, 'Detail', self.detail, format='json')
+      builder.make_data(entity, 'Detail', self.detail, format='json')
     if self.exception_details:
       builder.make_error(entity, 'Exception Details', self.exception_details,
                          format='json')
@@ -257,6 +265,7 @@ class AgentOperationStatus(Scribable, JsonSnapshotable):
     trace = trace_every
 
     secs_remaining = max_secs
+    log_secs_remaining = 0
     while not self.finished:
         # pylint: disable=bad-indentation
         if secs_remaining <= 0 and max_secs > 0:
@@ -265,6 +274,17 @@ class AgentOperationStatus(Scribable, JsonSnapshotable):
 
         sleep_secs = (poll_every_secs if max_secs < 0
                       else min(secs_remaining, poll_every_secs))
+
+        # Write something into the log file to indicate we are still here.
+        if log_secs_remaining < sleep_secs:
+          logger.debug(
+              'Still waiting (polling again in %d) with %d secs remaining',
+              sleep_secs, secs_remaining)
+          # Hardcoded once-a-minute confirmation that we're still waiting.
+          log_secs_remaining = 60
+        else:
+          log_secs_remaining -= sleep_secs
+
         self._sleep(sleep_secs)
         secs_remaining -= sleep_secs
         self.refresh(trace=trace)
