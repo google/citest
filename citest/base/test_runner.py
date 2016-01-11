@@ -37,7 +37,7 @@ import unittest
 from . import args_util
 from . import html_scribe
 from .scribe import Doodle
-
+from . import (Journal, JsonSnapshotable)
 
 # If a -log_config is not provided, then use this.
 _DEFAULT_LOG_CONFIG = """{
@@ -192,6 +192,7 @@ class TestRunner(object):
     self.__options = None
     self.__bindings = {}
     self.__default_binding_overrides = {}
+    self.__journal = None
     self.__report_scribe = None
     self.__report_file = None
 
@@ -283,13 +284,22 @@ class TestRunner(object):
     os.fchmod(self.__report_file.fileno(), 0600)  # Protect sensitive data.
     self.__report_file.write(str(out))
 
+    filename = os.path.splitext(filename)[0] + '.journal.json'
+    journal_file = open(os.path.join(dirname, filename), 'w')
+    os.fchmod(journal_file.fileno(), 0600)  # Protect sensitive data.
+    self.__journal = Journal()
+    self.__journal.open_with_file(journal_file)
+
   def report(self, obj):
     """Add object to report.
 
     Args:
       obj: The object to write into the report.
     """
-    self.__report_file.write(self.__report_scribe.render_to_string(obj))
+    if isinstance(obj, JsonSnapshotable):
+      self.__journal.store(obj)
+    else:
+      self.__report_file.write(self.__report_scribe.render_to_string(obj))
 
   def finish_report_scribe(self):
     """Finish the reporting scribe and close the file."""
@@ -301,6 +311,8 @@ class TestRunner(object):
     self.__report_file.close()
     self.__report_scribe = None
     self.__report_file = None
+    self.__journal.terminate()
+    self.__journal = None
 
   def build_suite(self, test_case_list):
     """Build the TestSuite of tests to run."""
