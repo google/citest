@@ -22,26 +22,6 @@ from snapshot import (
 
 from journal import Journal
 
-# DEPRECATED(ewiseblatt): 20151214
-# Scribes are deprecated by snapshoting and journaling
-# however these are not yet integrated.
-from scribe import(
-    Doodle,
-    Scribable,
-    Scribe,
-    ScribeClassRegistry,
-    ScribeRendererSection,
-    DEFAULT_SCRIBE_REGISTRY,
-    DETAIL_SCRIBE_REGISTRY)
-
-# DEPRECATED(ewiseblatt): 20151214
-# Scribes are deprecated by snapshoting and journaling
-# however these are not yet integrated, nor is there an HTML converter
-# for journals yet.
-from html_scribe import(
-    HTML_SCRIBE_REGISTRY,
-    HtmlScribe)
-
 from json_scrubber import JsonScrubber
 from base_test_case import BaseTestCase
 from test_runner import TestRunner

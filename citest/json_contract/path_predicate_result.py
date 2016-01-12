@@ -45,15 +45,6 @@ class JsonPathResult(predicate.PredicateResult):
     builder.make_output(entity, 'Trace', self._path_trace)
     super(JsonPathResult, self).export_to_json_snapshot(snapshot, entity)
 
-  def _make_scribe_parts(self, scribe):
-    parts = [scribe.build_part('Path', self._path,
-                               relation=scribe.part_builder.CONTROL),
-             scribe.part_builder.build_input_part('Source', self._source),
-             scribe.part_builder.build_output_part('Trace', self._path_trace)]
-
-    inherited = super(JsonPathResult, self)._make_scribe_parts(scribe)
-    return parts + inherited
-
   def clone_in_context(self, source, path=None, path_trace=None):
     """Clone this instance, but treat the context as source/path instead.
 
@@ -124,15 +115,6 @@ class JsonFoundValueResult(JsonPathResult):
     snapshot.edge_builder.make_input(entity, 'Value', self._value,
                                      format='json')
     super(JsonFoundValueResult, self).export_to_json_snapshot(snapshot, entity)
-
-  def _make_scribe_parts(self, scribe):
-    parts = [scribe.build_part('Predicate', self._pred,
-                               relation=scribe.part_builder.MECHANISM),
-             scribe.build_part('Value', self._value,
-                               relation=scribe.part_builder.INPUT)]
-
-    inherited = super(JsonFoundValueResult, self)._make_scribe_parts(scribe)
-    return parts + inherited
 
   def _do_clone_in_context(self, source, final_path, final_path_trace):
     return self.__class__(

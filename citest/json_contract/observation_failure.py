@@ -32,10 +32,6 @@ class ObservationFailedError(predicate.PredicateResult):
         snapshot, entity)
     snapshot.edge_builder.make(entity, 'Failures', self._failures)
 
-  def _make_scribe_parts(self, scribe):
-    inherited = super(ObservationFailedError, self)._make_scribe_parts(scribe)
-    return [scribe.build_part('Failures', self._failures)] + inherited
-
   def __str__(self):
     return 'Observation has failures: {0}'.format(
         ','.join([str(x) for x in self._failures]))

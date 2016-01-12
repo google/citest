@@ -41,13 +41,6 @@ class PathPredicate(predicate.ValuePredicate):
     snapshot.edge_builder.make_control(entity, 'Path', self._path)
     snapshot.edge_builder.make_mechanism(entity, 'Predicate', self._pred)
 
-  def _make_scribe_parts(self, scribe):
-    parts = [scribe.build_part('Path', self._path,
-                               relation=scribe.part_builder.CONTROL),
-             scribe.build_part('Predicate', self._pred,
-                               relation=scribe.part_builder.MECHANISM)]
-    return parts
-
   def __init__(self, path, pred=None):
     """Construct finder instance.
     Args:

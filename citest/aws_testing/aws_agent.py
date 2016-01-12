@@ -62,14 +62,6 @@ class AwsAgent(st.CliAgent):
     builder.make_control(entity, 'Trace', self._trace)
     super(AwsAgent, self).export_to_json_snapshot(snapshot, entity)
 
-  def _make_scribe_parts(self, scribe):
-    parts = [
-      scribe.build_part('Profile', self._profile),
-      scribe.build_part('Region', self._region),
-      scribe.build_part('Trace', self._trace)]
-    inherited = super(AwsAgent, self)._make_scribe_parts(scribe)
-    return parts + inherited
-
   def build_aws_command_args(self, aws_command, args, aws_module=None,
                              profile=None, region=None):
     """Build commandline for a given resource type, independent of the action.

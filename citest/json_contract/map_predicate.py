@@ -15,14 +15,13 @@
 
 import collections
 
-from ..base.scribe import Scribable
 from ..base import JsonSnapshotable
 from . import predicate
 
 
 class ObjectResultMapAttempt(
     collections.namedtuple('ObjectResultMapAttempt', ['obj', 'result']),
-    Scribable, JsonSnapshotable):
+    JsonSnapshotable):
   @property
   def summary(self):
     return self.result.summary
@@ -44,14 +43,6 @@ class ObjectResultMapAttempt(
     builder.make(entity, 'Result', self.result,
                  relation=builder.determine_valid_relation(self.result),
                  summary=result_summary)
-
-  def _make_scribe_parts(self, scribe):
-    result_summary = '{name} {valid}'.format(
-        name=self.obj.__class__.__name__, valid=self.result.valid)
-    return [scribe.part_builder.build_input_part(
-                'Mapped Object', self.obj, summary=self.obj.__class__),
-            scribe.part_builder.build_output_part(
-                'Result', self.result, summary=result_summary)]
 
 
 class MapPredicateResultBuilder(object):
@@ -129,45 +120,6 @@ class MapPredicateResult(predicate.CompositePredicateResult):
     if self._bad_map:
       edge.add_metadata('relation', 'INVALID')
     super(MapPredicateResult, self).export_to_json_snapshot(snapshot, entity)
-
-  @staticmethod
-  def _render_mapping(out, result_map_attempt):
-    scribe = out.scribe
-    parts = [
-      scribe.part_builder.build_input_part(
-        name='Object',
-        value=result_map_attempt.obj,
-        summary=result_map_attempt.obj.__class__),
-
-      scribe.part_builder.build_output_part(
-        name='Result Map',
-        value=result_map_attempt.result,
-        summary=result_map_attempt.summary)]
-
-    scribe.render_parts(out, parts)
-
-
-  def _make_scribe_parts(self, scribe):
-    parts = [
-      scribe.part_builder.build_input_part(
-          name='Object List', value=self._obj_list,
-          summary=scribe.make_object_count_summary(
-              self._obj_list, subject='mapped object')),
-
-      scribe.part_builder.build_output_part(
-        name='Good Mappings', value=self._good_map,
-        renderer=self._render_mapping,
-        summary=scribe.make_object_count_summary(
-            self._good_map, subject='valid mapping')),
-
-      scribe.part_builder.build_output_part(
-        name='Bad Mappings', value=self._bad_map,
-        renderer=self._render_mapping,
-        summary=scribe.make_object_count_summary(
-            self._bad_map, subject='invalid mapping'))]
-
-    inherited = super(MapPredicateResult, self)._make_scribe_parts(scribe)
-    return parts + inherited
 
   def __init__(self, valid, pred, obj_list, all_results,
                good_map, bad_map, comment=None):
@@ -248,10 +200,3 @@ class MapPredicate(predicate.ValuePredicate):
                            summary=self._pred.__class__)
     builder.make_control(entity, 'Min', self._min)
     builder.make_control(entity, 'Max', self._max)
-
-  def _make_scribe_parts(self, scribe):
-    part_builder = scribe.part_builder
-    return [part_builder.build_mechanism_part(
-                'Mapped Predicate', self._pred, summary=self._pred.__class__),
-            scribe.build_part('Min', self._min, relation=part_builder.CONTROL),
-            scribe.build_part('Max', self._max, relation=part_builder.CONTROL)]

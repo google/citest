@@ -19,7 +19,7 @@ The TestRunner class is used to control the overall execution and reporting
 of tests. It is a unittest.TestRunner that will setup and tear down the global
 test environment, and delegate to another unittest.TestRunner to run the
 actual tests. This class wraps the delegate by setting up the bindings and
-reporting scribe while letting the injected TestRunner perform the actual
+reporting journal while letting the injected TestRunner perform the actual
 running and standard reporting hooks used by other tools.
 """
 
@@ -35,8 +35,6 @@ import unittest
 
 # Our modules.
 from . import args_util
-from . import html_scribe
-from .scribe import Doodle
 from . import (Journal, JsonSnapshotable)
 
 # If a -log_config is not provided, then use this.
@@ -128,11 +126,6 @@ class TestRunner(object):
     """
     return self.__default_binding_overrides
 
-  @property
-  def report_scribe(self):
-    """Returns a scribe used to render the generated report."""
-    return self.__report_scribe
-
   @staticmethod
   def global_runner():
     """Returns the TestRunner instance.
@@ -193,8 +186,6 @@ class TestRunner(object):
     self.__bindings = {}
     self.__default_binding_overrides = {}
     self.__journal = None
-    self.__report_scribe = None
-    self.__report_file = None
 
   def run(self, obj_or_suite):
     """Run tests.
@@ -262,29 +253,15 @@ class TestRunner(object):
     os.chmod(path, 0600)
 
 
-  def start_report_scribe(self):
-    """Sets up report_scribe and output file for high level reporting."""
-    if self.__report_scribe is not None:
-      raise ValueError('report_scribe already started.')
+  def start_report_journal(self):
+    """Sets up report_journal and output file for high level reporting."""
+    if self.__journal is not None:
+      raise ValueError('report_journal already started.')
 
     dirname = self.bindings.get('LOG_DIR', '.')
     filename = os.path.basename(self.bindings.get('LOG_FILENAME'))
-    filename = os.path.splitext(filename)[0] + '.html'
-    title = '{program} at {time}'.format(
-        program=os.path.basename(sys.argv[0]),
-        time=datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
-
-    self.__report_scribe = html_scribe.HtmlScribe()
-    out = Doodle(self.__report_scribe)
-    self.__report_scribe.write_begin_html_document(out, title)
-    out.write(
-        '<div class="title">{title}</div>\n'.format(title=title))
-    self.__report_scribe.write_key_html(out)
-    self.__report_file = open('{0}/{1}'.format(dirname, filename), 'w')
-    os.fchmod(self.__report_file.fileno(), 0600)  # Protect sensitive data.
-    self.__report_file.write(str(out))
-
     filename = os.path.splitext(filename)[0] + '.journal.json'
+
     journal_file = open(os.path.join(dirname, filename), 'w')
     os.fchmod(journal_file.fileno(), 0600)  # Protect sensitive data.
     self.__journal = Journal()
@@ -299,18 +276,12 @@ class TestRunner(object):
     if isinstance(obj, JsonSnapshotable):
       self.__journal.store(obj)
     else:
-      self.__report_file.write(self.__report_scribe.render_to_string(obj))
+      raise '{0} is not JsonSnashotable\n{1}'.format(type(obj), obj)
 
-  def finish_report_scribe(self):
-    """Finish the reporting scribe and close the file."""
-    if self.__report_scribe is None:
+  def finish_report_journal(self):
+    """Finish the reporting journal and close the file."""
+    if self.__journal is None:
       return
-    out = Doodle(self.__report_scribe)
-    self.__report_scribe.write_end_html_document(out)
-    self.__report_file.write(str(out))
-    self.__report_file.close()
-    self.__report_scribe = None
-    self.__report_file = None
     self.__journal.terminate()
     self.__journal = None
 
@@ -337,7 +308,7 @@ class TestRunner(object):
     """Suite helper function finishes initialization of global context.
 
     This includes processing command-line arguments to set the bindings in
-    the runner, and initializing the reporting scribe.
+    the runner, and initializing the reporting journal.
     """
     # Customize commandline arguments
     parser = argparse.ArgumentParser()
@@ -346,11 +317,11 @@ class TestRunner(object):
     self.__bindings.update(args_util.parser_args_to_bindings(self.__options))
 
     self.start_logging()
-    self.start_report_scribe()
+    self.start_report_journal()
 
   def _cleanup(self):
     """Helper function when running a suite for cleaning up the global context.
 
     This incudes closing out the report.
     """
-    self.finish_report_scribe()
+    self.finish_report_journal()

@@ -176,15 +176,6 @@ class GCloudAgent(cli_agent.CliAgent):
     builder.make(entity, 'Trace', self._trace)
     super(GCloudAgent, self).export_to_json_snapshot(snapshot, entity)
 
-  def _make_scribe_parts(self, scribe):
-    parts = [
-      scribe.build_part('Project', self._project),
-      scribe.build_part('Zone', self._zone),
-      scribe.build_part('Passphrase File', self._ssh_passphrase_file),
-      scribe.build_part('Trace', self._trace)]
-    inherited = super(GCloudAgent, self)._make_scribe_parts(scribe)
-    return parts + inherited
-
   @staticmethod
   def is_preview_type(gce_type):
     """Determine if the gce_type a gcloud preview type or not?

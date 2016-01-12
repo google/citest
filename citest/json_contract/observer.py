@@ -16,10 +16,9 @@
 """Observers make observations that are a collection of data to be verified."""
 
 
-from ..base.scribe import Scribable
 from ..base import JsonSnapshotable
 
-class Observation(Scribable, JsonSnapshotable):
+class Observation(JsonSnapshotable):
   """Tracks details for ObjectObserver and ObservationVerifier.
 
   Attributes:
@@ -48,14 +47,6 @@ class Observation(Scribable, JsonSnapshotable):
     builder.make_data(entity, 'Objects', self._objects,
                       format='json',
                       summary=builder.object_count_to_summary(self._objects))
-
-  def _make_scribe_parts(self, scribe):
-    parts = [
-      scribe.part_builder.build_output_part('Errors', self._errors),
-      scribe.part_builder.build_data_part(
-          'Objects', self._objects,
-          summary=scribe.make_object_count_summary(self._objects))]
-    return parts
 
   def __str__(self):
     return 'objects={0!r}  errors={1!r}'.format(
@@ -132,7 +123,7 @@ class Observation(Scribable, JsonSnapshotable):
     return True
 
 
-class ObjectObserver(Scribable, JsonSnapshotable):
+class ObjectObserver(JsonSnapshotable):
   """Acts as an object source to feed objects into a contract.
 
   This class requires specialization for specific sources.
@@ -148,9 +139,6 @@ class ObjectObserver(Scribable, JsonSnapshotable):
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Filter', self._filter)
-
-  def _make_scribe_parts(self, scribe):
-    return [scribe.part_builder.build_mechanism_part('Filter', self._filter)]
 
   def __init__(self, filter=None):
     """Construct instance.
