@@ -438,7 +438,7 @@ class AgentTestCase(base.BaseTestCase):
   def raiseFinalStatusNotOk(self, status, final_attempt):
     scribe = base_scribe.Scribe(base_scribe.DETAIL_SCRIBE_REGISTRY)
     error = scribe.render_to_string(status)
-    raise AssertionError('{0}\n{1}'.format(status.exception, error))
+    raise AssertionError('{0}\n{1}'.format(status.exception_details, error))
 
   def make_test_case_report_section(self, test_case):
     """Creates a new section in the test report for the given test case.
