@@ -435,7 +435,7 @@ class AgentTestCase(base.BaseTestCase):
 
     return True
 
-  def raiseFinalStatusFailed(self, status, final_attempt):
+  def raiseFinalStatusNotOk(self, status, final_attempt):
     scribe = base_scribe.Scribe(base_scribe.DETAIL_SCRIBE_REGISTRY)
     error = scribe.render_to_string(status)
     raise AssertionError('{0}\n{1}'.format(status.exception, error))
