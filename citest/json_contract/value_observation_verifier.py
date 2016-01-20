@@ -56,15 +56,6 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
     super(ValueObserverVerifierBuilder, self).export_to_json_snapshot(
         snapshot, entity)
 
-  def _make_scribe_parts(self, scribe):
-    parts = [scribe.build_part('Strict', self._strict,
-                               relation=scribe.part_builder.CONTROL),
-             scribe.part_builder.build_control_part(
-                 'Constraints', self._constraints)]
-    inherited = super(
-        ValueObservationVerifierBuilder, self)._make_scribe_parts(scribe)
-    return parts + inherited
-
   def add_constraint(self, constraint):
     if not isinstance(constraint, predicate.ValuePredicate):
       raise TypeError('{0} is not predicate.ValuePredicate'.format(
@@ -135,15 +126,6 @@ class ValueObservationVerifier(ov.ObservationVerifier):
         entity, 'Constraints', self._constraints)
     super(ValueObservationVerifier, self).export_to_json_snapshot(
         snapshot, entity)
-
-  def _make_scribe_parts(self, scribe):
-    parts = [scribe.build_part('Strict', self._strict,
-                               relation=scribe.part_builder.CONTROL),
-             scribe.part_builder.build_control_part(
-                 'Constraints', self._constraints)]
-    inherited = super(ValueObservationVerifier, self)._make_scribe_parts(
-        scribe)
-    return parts + inherited
 
   def __str__(self):
     return '{0} constraints={1} strict={2}'.format(

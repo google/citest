@@ -52,12 +52,6 @@ class HttpObjectObserver(jc.ObjectObserver):
     snapshot.edge_builder.make_control(entity, 'Path', self.__path)
     super(HttpObjectObserver, self).export_to_json_snapshot(snapshot, entity)
 
-  def _make_scribe_parts(self, scribe):
-    parts = [scribe.part_builder.build_mechanism_part('Agent:', self.__agent),
-             scribe.part_builder.build_control_part('Path:', self.__path)]
-    inherited = super(HttpObjectObserver, self)._make_scribe_parts(scribe)
-    return parts + inherited
-
   def collect_observation(self, observation, trace=True):
     # This is where we'd use an HttpAgent to get a URL then
     # collect some thing out of the results.

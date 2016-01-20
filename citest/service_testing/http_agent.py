@@ -20,14 +20,13 @@ import collections
 import httplib
 import urllib2
 
-from ..base.scribe import Scribable
 from ..base import JsonSnapshotable
 from . import testable_agent
 
 
 class HttpResponseType(collections.namedtuple('HttpResponseType',
                                               ['retcode', 'output', 'error']),
-                       Scribable, JsonSnapshotable):
+                       JsonSnapshotable):
   """Holds the results from an HTTP message.
 
   Attributes:
@@ -69,13 +68,6 @@ class HttpResponseType(collections.namedtuple('HttpResponseType',
       edge = builder.make_output(entity, 'Response Output', self.output)
       if format:
         edge.add_metadata('format', format)
-
-  def _make_scribe_parts(self, scribe):
-    """Implements Scribbable_make_scribe_parts interface."""
-    label = 'Response Error' if self.error else 'Response Data'
-    data = self.error if self.error else self.output
-    return [scribe.build_part('HTTP Code', self.retcode),
-            scribe.build_json_part(label, data)]
 
   def ok(self):
     """Return true if the result code indicates an OK HTTP response."""
@@ -211,11 +203,6 @@ class HttpAgent(testable_agent.TestableAgent):
     """Implements JsonSnapshotable interface."""
     snapshot.edge_builder.make_control(entity, 'Base URL', self.__base_url)
     super(HttpAgent, self).export_to_json_snapshot(snapshot, entity)
-
-  def _make_scribe_parts(self, scribe):
-    """Implements Scribbable_make_scribe_parts interface."""
-    return ([scribe.build_part('Base URL', self.__base_url)]
-            + super(HttpAgent, self)._make_scribe_parts(scribe))
 
   def new_post_operation(self, title, path, data, status_class=None):
     """Acts as an AgentOperation factory.
@@ -371,12 +358,6 @@ class BaseHttpOperation(testable_agent.AgentOperation):
     if self.__snapshot_format:
       edge.add_metadata('format', self.__snapshot_format)
     super(BaseHttpOperation, self).export_to_json_snapshot(snapshot, entity)
-
-  def _make_scribe_parts(self, scribe):
-    """Implements Scribbable_make_scribe_parts interface."""
-    return ([scribe.build_part('URL Path', self.__path),
-             scribe.build_json_part('Payload Data', self.__data)]
-            + super(BaseHttpOperation, self)._make_scribe_parts(scribe))
 
   def execute(self, agent=None, trace=True):
     if not self.agent:

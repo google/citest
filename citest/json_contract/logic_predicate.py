@@ -41,15 +41,6 @@ class ConjunctivePredicate(predicate.ValuePredicate):
     snapshot.edge_builder.make(entity, 'Conjunction', self._conjunction,
                                join='AND')
 
-  def _make_scribe_parts(self, scribe):
-    parts = []
-    for operand in self._conjunction:
-      if not parts:
-        parts.append(scribe.build_part('', operand))
-      else:
-        parts.append(scribe.build_part('AND', operand))
-    return parts
-
   def __call__(self, value):
     all = []
     valid = True
@@ -88,15 +79,6 @@ class DisjunctivePredicate(predicate.ValuePredicate):
     snapshot.edge_builder.make(entity, 'Disjunction', self._disjunction,
                                join='OR')
 
-  def _make_scribe_parts(self, scribe):
-    parts = []
-    for operand in self._disjunction:
-      if not parts:
-        parts.append(scribe.build_part('', operand))
-      else:
-         parts.append(scribe.build_part('OR', operand))
-    return parts
-
   def __call__(self, value):
     all = []
     valid = False
@@ -130,9 +112,6 @@ class NegationPredicate(predicate.ValuePredicate):
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Predicate', self._pred)
-
-  def _make_scribe_parts(self, scribe):
-    return [scribe.part_builder.build_mechanism_part('Predicate', self._pred)]
 
   def __call__(self, value):
     base_result = self._pred(value)
@@ -194,10 +173,6 @@ class ConditionalPredicate(predicate.ValuePredicate):
     """Implements JsonSnapshotable interface."""
     snapshot.edge_builder.make_mechanism(entity, 'If', self._if_pred)
     snapshot.edge_builder.make_mechanism(entity, 'Then', self._then_pred)
-
-  def _make_scribe_parts(self, scribe):
-    return [scribe.part_builder.build_mechanism_part('If', self._if_pred),
-            scribe.part_builder.build_mechanism_part('Then', self._then_pred)]
 
   def __call__(self, value):
     if self._demorgan_pred:

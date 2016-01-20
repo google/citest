@@ -17,7 +17,6 @@ import logging
 import time
 
 from ..base import JsonSnapshotable
-from ..base.scribe import Scribable
 from . import predicate
 from . import observer as ob
 from . import observation_verifier as ov
@@ -72,20 +71,6 @@ class ContractClauseVerifyResult(predicate.PredicateResult):
     super(ContractClauseVerifyResult, self).export_to_json_snapshot(
         snapshot, entity)
 
-  def _make_scribe_parts(self, scribe):
-    summary = 'Verified' if self._verify_results else 'FAILED'
-    relation = scribe.part_builder.determine_verified_relation(
-        self._verify_results)
-
-    parts = [
-        scribe.part_builder.build_input_part(
-          'Clause', self._clause, summary=self._clause.title),
-        scribe.part_builder.build_nested_part(
-          'Results', self._verify_results, summary=summary, relation=relation)]
-    inherited = super(ContractClauseVerifyResult, self)._make_scribe_parts(
-        scribe)
-    return parts + inherited
-
 
 class ContractClause(predicate.ValuePredicate):
   """Specifies how to obtain state information and expectations on it.
@@ -117,12 +102,6 @@ class ContractClause(predicate.ValuePredicate):
     snapshot.edge_builder.make(entity, 'Title', self._title)
     snapshot.edge_builder.make_mechanism(entity, 'Observer', self._observer)
     snapshot.edge_builder.make_mechanism(entity, 'Verifier', self._verifier)
-
-  def _make_scribe_parts(self, scribe):
-    return [
-        scribe.build_part('Title', self._title),
-        scribe.part_builder.build_mechanism_part('Observer', self._observer),
-        scribe.part_builder.build_mechanism_part('Verifier', self._verifier)]
 
   def __init__(self, title, observer=None, verifier=None,
                retryable_for_secs=0):
@@ -272,19 +251,8 @@ class ContractVerifyResult(predicate.PredicateResult):
         entity, 'Clause Results', self._clause_results, relation=relation)
     super(ContractVerifyResult, self).export_to_json_snapshot(snapshot, entity)
 
-  def _make_scribe_parts(self, scribe):
-    summary = 'Verified' if self else 'FAILED'
-    relation = scribe.part_builder.determine_verified_relation(self)
 
-    parts = [
-        scribe.part_builder.build_nested_part(
-        'Clause Results', self._clause_results,
-        summary=summary, relation=relation)]
-    inherited = super(ContractVerifyResult, self)._make_scribe_parts(scribe)
-    return parts + inherited
-
-
-class Contract(Scribable, JsonSnapshotable):
+class Contract(JsonSnapshotable):
   """A contract holds a collection of ContractClause.
 
   Attributes:
@@ -300,9 +268,6 @@ class Contract(Scribable, JsonSnapshotable):
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     snapshot.edge_builder.make_control(entity, 'Clauses', self._clauses)
-
-  def _make_scribe_parts(self, scribe):
-    return [scribe.part_builder.build_control_part('Clauses', self._clauses)]
 
   def add_clause(self, clause):
     """Adds a clause to the contract.

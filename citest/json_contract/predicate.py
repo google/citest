@@ -15,11 +15,10 @@
 """Implements ValuePredicate that determines when a given value is 'valid'."""
 
 
-from ..base.scribe import Scribable
 from ..base import JsonSnapshotable
 
 
-class ValuePredicate(Scribable, JsonSnapshotable):
+class ValuePredicate(JsonSnapshotable):
   """Base class denoting a predicate that determines if a JSON value is ok.
 
    This class must be specialized with a __call__ method that takes a single
@@ -50,7 +49,7 @@ class ValuePredicate(Scribable, JsonSnapshotable):
     return not self.__eq__(op)
 
 
-class PredicateResult(Scribable, JsonSnapshotable):
+class PredicateResult(JsonSnapshotable):
   """Base class for predicate results.
 
   Attributes:
@@ -91,19 +90,6 @@ class PredicateResult(Scribable, JsonSnapshotable):
     # Set a default relation so that this can be picked up when it appears
     # as a list element.
     entity.add_metadata('_default_relation', verified_relation)
-
-  def _make_scribe_parts(self, scribe):
-    parts = []
-    verified_relation = scribe.part_builder.determine_verified_relation(
-        self._valid)
-    parts.append(
-        scribe.build_part('Valid', self._valid, relation=verified_relation))
-
-    if self._comment:
-      parts.append(scribe.build_part('Comment', self._comment))
-    if self._cause:
-      parts.append(scribe.build_part('Cause', self._cause))
-    return parts
 
   def __init__(self, valid, comment="", cause=None):
     self._valid = valid
@@ -172,25 +158,6 @@ class CompositePredicateResult(PredicateResult):
                  relation=builder.determine_valid_relation(self))
     super(CompositePredicateResult, self).export_to_json_snapshot(
         snapshot, entity)
-
-  def _make_scribe_parts(self, scribe):
-    parts = []
-    parts.append(
-        scribe.part_builder.build_mechanism_part('Predicate', self._pred))
-
-    summary = scribe.make_object_count_summary(
-        self._results, subject='mapped result')
-    section = scribe.make_section(title=summary)
-    section.parts.append(
-      scribe.build_part('#', len(self._results)))
-    for r in self._results:
-      section.parts.append(
-          scribe.part_builder.build_output_part(None, r, summary=r.summary))
-    parts.append(scribe.build_part('Results', section))
-
-    inherited = super(CompositePredicateResult, self)._make_scribe_parts(
-        scribe)
-    return parts + inherited
 
   def __str__(self):
     return '{0}'.format(self._results)

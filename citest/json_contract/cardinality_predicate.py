@@ -69,16 +69,6 @@ class CardinalityResult(predicate.PredicateResult):
     builder.make_input(entity, 'Source', self._source, format='json')
     builder.make(entity, 'Result', self._pred_result, relation=result_relation)
 
-  def _make_scribe_parts(self, scribe):
-    count_relation = scribe.part_builder.determine_verified_relation(self)
-    result_relation = scribe.part_builder.determine_verified_relation(
-        self._pred_result)
-    return [scribe.build_part('Count', self._count, relation=count_relation),
-            scribe.part_builder.build_mechanism_part('Predicate', self._pred),
-            scribe.part_builder.build_input_part('Source', self._source),
-            scribe.part_builder.build_nested_part('Result', self._pred_result,
-                                                  relation=result_relation)]
-
 
 class ConfirmedCardinalityResult(CardinalityResult):
   """Denotes a CardinalityPredicate that was satisfied."""
@@ -175,13 +165,6 @@ class CardinalityPredicate(predicate.ValuePredicate):
     snapshot.edge_builder.make_control(entity, 'Min', self._min)
     snapshot.edge_builder.make_control(entity, 'Max',
                                        'Any' if self._max < 0 else self._max)
-
-  def _make_scribe_parts(self, scribe):
-    return [scribe.part_builder.build_mechanism_part('Predicate', self.pred),
-            scribe.build_part('Min', self._min,
-                              relation=scribe.part_builder.CONTROL),
-            scribe.build_part('Max', 'Any' if self._max < 0 else self._max,
-                              relation=scribe.part_builder.CONTROL)]
 
   def __init__(self, pred, min=0, max=None):
     """Constructor.

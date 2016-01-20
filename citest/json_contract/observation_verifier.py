@@ -18,7 +18,6 @@
 
 import logging
 
-from ..base.scribe import Scribable
 from ..base import JsonSnapshotable
 from . import predicate
 
@@ -159,20 +158,6 @@ class ObservationVerifyResult(predicate.PredicateResult):
     if self._bad_results:
       edge.add_metadata('relation', 'INVALID')
 
-  def _make_scribe_parts(self, scribe):
-    part_builder = scribe.part_builder
-    parts = [
-        part_builder.build_input_part('Observation', self._observation),
-        part_builder.build_nested_part(
-            'Failed Constraints', self._failed_constraints),
-        part_builder.build_output_part(
-            'All Results', self._all_results),
-        part_builder.build_nested_part('Good Results', self._good_results),
-        part_builder.build_nested_part('Bad Results', self._bad_results)]
-
-    inherited = super(ObservationVerifyResult, self)._make_scribe_parts(scribe)
-    return parts + inherited
-
   def __str__(self):
     return ('observation=<{0}>'
             '  good_results=<{1}>'
@@ -235,37 +220,6 @@ class ObservationVerifier(predicate.ValuePredicate):
 
     builder.make_control(entity, 'Verifiers', disjunction_entity)
 
-  def _make_scribe_parts(self, scribe):
-    def render_disjunction(out, disjunction):
-        def render_conjunction(out, conjunction):
-            segments = []
-            scribe = out.scribe
-            for elem in conjunction:
-              segments.append(out.render_to_string(elem))
-            out.write(
-              '\n{and_indent}AND '.format(and_indent=out.line_indent).join(
-              segments))
-
-        out.push_level()
-        disjunction_segments = []
-        for conjunction in disjunction:
-          disjunction_segments.append(
-              out.render_to_string(conjunction, renderer=render_conjunction))
-
-        if not disjunction_segments:
-          disjunction_segments = ['<no verifiers>']
-
-        out.write('\n{or_indent}OR '.format(or_indent=out.line_indent).join(
-            disjunction_segments))
-        out.pop_level()
-
-    parts = [
-        scribe.build_part('Title', self._title),
-        scribe.part_builder.build_control_part(
-            'Verifiers', [self._dnf_verifiers],
-            renderer=render_disjunction)]
-    return parts
-
   def __init__(self, title, dnf_verifiers=None):
     """Construct instance.
 
@@ -327,7 +281,7 @@ class _VerifierBuilderWrapper(object):
     return self._verifier
 
 
-class ObservationVerifierBuilder(Scribable, JsonSnapshotable):
+class ObservationVerifierBuilder(JsonSnapshotable):
   @property
   def title(self):
     return self._title
@@ -362,14 +316,6 @@ class ObservationVerifierBuilder(Scribable, JsonSnapshotable):
         entity, 'Verifiers', self._dnf_verifier_builders)
     super(ObservationVerifierBuilder, self).export_to_json_snapshot(
         snapshot, entity)
-
-  def _make_scribe_parts(self, scribe):
-    parts = [
-      scribe.build_part('Title', self._title),
-      scribe.build_part('Verifiers', self._dnf_verifier_builders)]
-    inherited = super(ObservationVerifierBuilder, self)._make_scribe_parts(
-      scribe)
-    return parts + inherited
 
   def append_verifier(self, verifier, new_term=False):
     self.append_verifier_builder(

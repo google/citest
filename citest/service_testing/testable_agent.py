@@ -29,19 +29,15 @@ Verification is performed independently using json.Contract.
 import logging
 import time
 
-from ..base.scribe import Scribable
 from ..base import JsonScrubber
 from ..base import JsonSnapshotable
 
-class AgentError(Exception, Scribable, JsonSnapshotable):
+class AgentError(Exception, JsonSnapshotable):
   """Denotes an error reported by a TestableAgent."""
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     snapshot.edge_builder.make_error(entity, 'Message', self.message)
-
-  def _make_scribe_parts(self, scribe):
-    return [scribe.build_part('Message', self.message)]
 
   def __init__(self, message):
     super(AgentError, self).__init__(message)
@@ -98,7 +94,7 @@ class TestableAgent(JsonSnapshotable):
     builder.make_control(entity, 'Configuration', scrubbed_config)
 
 
-class AgentOperationStatus(Scribable, JsonSnapshotable):
+class AgentOperationStatus(JsonSnapshotable):
   """Base class for current Status on AgentOperation.
 
   The operations performed by testable agents have disparate results depending
@@ -190,35 +186,6 @@ class AgentOperationStatus(Scribable, JsonSnapshotable):
     builder.make_mechanism(
         entity, 'Agent Class', self.agent.__class__.__name__)
 
-  def _make_scribe_parts(self, scribe):
-    """Implements Scribbable._make_scribe_parts."""
-    parts = []
-    parts.extend([scribe.build_part('ID', self.id),
-                  scribe.build_part('Finished', self.finished,
-                                    relation=scribe.part_builder.OUTPUT)])
-    if self.finished:
-      relation = scribe.part_builder.determine_verified_relation(
-          self.finished_ok)
-      parts.append(scribe.build_part('Finished OK',
-                                     self.finished_ok, relation=relation))
-    else:
-      parts.append(scribe.build_part('Timed Out', self.timed_out))
-    if self.error:
-      parts.append(scribe.build_json_part('Error', self.error,
-                                          relation=scribe.part_builder.ERROR))
-    if self.detail:
-      parts.append(scribe.build_json_part('Detail', self.detail,
-                                          relation=scribe.part_builder.OUTPUT))
-    if self.exception_details:
-      parts.append(
-          scribe.build_json_part('Exception Details', self.exception_details,
-                                 relation=scribe.part_builder.ERROR))
-    parts.extend(
-        [scribe.part_builder.build_input_part('Operation', self.operation),
-         scribe.build_part('Agent Class', self.agent.__class__.__name__,
-                           relation=scribe.part_builder.MECHANISM)])
-    return parts
-
   def __init__(self, operation):
     """Constructs status instance.
 
@@ -298,7 +265,7 @@ class AgentOperationStatus(Scribable, JsonSnapshotable):
     time.sleep(secs)
 
 
-class AgentOperation(Scribable, JsonSnapshotable):
+class AgentOperation(JsonSnapshotable):
   """Base class abstraction for a testable operation executed through an agent.
 
   AgentOperation is a first-class operation that can be executed at some point
@@ -361,14 +328,6 @@ class AgentOperation(Scribable, JsonSnapshotable):
     builder.make_mechanism(
         entity, 'Agent Class', self.agent.__class__.__name__)
     builder.make_control(entity, 'Max Wait Secs', self.max_wait_secs)
-
-  def _make_scribe_parts(self, scribe):
-    """Implements Scribbable._make_scribe_parts."""
-    return [scribe.build_part('Title', self.title),
-            scribe.build_part('Agent Class', self.agent.__class__.__name__,
-                              relation=scribe.part_builder.MECHANISM),
-            scribe.build_part('Max Wait Secs', self.max_wait_secs,
-                              relation=scribe.part_builder.CONTROL)]
 
   def execute(self):
     """Have the bound agent perform this operation.

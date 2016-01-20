@@ -13,11 +13,10 @@
 # limitations under the License.
 
 
-from ..base.scribe import Scribable
 from ..base import JsonSnapshotable
 
 
-class JsonError(ValueError, Scribable, JsonSnapshotable):
+class JsonError(ValueError, JsonSnapshotable):
   """Denotes an error relatived to invalid JSON."""
 
   def export_to_json_snapshot(self, snapshot, entity):
@@ -25,12 +24,6 @@ class JsonError(ValueError, Scribable, JsonSnapshotable):
     snapshot.edge_builder.new(entity, 'Message', self.message)
     if self.__cause:
       snapshot.edge_builder.make(entity, 'CausedBy', str(self.__cause))
-
-  def _make_scribe_parts(self, scribe):
-    parts = [scribe.build_part('Message', self.message)]
-    if self.__cause:
-      parts.append(scribe.build_part('CausedBy', self.__cause))
-    return parts
 
   def __init_(self, message, cause=None):
     super(JsonError, self).__init__(message)

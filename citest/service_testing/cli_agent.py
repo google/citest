@@ -18,7 +18,6 @@ import logging
 import re
 import subprocess
 
-from ..base.scribe import Scribable
 from ..base import JsonSnapshotable
 from .. import json_contract as jc
 from . import testable_agent
@@ -26,7 +25,7 @@ from . import testable_agent
 
 class CliResponseType(collections.namedtuple('CliResponseType',
                                              ['retcode', 'output', 'error']),
-                      Scribable, JsonSnapshotable):
+                      JsonSnapshotable):
   """Holds the results from running the command-line program.
 
   Attributes:
@@ -46,14 +45,6 @@ class CliResponseType(collections.namedtuple('CliResponseType',
       builder.make_error(entity, 'stderr', self.error, format='json')
     if self.output:
       builder.make_output(entity, 'stdout', self.output, format='json')
-
-  def _make_scribe_parts(self, scribe):
-    parts = [scribe.build_part('Exit Code', self.retcode)]
-    if self.error:
-      parts.append(scribe.build_json_part('stderr', self.error))
-    if self.output:
-      parts.append(scribe.build_json_part('stdout', self.output))
-    return parts
 
 
 class CliRunStatus(testable_agent.AgentOperationStatus):
@@ -112,11 +103,6 @@ class CliAgentRunError(testable_agent.AgentError):
     snapshot.edge_builder.make_data(
         entity, 'Cli Response', self._run_response)
 
-  def _make_scribe_parts(self, scribe):
-    return (super(CliAgentRunError, self)._make_scribe_parts(scribe)
-            + [scribe.part_builder.build_nested_part('Cli Response',
-                                                     self._run_response)])
-
   def __init__(self, agent, run_response):
     super(CliAgentRunError, self).__init__(run_response.error)
     self._run_response = run_response
@@ -154,10 +140,6 @@ class CliAgent(testable_agent.TestableAgent):
     """Implements JsonSnapshotable interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Program', self._program)
     super(CliAgent, self).export_to_json_snapshot(snapshot, entity)
-
-  def _make_scribe_parts(self, scribe):
-    return ([scribe.build_part('Program', self._program)]
-            + super(CliAgent, self)._make_scribe_parts(scribe))
 
   def _new_run_operation(self, title, args):
     return CliRunOperation(title, args, self)
@@ -216,10 +198,6 @@ class CliRunOperation(testable_agent.AgentOperation):
     snapshot.edge_builder.make_control(entity, 'Args', self._args)
     super(CliRunOperation, self).export_to_json_snapshot(snapshot, entity)
 
-  def _make_scribe_parts(self, scribe):
-    return ([scribe.build_part('Args', self._args)]
-            + super(CliRunOperation, self)._make_scribe_parts(scribe))
-
   def execute(self, agent=None, trace=True):
     if not agent:
       agent = self.agent
@@ -252,13 +230,6 @@ class CliAgentObservationFailureVerifier(jc.ObservationFailureVerifier):
     snapshot.edge_builder.make_control(entity, 'Regex', self._error_regex)
     super(CliAgentObservationFailureVerifier, self).export_to_json_snapshot(
         snapshot, entity)
-
-  def _make_scribe_parts(self, scribe):
-    parts = [scribe.build_part(
-        'Regex', self._error_regex, relation=scribe.part_builder.CONTROL)]
-    inherited = super(
-        CliAgentObservationFailureVerifier, self)._make_scribe_parts(scribe)
-    return parts + inherited
 
   def _error_comment_or_none(self, error):
     if (isinstance(error, CliAgentRunError)

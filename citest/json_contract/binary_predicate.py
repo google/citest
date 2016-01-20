@@ -53,14 +53,6 @@ class BinaryPredicate(predicate.ValuePredicate):
     snapshot.edge_builder.make(entity, 'Name', self._name)
     snapshot.edge_builder.make_control(entity, 'Operand', self._operand)
 
-  def _make_scribe_parts(self, scribe):
-    # Do not inherit from the base class because it will add our string
-    # value, which would be superfluous.
-    parts = [scribe.build_part('Name', self._name),
-             scribe.build_part('Operand', self._operand,
-                               relation=scribe.part_builder.CONTROL)]
-    return parts
-
 
 class StandardBinaryPredicateFactory(object):
   """Create a StandardBinaryPredicate once we have an operand to bind to it."""

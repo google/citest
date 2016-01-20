@@ -37,7 +37,6 @@ import traceback
 
 # Our modules.
 from ..base import args_util
-from ..base import scribe as base_scribe
 from ..base import JsonSnapshotable
 from .. import base
 from .scenario_test_runner import ScenarioTestRunner
@@ -303,11 +302,6 @@ class AgentTestCase(base.BaseTestCase):
   """Base class for agent integration tests."""
 
   @property
-  def report_scribe(self):
-    """The Scribe used for producing the test report."""
-    return ScenarioTestRunner.global_runner().report_scribe
-
-  @property
   def report_journal(self):
     """The Journal used for producing the test report."""
     return ScenarioTestRunner.global_runner().report_journal
@@ -326,44 +320,10 @@ class AgentTestCase(base.BaseTestCase):
     """Return the primary TestableAgent for the current test scenario."""
     return self.scenario.agent
 
-  def verifyContract(self, contract, report_section):
-    """Verify the specified contract holds.
-
-    Args:
-      contract: [JsonContract] To verify.
-      report_section: [ScribeRendererSection] To report verification into.
-
-    Returns:
-      ContractVerifyResults
-    """
-    # pylint: disable=invalid-name
-    verify_results = contract.verify()
-
-    clause_count = len(contract.clauses)
-    plural = '' if clause_count == 1 else 's'
-    if verify_results:
-      summary = '{count} clause{plural} OK.'.format(
-          count=clause_count, plural=plural)
-    else:
-      bad_count = len([elem for elem in verify_results.clause_results
-                       if not elem.valid])
-      summary = '{bad_count} of {clause_count} clause{plural} FAILED.'.format(
-          bad_count=bad_count, clause_count=clause_count, plural=plural)
-
-    relation = self.report_scribe.part_builder.determine_verified_relation(
-        verify_results)
-    scribe = base_scribe.Scribe(base_scribe.DETAIL_SCRIBE_REGISTRY)
-
-    report_section.parts.append(
-        self.report_scribe.part_builder.build_nested_part(
-            name='Verification', value=verify_results,
-            summary=summary, relation=relation))
-    return verify_results
-
-  def assertContract(self, contract, report_section):
+  def assertContract(self, contract):
     """Verify the specified contract holds, raise and exception if not."""
     # pylint: disable=invalid-name
-    verify_results = self.verifyContract(contract, report_section)
+    verify_results = contract.verify()
     self.assertVerifyResults(verify_results)
 
   def assertVerifyResults(self, verify_results):
@@ -374,12 +334,11 @@ class AgentTestCase(base.BaseTestCase):
         AssertionError if not.
     """
     # pylint: disable=invalid-name
-    scribe = base_scribe.Scribe(base_scribe.DETAIL_SCRIBE_REGISTRY)
     self.assertTrue(
         verify_results,
         'Contract clauses failed:\n{summary}\n{detail}'.format(
             summary=verify_results.enumerated_summary_message,
-            detail=scribe.render_to_string(verify_results)))
+            detail=str(verify_results)))
 
   def verifyFinalStatusOk(self, status, timeout_ok=False,
                           final_attempt=None, execution_trace=None):
@@ -436,17 +395,7 @@ class AgentTestCase(base.BaseTestCase):
     return True
 
   def raiseFinalStatusNotOk(self, status, final_attempt):
-    scribe = base_scribe.Scribe(base_scribe.DETAIL_SCRIBE_REGISTRY)
-    error = scribe.render_to_string(status)
-    raise AssertionError('{0}\n{1}'.format(status.exception_details, error))
-
-  def make_test_case_report_section(self, test_case):
-    """Creates a new section in the test report for the given test case.
-
-    Args:
-      test_case: [OperationContract] Specifies the test case.
-    """
-    return self.report_scribe.make_section(title=test_case.title)
+    raise AssertionError('{0}\n{1}'.format(status.exception_details, str(status)))
 
   def run_test_case_list(
       self, test_case_list, max_concurrent, timeout_ok=False,
@@ -507,7 +456,6 @@ class AgentTestCase(base.BaseTestCase):
           'retry_interval_secs={secs} cannot be negative'.format(
               secs=retry_interval_secs))
 
-    section = self.make_test_case_report_section(test_case)
     execution_trace = OperationContractExecutionTrace(test_case)
     verify_results = None
     final_status_ok = None
@@ -528,11 +476,6 @@ class AgentTestCase(base.BaseTestCase):
                                    else 'Operation status Unknown')
         attempt_info.set_status(status, summary)
 
-        section.parts.append(
-            self.report_scribe.part_builder.build_input_part(
-                name='Attempt {count}'.format(count=i),
-                value=status, summary=summary))
-
         if not status.exception_details:
           execution_trace.set_operation_summary('Completed test.')
           break
@@ -548,7 +491,7 @@ class AgentTestCase(base.BaseTestCase):
       # We're always going to verify the contract, even if the request itself
       # failed. We set the verification on the attempt here, but do not assert
       # anything. We'll assert below outside this try/catch handler.
-      verify_results = self.verifyContract(test_case.contract, section)
+      verify_results = test_case.contract.verify()
       execution_trace.set_verify_results(verify_results)
       final_status_ok = self.verifyFinalStatusOk(
           status, timeout_ok=timeout_ok,
@@ -562,11 +505,8 @@ class AgentTestCase(base.BaseTestCase):
         attempt_info.set_exception(ex)
 
       try:
-        error = base_scribe.Scribe().render_to_string(status)
-        section.parts.append(self.report_scribe.build_part('EXCEPTION', ex))
         self.logger.error('Test failed with exception: %s', ex)
-
-        self.logger.error('Last status was:\n%s', error)
+        self.logger.error('Last status was:\n%s', str(status))
         self.logger.debug('Exception was at:\n%s', traceback.format_exc())
       except BaseException as unexpected:
         self.logger.error(
@@ -577,7 +517,6 @@ class AgentTestCase(base.BaseTestCase):
       raise
     finally:
       self.log_end_test(test_case.title)
-      self.report(section)
       self.report(execution_trace)
 
     if not final_status_ok:
