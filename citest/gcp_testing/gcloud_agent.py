@@ -146,12 +146,18 @@ class GCloudAgent(cli_agent.CliAgent):
   def zone(self):
     return self._zone
 
-  def __init__(self, project, zone, ssh_passphrase_file='', trace=True):
+  def __init__(self, project, zone, service_account=None,
+               ssh_passphrase_file='', trace=True):
     """Construct instance.
 
     Args:
       project: The name of the GCP project this agent will run against.
       zone: The default GCP zone this agent will interact with.
+      service_account: If provided, the GCP service account that the agent
+          should authenticate with. This must have already been activated
+          with the local gcloud using gcloud auth activate-service-account.
+          If no account is provided, the configured default account will be
+          used. To change the default account, use gcloud config set account.
       ssh_passphrase_file: The path to a file that contains the SSH passphrase.
           This is optional, but if provided then it allows the agent to log
           into instances if needed in order to tunnel through firewalls to
@@ -164,8 +170,16 @@ class GCloudAgent(cli_agent.CliAgent):
     self._project = project
     self._zone = zone
     self._ssh_passphrase_file = ssh_passphrase_file
+    self._service_account = service_account
     self.trace = trace
     self.logger = logging.getLogger(__name__)
+
+  def _args_to_full_commandline(self, args):
+    if self._service_account:
+      args = ['--account', self._service_account] + args
+      print 'ARGS={0}'.format(args)
+
+    return super(GCloudAgent, self)._args_to_full_commandline(args)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
@@ -256,9 +270,14 @@ class GCloudAgent(cli_agent.CliAgent):
           synchronized to the current thread (e.g. to execute a remote command)
           and leaves it to the caller to run a PassphraseInjector..
     """
-    cmdline = ['gcloud', 'compute', 'ssh', instance,
-               '--project', self._project,
-               '--zone', self._zone] + arg_array
+    cmdline = ['gcloud']
+    if self._service_account:
+      cmdline.extend(['--account', self._service_account])
+    cmdline.extend(['compute', 'ssh', instance,
+                    '--project', self._project,
+                    '--zone', self._zone])
+    cmdline.extend(arg_array)
+
     bash_command = ['/bin/bash', '-c', ' '.join(cmdline)]
     if self.trace:
       self.logger.debug(bash_command)
@@ -313,7 +332,6 @@ class GCloudAgent(cli_agent.CliAgent):
       gce_type, args, format=format, project=self._project,
       zone=self._zone if needs_zone else None)
     return self.run(cmdline, trace=self.trace)
-
 
   def describe_resource(self, gce_type, name, format='json', extra_args=None):
     """Obtain a description of a GCE resource instance.

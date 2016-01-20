@@ -19,7 +19,8 @@ import citest.service_testing as st
 
 class FakeGCloudAgent(gcp_testing.GCloudAgent):
 
-  def __init__(self, project, zone, default_response=None):
+  def __init__(self, project, zone, service_account=None,
+               default_response=None):
     """Construct new agent instance.
 
     Args:
@@ -28,13 +29,15 @@ class FakeGCloudAgent(gcp_testing.GCloudAgent):
       default_response: If provided, the default CliResponseType that the agent
           will return.
     """
-    super(FakeGCloudAgent, self).__init__(project, zone)
+    super(FakeGCloudAgent, self).__init__(project, zone,
+                                          service_account=service_account)
     self._default_response = default_response
     self.last_run_params = []
 
   @staticmethod
   def new(default_response):
-    return FakeGCloudAgent('FAKE_PROJECT', 'FAKE_ZONE', response)
+    return FakeGCloudAgent('FAKE_PROJECT', 'FAKE_ZONE',
+                           default_repsonse=response)
 
   def run(self, params, trace=True):
     self.last_run_params = list(params)

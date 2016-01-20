@@ -28,7 +28,7 @@ class GceContractTest(unittest.TestCase):
   def test_empty_builder(self):
     default_response = st.CliResponseType(0, '', '')
     gcloud = fake_gcloud_agent.FakeGCloudAgent(
-        'PROJECT', 'ZONE', default_response)
+        'PROJECT', 'ZONE', default_response=default_response)
     contract_builder = gt.GceContractBuilder(gcloud)
     contract = contract_builder.build()
     results = contract.verify()
@@ -39,7 +39,7 @@ class GceContractTest(unittest.TestCase):
     default_response = st.CliResponseType(0, '[{"field":"value"}, [1,2,3]]', '')
 
     gcloud = fake_gcloud_agent.FakeGCloudAgent(
-        'PROJECT', 'ZONE', default_response)
+        'PROJECT', 'ZONE', default_response=default_response)
     contract_builder = gt.GceContractBuilder(gcloud)
 
     c1 = contract_builder.new_clause_builder('TITLE')
@@ -71,7 +71,7 @@ class GceContractTest(unittest.TestCase):
          ' The thing you requested was not found')
 
     gcloud = fake_gcloud_agent.FakeGCloudAgent(
-        'PROJECT', 'ZONE', error_response)
+        'PROJECT', 'ZONE', default_response=error_response)
     contract_builder = gt.GceContractBuilder(gcloud)
 
     extra_args=['arg1', 'arg2', 'arg3']
