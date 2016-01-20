@@ -26,17 +26,17 @@ import cgi
 # It defines the toggle_visibility function used to display/hide elements.
 _BUILTIN_JAVASCRIPT = """
 <script type='text/javascript'>
-function toggle_visibility(id) {
+function toggle_inline_visibility(id) {
   var e = document.getElementById(id);
   if (e.style.display == 'none')
-    e.style.display = 'block';
+    e.style.display = 'inline';
   else
     e.style.display = 'none';
  }
 
-function toggle_block(id) {
- toggle_visibility(id + '.0')
- toggle_visibility(id + '.1')
+function toggle_inline(id) {
+ toggle_inline_visibility(id + '.0')
+ toggle_inline_visibility(id + '.1')
 }
 </script>
 """
@@ -53,13 +53,14 @@ _BUILTIN_CSS = """
            border-width:1px;border-color:#F8F8F8;border-style:solid; }
   th { font-weight:bold;text-align:left;font-family:times }
   th { color:#666666 }
+  th.nw, td.nw { white-space:nowrap }
   a, a.toggle:link, a.toggle:visited {
       background-color:#FFFFFF;color:#000099 }
   a.toggle:hover, a.toggle:active {
       color:#FFFFFF;background-color:#000099 }
   pre { margin: 0 }
-  div { margin-left:1em; }
-  div.valid, div.invalid, div.error { padding:0.3em }
+  div.valid, div.invalid, div.error,
+  span.valid, span.invalid, span.error { padding:0.3em }
   div.fodder { font-size:8pt; }
   div.title { font-weight:bold; font-size:14pt;
               text-align:center; font-family:arial; margin:0 0 30pt 0 }
@@ -169,7 +170,7 @@ class HtmlDocumentManager(object):
       HTML encoding of the controller object.
     """
     fragments = [
-        '<a class="toggle" onclick="toggle_block(\'{id}\');">'.format(
+        '<a class="toggle" onclick="toggle_inline(\'{id}\');">'.format(
             id=section_id),
         text_html,
         '</a>']
@@ -217,7 +218,6 @@ class HtmlDocumentManager(object):
   <tr><th class="mechanism">Mechanism</th>
       <td class="mechanism">The attribute denotes a component used as a mechanism providing behaviors to another component.</td>
 </table>
-<hr/>
 """
     section_id = self.new_section_id()
     control = self.make_expandable_control_for_section_id(
@@ -230,7 +230,8 @@ class HtmlDocumentManager(object):
     indent = ''
     table_indent = '  '
     lines = [
-        '{indent}{control}<br/>'.format(indent=indent, control=control),
+        '{indent}<table><tr>'.format(indent=indent),
+        '{indent}<td>{control}<td>'.format(indent=indent, control=control),
         '{indent}<div {attrs}>'.format(indent=indent,
                                        attrs=expanded_tag_attrs),
         '{indent}{table}'.format(indent=table_indent, table=table_html),
@@ -238,7 +239,7 @@ class HtmlDocumentManager(object):
         '{indent}<div {attrs}>'.format(indent=indent, attrs=hidden_tag_attrs),
         '{indent}{summary}'.format(indent=table_indent, summary=summary_html),
         '{indent}</div>'.format(indent=indent),
-        '{indent}<p/>\n'.format(indent=indent)]
+        '{indent}</table>\n'.format(indent=indent)]
     return '\n'.join(lines)
 
   def build_html_head_block(self, title):
@@ -250,7 +251,9 @@ class HtmlDocumentManager(object):
       title: [string] The unescaped text title of HTML will be escaped.
     """
     return '<head><title>{title}</title>{javascript}{css}</head>\n'.format(
-        javascript=_BUILTIN_JAVASCRIPT, css=_BUILTIN_CSS, title=cgi.escape(title))
+        javascript=_BUILTIN_JAVASCRIPT,
+        css=_BUILTIN_CSS,
+        title=cgi.escape(title))
 
   def build_begin_html_document(self, title):
     """Builds the start of an html document up to the openening BODY tag.
