@@ -113,6 +113,17 @@ class GCloudAgentTest(unittest.TestCase):
       ['-q', 'compute', '--format', 'json',
        'instance-groups', 'managed', 'describe', 'X', '--zone', 'XYZ'])
 
+  def test_run_without_account(self):
+    gcloud = fake_gcloud_agent.FakeGCloudAgent('PROJECT', 'ZONE')
+    self.assertEqual(['gcloud', 'a', 'b', 1],
+                     gcloud._args_to_full_commandline(['a', 'b', 1]))
+
+  def test_run_with_account(self):
+    gcloud = fake_gcloud_agent.FakeGCloudAgent('PROJECT', 'ZONE',
+                                               service_account='ACCOUNT')
+    self.assertEqual(['gcloud', '--account', 'ACCOUNT', 'a', 'b', 1],
+                     gcloud._args_to_full_commandline(['a', 'b', 1]))
+    
 
 if __name__ == '__main__':
   loader = unittest.TestLoader()

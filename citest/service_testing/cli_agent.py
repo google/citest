@@ -147,6 +147,14 @@ class CliAgent(testable_agent.TestableAgent):
   def _new_status(self, operation, cli_response):
     return CliRunStatus(operation, cli_response)
 
+  def _args_to_full_commandline(self, args):
+    """Returns the complete commandline given a desired argument list.
+
+    This is an internal method used to ensure that the arguments are ultimately
+    consistent if needed, regardless of how the agent is invoked.
+    """
+    return [self._program] + args
+
   def run(self, args, trace=True, output_scrubber=None):
     """Run the specified command.
 
@@ -157,7 +165,7 @@ class CliAgent(testable_agent.TestableAgent):
     Returns:
       CliResponseType tuple containing program execution results.
     """
-    command = [self._program] + args
+    command = self._args_to_full_commandline(args)
     if trace:
       logger = logging.getLogger(__name__)
       logger.debug(command)
