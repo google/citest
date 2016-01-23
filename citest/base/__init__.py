@@ -22,6 +22,12 @@ from snapshot import (
 
 from journal import Journal
 
+from global_journal import (
+    get_global_journal,
+    new_global_journal_with_path,
+    set_global_journal,
+    unset_global_journal)
+
 from json_scrubber import JsonScrubber
 from base_test_case import BaseTestCase
 from test_runner import TestRunner
