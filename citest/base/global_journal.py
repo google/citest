@@ -112,4 +112,3 @@ def unset_global_journal():
   _global_journal = None
   _global_lock.release()
   return result
-

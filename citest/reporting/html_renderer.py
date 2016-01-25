@@ -17,7 +17,6 @@
 This is particular to the JSON emitted by the Journal.
 """
 
-
 import cgi
 import datetime
 import json
@@ -133,6 +132,8 @@ class ProcessToRenderInfo(object):
     self.max_uncollapsable_pre_lines = 3    # Lines rendered with HTML pre tag.
     self.max_uncollapsable_entity_rows = 0  # Num attributes within an entity.
     self.max_uncollapsable_metadata_rows = 0  # Num metadata keys.
+    self.max_uncollapsable_message_lines = 0  # Always collapse log messages.
+    self.max_message_summary_length = 100
 
   def determine_default_expanded(self, relation):
     """Determine whether entities should be expanded by default or not.
@@ -184,13 +185,13 @@ class ProcessToRenderInfo(object):
         data_fragments = []
         maybe_td_indent = ''
     else:
-      dm = self.__document_manager
+      document_manager = self.__document_manager
       if default_expanded is None:
         default_expanded = self.determine_default_expanded(relation)
-      section_id = dm.new_section_id()
-      label = dm.make_expandable_control_for_section_id(
+      section_id = document_manager.new_section_id()
+      label = document_manager.make_expandable_control_for_section_id(
           section_id, label_html)
-      summary = dm.make_expandable_control_for_section_id(
+      summary = document_manager.make_expandable_control_for_section_id(
           section_id, 'show {0}'.format(info.summary_html))
       detail_tag_attrs, summary_tag_attrs = (
           self.__document_manager.make_expandable_tag_attr_pair(
@@ -274,7 +275,9 @@ class ProcessToRenderInfo(object):
       summary = ('{0} lines'.format(count)
                  if count > self.max_uncollapsable_pre_lines
                  else None)
-      return HtmlInfo('<pre>{0}</pre>'.format(value), summary)
+      # The ff tag here is a custom tag for "Fixed Format"
+      # It is like 'pre' but inline rather than block to be more compact.
+      return HtmlInfo('<ff>{0}</ff>'.format(value), summary)
     else:
       return HtmlInfo(cgi.escape(_to_string(value)))
 
@@ -495,6 +498,7 @@ class HtmlRenderer(JournalProcessor):
     subject_id = snapshot.get('_subject_id')
     entities = snapshot.get('_entities', {})
     self.__entity_manager.push_entity_map(entities)
+    date_str = self.timestamp_to_string(snapshot.get('_timestamp'))
 
     # This is only for the final relation.
     subject = self.__entity_manager.lookup_entity_with_id(subject_id)
@@ -509,32 +513,17 @@ class HtmlRenderer(JournalProcessor):
       self.__entity_manager.pop_entity_map(entities)
 
     if not info.summary_html:
-      return info.detail_html
+      self._do_render(
+          '<tr><th class="nw">{timestamp}</th><td>{html}</td></tr>\n'.format(
+              timestamp=date_str, html=info.detail_html))
+      return
 
     final_css = document_manager.determine_attribute_css(final_relation)[0]
-    section_id = document_manager.new_section_id()
-    title = document_manager.make_expandable_control_for_section_id(
-        section_id, 'show "{0}"'.format(info.summary_html))
-    hide = document_manager.make_expandable_control_for_section_id(
-        section_id, 'hide "{0}"'.format(info.summary_html))
-    detail_tag_attrs, title_tag_attrs = (
-        document_manager.make_expandable_tag_attr_pair(
-            section_id=section_id, default_expanded=False))
-
-    date_str = self.timestamp_to_string(snapshot.get('_timestamp'))
-
-    # pylint: disable=bad-continuation
-    self._do_render(
-        ''.join(
-            ['<tr><th class="nw">{timestamp}</th><td>\n'
-                 .format(timestamp=date_str),
-             '<span{final_css} {hide_attrs} padding:8px>{title}</span>\n'
-                 .format(final_css=final_css, hide_attrs=title_tag_attrs,
-                         title=title),
-             '<span {show_attrs}>\n'.format(show_attrs=detail_tag_attrs),
-             '  <span{final_css}>{hide}</span>\n'.format(
-                 final_css=final_css, hide=hide),
-             '{show}\n</span>\n'.format(show=info.detail_html)]))
+    title = '"{0}"'.format(info.summary_html) if info.summary_html else None
+    self.render_log_tr(snapshot.get('_timestamp'),
+                       title, info.detail_html, collapse_decorator=title,
+                       css=final_css)
+    return
 
   @staticmethod
   def timestamp_to_string(timestamp):
@@ -543,18 +532,84 @@ class HtmlRenderer(JournalProcessor):
     Args:
       timestamp: [float]  Seconds since epoch.
     """
+
+    millis = ('%.3f' % (timestamp - int(timestamp)))[2:]
     return datetime.datetime.fromtimestamp(timestamp).strftime(
-        '%Y-%m-%d %H:%M:%S')
+        '%Y-%m-%d %H:%M:%S.{millis}'.format(millis=millis))
+
+  def render_log_tr(self, timestamp, summary, detail,
+                    collapse_decorator='', css=''):
+    """Render a top level entry into the log as a table row.
+
+    Args:
+      timestamp: [float] The timestamp for the entry.
+      summary: [string] If provided, this is an abbreviation.
+      detail: [string] This is the full detail for the entry.
+    """
+    date_str = self.timestamp_to_string(timestamp)
+    if not summary:
+      self._do_render(
+          '<tr><th class="nw">{timestamp}</th><td>{html}</td></tr>\n'.format(
+              timestamp=date_str, html=detail))
+      return
+
+    # pylint: disable=bad-continuation
+    collapse_html = ('collapse {decorator}'
+                         .format(decorator=collapse_decorator)
+                     if collapse_decorator
+                     else 'collapse')
+
+    document_manager = self.__document_manager
+    section_id = document_manager.new_section_id()
+    show = document_manager.make_expandable_control_for_section_id(
+        section_id, 'expand')
+    hide = document_manager.make_expandable_control_for_section_id(
+        section_id, collapse_html)
+    detail_tag_attrs, summary_tag_attrs = (
+        document_manager.make_expandable_tag_attr_pair(
+            section_id=section_id, default_expanded=False))
+    # pylint: disable=bad-continuation
+    self._do_render(
+        ''.join(
+            ['<tr><th class="nw">{timestamp}</th><td>\n'
+                 .format(timestamp=date_str),
+             '<span{css} {hide_attrs} padding:8px>{show} {summary}</span>\n'
+                 .format(css=css,
+                         hide_attrs=summary_tag_attrs,
+                         summary=summary,
+                         show=show),
+             '<span{css} {show_attrs}>\n'
+                 .format(css=css, show_attrs=detail_tag_attrs),
+             '{hide}\n'.format(hide=hide),
+             '{detail}\n</span>\n'.format(detail=detail)]))
 
   def render_message(self, message):
     """Default method for rendering a JournalMessage into HTML."""
-    date_str = self.timestamp_to_string(message.get('_timestamp'))
     text = message.get('_value')
-    if text is not None:
-      text = cgi.escape(text) if text is not None else '<i>Empty Message</i>'
 
-    self._do_render('<tr><th class="nw">{timestamp}</th><td>{text}</td>\n'
-                    .format(timestamp=date_str, text=text))
+    document_manager = self.__document_manager
+    processor = ProcessToRenderInfo(document_manager, self.__entity_manager)
+
+    html = ""
+    if text is not None:
+      html = cgi.escape(text) if text is not None else '<i>Empty Message</i>'
+
+    html_format = message.get('format', None)
+    summary = None
+    if html_format == 'pre':
+        # pylint: disable=bad-indentation
+        # The ff tag here is a custom tag for "Fixed Format"
+        # It is like 'pre' but inline rather than block to be more compact.
+        num_lines = html.count('\n')
+        if num_lines > processor.max_uncollapsable_message_lines:
+          summary = '<ff>{0}...</ff>'.format(html[0:html.find('\n')])
+        elif len(text) > processor.max_message_summary_length:
+          summary = '<ff>{0}...</ff>'.format(
+              html[0:processor.max_message_summary_length - 3])
+        html = '<ff>{0}</ff>'.format(html)
+
+    self.render_log_tr(message.get('_timestamp'), summary, html)
+
 
   def _do_render(self, html):
     """Helper function that renders html fragment into the HTML document."""

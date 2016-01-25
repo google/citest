@@ -82,6 +82,8 @@ class TestableAgent(JsonSnapshotable):
 
   def __init__(self):
     self.logger = logging.getLogger(__name__)
+    self.nojournal_logger = logging.LoggerAdapter(
+        self.logger, {'citest_journal': {'nojournal':True}})
     self.__default_max_wait_secs = -1
     self.__config_dict = {}
 

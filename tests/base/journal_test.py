@@ -21,10 +21,15 @@
 
 import json
 import unittest
+
 from StringIO import StringIO
 from citest.base import Journal
+
 from citest.base import JsonSnapshot, JsonSnapshotable
 from citest.base import RecordOutputStream, RecordInputStream
+
+from test_clock import TestClock
+
 
 class TestDetails(JsonSnapshotable):
   def export_to_json_snapshot(self, snapshot, entity):
@@ -46,24 +51,6 @@ class TestData(JsonSnapshotable):
       data = snapshot.make_entity_for_data(self.__data)
       snapshot.edge_builder.make(entity, 'Data', data)
     return entity
-
-
-class TestClock(object):
-  _BASE_TIME = 100.123
-  @property
-  def last_time(self):
-    return self.next_time - 1
-
-  @property
-  def elapsed_time(self):
-    return self.next_time - TestClock._BASE_TIME
-
-  def __init__(self):
-    self.next_time = TestClock._BASE_TIME
-
-  def __call__(self):
-    self.next_time += 1
-    return self.last_time
 
 
 class TestJournal(Journal):

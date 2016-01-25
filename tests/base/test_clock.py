@@ -12,31 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+class TestClock(object):
+  _BASE_TIME = 100.123
+  @property
+  def last_time(self):
+    return self.next_time - 1
 
-from snapshot import (
-    JsonSnapshotable,
-    JsonSnapshotHelper,
-    JsonSnapshot,
-    Edge,
-    SnapshotEntity)
+  @property
+  def elapsed_time(self):
+    return self.next_time - TestClock._BASE_TIME
 
-from record_stream import (
-    RecordInputStream,
-    RecordOutputStream)
+  def __init__(self):
+    self.next_time = TestClock._BASE_TIME
 
-from journal import Journal
-from journal_logger import (
-    JournalLogger,
-    JournalLogHandler)
-
-from global_journal import (
-    get_global_journal,
-    new_global_journal_with_path,
-    set_global_journal,
-    unset_global_journal)
-
-from json_scrubber import JsonScrubber
-from base_test_case import BaseTestCase
-from test_runner import TestRunner
-
-from test_package import run_all_tests_in_dir
+  def __call__(self):
+    self.next_time += 1
+    return self.last_time
