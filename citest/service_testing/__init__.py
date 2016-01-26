@@ -60,6 +60,10 @@ from .http_observer import (
     HttpContractClauseBuilder,
     )
 
+from .http_scrubber import (
+    DefaultHttpHeadersScrubber,
+    HttpScrubber)
+
 # The operation_contract module combines AgentOperation and JsonContract.
 from .operation_contract import OperationContract
 
