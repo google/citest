@@ -32,6 +32,7 @@ but can be changed with --log_filename and --log_dir.
 
 # Standard python modules.
 from multiprocessing.pool import ThreadPool
+import sys
 import time
 import traceback
 
@@ -43,6 +44,10 @@ from .scenario_test_runner import ScenarioTestRunner
 
 
 _DEFAULT_TEST_ID = time.strftime('%H%M%S')
+
+
+# Number of decimals to round time durations.
+_DURATION_PRECISION = 3  # millis
 
 
 class OperationContractExecutionAttempt(JsonSnapshotable):
@@ -87,10 +92,12 @@ class OperationContractExecutionAttempt(JsonSnapshotable):
     self.__status = None
     self.__status_summary = None
     self.__exception = None
+    self.__traceback = None
 
-  def set_exception(self, exception):
+  def set_exception(self, exception, traceback=None):
     self.__stop = time.time()
     self.__exception = exception
+    self.__traceback = traceback
 
   def set_status(self, status, summary=""):
     """Sets the final status of the operation.
@@ -110,10 +117,12 @@ class OperationContractExecutionAttempt(JsonSnapshotable):
     if default_relation  is not None:
       entity.add_metadata('_default_relation', default_relation)
 
+    entity.add_metadata('_timestamp', self.__start)
     if self.__status_summary:
       entity.add_metadata('summary', self.__status_summary)
     builder.make(entity, 'Name', self.__name)
-    builder.make(entity, 'Duration', self.__stop - self.__start)
+    builder.make(entity, 'Duration',
+                 round(self.__stop - self.__start, _DURATION_PRECISION))
 
     if self.__status is not None:
       edge = builder.make(entity, 'OperationStatus', self.__status)
@@ -124,6 +133,9 @@ class OperationContractExecutionAttempt(JsonSnapshotable):
 
     if self.__exception is not None:
       builder.make_error(entity, 'Exception', self.__exception)
+      if self.__traceback is not None:
+        builder.make_error(entity, 'ExceptionTrace', self.__traceback,
+                           format="pre")
 
     if self.__verification:
       edge = builder.make(
@@ -146,6 +158,7 @@ class OperationContractExecutionTrace(JsonSnapshotable):
     self.__operation_end = None
     self.__operation_summary = None
     self.__exception = None
+    self.__traceback = None
     self.__attempts = []
 
   def set_verify_results(self, verify_results):
@@ -153,9 +166,10 @@ class OperationContractExecutionTrace(JsonSnapshotable):
     self.__end = time.time()
     self.__verify_results = verify_results
 
-  def set_exception(self, ex):
+  def set_exception(self, ex, traceback=None):
     """Sets the exception if one was encountered."""
     self.__end = time.time()
+    self.__traceback = traceback
     self.__exception = ex
 
   def set_operation_summary(self, summary):
@@ -203,13 +217,16 @@ class OperationContractExecutionTrace(JsonSnapshotable):
           relation=verification_relation)
 
     entity.add_metadata('_default_relation', my_default_relation)
-    builder.make(entity, 'TestDuration', self.__end - self.__start)
+    builder.make(entity, 'TestDuration',
+                 round(self.__end - self.__start, _DURATION_PRECISION))
 
     if self.__operation_end is not None:
       builder.make(entity, 'OperationDuration',
-                   self.__operation_end - self.__start)
+                   round(self.__operation_end - self.__start,
+                         _DURATION_PRECISION))
       builder.make(entity, 'VerificationDuration',
-                   self.__end - self.__operation_end)
+                   round(self.__end - self.__operation_end,
+                         _DURATION_PRECISION))
 
 
 class AgentTestScenario(object):
@@ -501,8 +518,8 @@ class AgentTestCase(base.BaseTestCase):
       execution_trace.set_exception(ex)
       if not attempt_info.completed:
         # Exception happened during the attempt as opposed to during our
-        # veriifcation afterwards.
-        attempt_info.set_exception(ex)
+        # verification afterwards.
+        attempt_info.set_exception(ex, traceback.format_exc())
 
       try:
         self.logger.error('Test failed with exception: %s', ex)

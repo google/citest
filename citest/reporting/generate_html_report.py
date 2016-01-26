@@ -40,8 +40,11 @@ def journal_to_html(input_path):
   output_path = os.path.basename(os.path.splitext(input_path)[0]) + '.html'
 
   document_manager = HtmlDocumentManager(title=input_path)
+
+  document_manager.write('<table>')
   processor = HtmlRenderer(document_manager)
   processor.process(input_path)
+  document_manager.write('</table>')
 
   document_manager.build_to_path(output_path)
 

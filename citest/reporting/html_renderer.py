@@ -125,13 +125,14 @@ class ProcessToRenderInfo(object):
     # The following attributes are used to determine when to render collapsable
     # details vs inline expand for different types of data.
     # At some point the overhead in making something expandable isnt worth the
-    # savings of hiding it (also a function of how interesting it is likely to be).
+    # savings of hiding it (also a function of how interesting it is likely to
+    # be).
     # A value of N indicates the item will be completely inlined if # <= N,
     # otherwise will be completely collapsable.
     self.max_uncollapsable_json_lines = 3   # Text rendered as JSON.
     self.max_uncollapsable_pre_lines = 3    # Lines rendered with HTML pre tag.
-    self.max_uncollapsable_entity_rows = 0  # Number of attributes within an entity.
-    self.max_uncollapsable_metadata_rows = 0  # Number of metadata keys.
+    self.max_uncollapsable_entity_rows = 0  # Num attributes within an entity.
+    self.max_uncollapsable_metadata_rows = 0  # Num metadata keys.
 
   def determine_default_expanded(self, relation):
     """Determine whether entities should be expanded by default or not.
@@ -520,28 +521,40 @@ class HtmlRenderer(JournalProcessor):
         document_manager.make_expandable_tag_attr_pair(
             section_id=section_id, default_expanded=False))
 
+    date_str = self.timestamp_to_string(snapshot.get('_timestamp'))
+
+    # pylint: disable=bad-continuation
     self._do_render(
         ''.join(
-            ['<p>\n',
-             '<div{final_css} {hide_attrs} padding:8px>{title}</div>\n'.format(
-                 final_css=final_css, hide_attrs=title_tag_attrs, title=title),
+            ['<tr><th class="nw">{timestamp}</th><td>\n'
+                 .format(timestamp=date_str),
+             '<span{final_css} {hide_attrs} padding:8px>{title}</span>\n'
+                 .format(final_css=final_css, hide_attrs=title_tag_attrs,
+                         title=title),
              '<span {show_attrs}>\n'.format(show_attrs=detail_tag_attrs),
-             '  <div{final_css}>{hide}</div>\n'.format(
+             '  <span{final_css}>{hide}</span>\n'.format(
                  final_css=final_css, hide=hide),
-             '{show}\n</span>\n</p>'.format(show=info.detail_html)]))
+             '{show}\n</span>\n'.format(show=info.detail_html)]))
+
+  @staticmethod
+  def timestamp_to_string(timestamp):
+    """Return human-readable timestamp.
+
+    Args:
+      timestamp: [float]  Seconds since epoch.
+    """
+    return datetime.datetime.fromtimestamp(timestamp).strftime(
+        '%Y-%m-%d %H:%M:%S')
 
   def render_message(self, message):
     """Default method for rendering a JournalMessage into HTML."""
-    timestamp = message.get('_timestamp')
+    date_str = self.timestamp_to_string(message.get('_timestamp'))
     text = message.get('_value')
     if text is not None:
       text = cgi.escape(text) if text is not None else '<i>Empty Message</i>'
 
-    date_str = datetime.datetime.fromtimestamp(timestamp).strftime(
-        '%Y-%m-%d %H:%M:%S')
-
-    self._do_render('<p><b>{timestamp}</b>&nbsp;&nbsp;{text}</p>\n'.format(
-        timestamp=date_str, text=text))
+    self._do_render('<tr><th class="nw">{timestamp}</th><td>{text}</td>\n'
+                    .format(timestamp=date_str, text=text))
 
   def _do_render(self, html):
     """Helper function that renders html fragment into the HTML document."""
