@@ -16,26 +16,20 @@
 
 import json
 
+from citest.base import RecordInputStream
+
 
 class JournalNavigator(object):
   """Iterates over journal JSON."""
 
   def __init__(self):
     """Constructor"""
-    self.__file = None
-    self.__json_doc = None
-    self.__doc_len = None
-    self.__doc_index = None
+    self.__input_stream = None
 
   def __iter__(self):
     """Iterate over the contents of the journal."""
     self.__check_open()
     return self
-
-  def __len__(self):
-    """Return number of entries in the journal."""
-    self.__check_open()
-    return self.__doc_len
 
   def open(self, path):
     """Open the journal to be able to iterate over its contents.
@@ -43,19 +37,15 @@ class JournalNavigator(object):
     Args:
       path: [string] The path to load the journal from.
     """
-    if self.__file != None:
+    if self.__input_stream != None:
       raise ValueError('Navigator is already open.')
-    self.__file = open(path, 'r')
-    self.__json_doc = json.JSONDecoder().decode(self.__file.read())
-    self.__doc_index = 0
-    self.__doc_len = len(self.__json_doc)
+    self.__input_stream = RecordInputStream(open(path, 'r'))
 
   def close(self):
     """Close the journal."""
     self.__check_open()
-    self.__file.close()
-    self.__file = None
-    self.__json_doc = None
+    self.__input_stream.close()
+    self.__input_stream = None
 
   def next(self):
     """Return the next item in the journal.
@@ -64,14 +54,14 @@ class JournalNavigator(object):
       StopIteration when there are no more elements.
     """
     self.__check_open()
-    if self.__doc_index >= self.__doc_len:
-      raise StopIteration()
-
-    json_obj = self.__json_doc[self.__doc_index]
-    self.__doc_index += 1
-    return json_obj
+    json_str = self.__input_stream.next()
+    try:
+      return json.JSONDecoder().decode(json_str)
+    except:
+      print 'Invalid json record:\n{0}'.format(json_str)
+      raise
 
   def __check_open(self):
     """Verify that the navigator is open (and thus valid to iterate)."""
-    if self.__file == None:
+    if self.__input_stream == None:
       raise ValueError('Navigator is not open.')

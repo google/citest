@@ -260,7 +260,7 @@ class TestRunner(object):
 
     dirname = self.bindings.get('LOG_DIR', '.')
     filename = os.path.basename(self.bindings.get('LOG_FILENAME'))
-    filename = os.path.splitext(filename)[0] + '.journal.json'
+    filename = os.path.splitext(filename)[0] + '.journal'
 
     journal_file = open(os.path.join(dirname, filename), 'w')
     os.fchmod(journal_file.fileno(), 0600)  # Protect sensitive data.

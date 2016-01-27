@@ -109,7 +109,7 @@ class HtmlRendererTest(unittest.TestCase):
     # Test block both as being initially expanded then not.
     html = manager.make_expandable_control_for_section_id('SID', 'TEST')
     self.assertEqual(
-        '<a class="toggle" onclick="toggle_block(\'SID\');">TEST</a>',
+        '<a class="toggle" onclick="toggle_inline(\'SID\');">TEST</a>',
         html)
 
   def test_process_snapshot(self):

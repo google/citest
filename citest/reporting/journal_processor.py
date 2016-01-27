@@ -17,7 +17,6 @@
 
 from .journal_navigator import JournalNavigator
 
-
 class ProcessedEntityManager(object):
   """Helper class to help processing handlers keep track of where we are.
 

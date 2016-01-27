@@ -23,17 +23,18 @@ import json
 import threading
 import time
 
+from .record_stream import RecordOutputStream
 from .snapshot import JsonSnapshot
-
 
 class Journal(object):
   """Stores object snapshots into an output file.
 
-  The output file will contain a JSON document containing all the journal
-  entries. This document is a JSON list that is begun when the journal
-  is constructed, and ends when the terminate() method is called. If the
-  terminate is never called, then the document will be illformed, lacking
-  a list terminator.
+  The output fiel will contain a binary stream containing each journal entry
+  as a 32-bit framed json document. That is there will be a 32-bit length
+  (in network byte order) followed by a JSON string containing the entry.
+  The frame length is the json string length. This gives the journal some
+  resiliency to premature crashes and invalid json encodings of individual
+  entries.
 
   The journal is thread-safe so multiple threads can write into it
   concurrently.
@@ -48,7 +49,6 @@ class Journal(object):
     """
     self.__encoder = json.JSONEncoder(indent=2, separators=(',', ': '))
     self.__lock = threading.Lock()
-    self.__sep = ''
     self.__now_function = now_function
     self.__output = None
 
@@ -76,8 +76,7 @@ class Journal(object):
       if self.__output is not None:
         raise ValueError('Journal is already open.')
 
-      self.__output = _output
-      self.__output.write('[')
+      self.__output = RecordOutputStream(_output)
     finally:
       self.__lock.release()
 
@@ -94,7 +93,6 @@ class Journal(object):
     try:
       if self.__output is None:
         raise ValueError('Journal is already terminated.')
-      self.__output.write(']')
       self._do_close()
       self.__output = None
     finally:
@@ -150,8 +148,6 @@ class Journal(object):
         raise ValueError('Journal is not open')
 
       text = self.__encoder.encode(json_copy)
-      self.__output.write(self.__sep)
-      self.__output.write(text)
-      self.__sep = ',\n'
+      self.__output.append(text)
     finally:
       self.__lock.release()

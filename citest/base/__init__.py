@@ -20,6 +20,10 @@ from snapshot import (
     Edge,
     SnapshotEntity)
 
+from record_stream import (
+    RecordInputStream,
+    RecordOutputStream)
+
 from journal import Journal
 
 from global_journal import (

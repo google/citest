@@ -23,8 +23,8 @@ import json
 import unittest
 from StringIO import StringIO
 from citest.base import Journal
-from citest.base import (JsonSnapshot, JsonSnapshotable)
-
+from citest.base import JsonSnapshot, JsonSnapshotable
+from citest.base import RecordOutputStream, RecordInputStream
 
 class TestDetails(JsonSnapshotable):
   def export_to_json_snapshot(self, snapshot, entity):
@@ -102,14 +102,16 @@ class JournalTest(unittest.TestCase):
     journal = TestJournal(output)
     initial_json_text = self.expect_message_text(journal.clock,
                                                  'Starting journal.')
-    self.assertEquals('[{0}'.format(initial_json_text),
-                      output.getvalue())
+    expect_stream = RecordOutputStream(StringIO())
+    expect_stream.append(initial_json_text)
+
+    self.assertEquals(expect_stream.stream.getvalue(), output.getvalue())
 
     journal.terminate()
     final_json_text = self.expect_message_text(journal.clock,
                                                'Finished journal.')
-    self.assertEquals('[{0},\n{1}]'.format(initial_json_text, final_json_text),
-                      journal.final_content)
+    expect_stream.append(final_json_text)
+    self.assertEquals(expect_stream.stream.getvalue(), journal.final_content)
 
   def test_write_plain_message(self):
     """Verify the journal contains messages we write into it."""
@@ -117,21 +119,22 @@ class JournalTest(unittest.TestCase):
     journal = TestJournal(output)
     initial_json_text = self.expect_message_text(journal.clock,
                                                  'Starting journal.')
-    self.assertEquals('[{0}'.format(initial_json_text),
-                      output.getvalue())
 
-    offset = len(output.getvalue())
+    expect_stream = RecordOutputStream(StringIO())
+    expect_stream.append(initial_json_text)
+    self.assertEquals(expect_stream.stream.getvalue(), output.getvalue())
+
     journal.write_message('A simple message.')
     message_json_text = self.expect_message_text(journal.clock,
                                                  'A simple message.')
-    self.assertEquals(',\n' + message_json_text, output.getvalue()[offset:])
+    expect_stream.append(message_json_text)
+    self.assertEquals(expect_stream.stream.getvalue(), output.getvalue())
 
-    offset = len(output.getvalue())
     journal.terminate()
     final_json_text = self.expect_message_text(journal.clock,
                                                'Finished journal.')
-    self.assertEquals(',\n' + final_json_text,
-                      journal.final_content[offset:-1])
+    expect_stream.append(final_json_text)
+    self.assertEquals(expect_stream.stream.getvalue(), journal.final_content)
 
   def test_write_message_with_metadata(self):
     """Verify the journal messages contain the metadata we add."""
@@ -144,9 +147,14 @@ class JournalTest(unittest.TestCase):
     message_json_text = self.expect_message_text(
         journal.clock, 'My message.', metadata)
 
+    input_stream = RecordInputStream(StringIO(output.getvalue()[offset:]))
     decoder = json.JSONDecoder(encoding='ASCII')
-    self.assertItemsEqual(decoder.decode(message_json_text),
-                          decoder.decode(output.getvalue()[offset + 2:]))
+    expect_obj = decoder.decode(message_json_text)
+    got_obj = decoder.decode(input_stream.next())
+    self.assertItemsEqual(expect_obj, got_obj)
+      
+      
+
 
   def test_store(self):
     """Verify we store objects as JSON snapshots."""
@@ -163,7 +171,9 @@ class JournalTest(unittest.TestCase):
 
     journal.store(data)
     contents = output.getvalue()
-    got = decoder.decode(contents[offset + 2:])  # skip ',\n'
+    got_stream = RecordInputStream(StringIO(contents[offset:]))
+    got_json_str = got_stream.next()
+    got = decoder.decode(got_json_str)
     json_object = snapshot.to_json_object()
     json_object['_timestamp'] = time_function()
     self.assertItemsEqual(json_object, got)
@@ -180,7 +190,10 @@ class JournalTest(unittest.TestCase):
     journal.terminate()
 
     decoder = json.JSONDecoder(encoding='ASCII')
-    got = decoder.decode(journal.final_content)
+    got_stream = RecordInputStream(StringIO(journal.final_content))
+    got_str = [e for e in got_stream]
+    got_json = '[{0}]'.format(','.join(got_str))
+    got = decoder.decode(got_json)
     self.assertEquals(4, len(got))
 
     snapshot = JsonSnapshot()
