@@ -20,8 +20,9 @@ import collections
 import httplib
 import urllib2
 
-from ..base import JsonSnapshotable
 from . import testable_agent
+from ..base import JsonSnapshotable
+from .http_scrubber import HttpScrubber
 
 
 class HttpResponseType(collections.namedtuple('HttpResponseType',
@@ -173,6 +174,14 @@ class HttpAgent(testable_agent.TestableAgent):
     """Returns the bound base URL used when sending messages."""
     return self.__base_url
 
+  @property
+  def http_scrubber(self):
+    return self.__http_scrubber
+
+  @http_scrubber.setter
+  def http_scrubber(self, scrubber):
+    self.__http_scrubber = scrubber
+
   def __init__(self, base_url):
     """Constructs instance.
 
@@ -183,6 +192,7 @@ class HttpAgent(testable_agent.TestableAgent):
     self.__base_url = base_url
     self.__status_class = HttpOperationStatus
     self.__headers = {}
+    self.__http_scrubber = HttpScrubber()
 
   def add_header(self, key, value):
     """Specifies a header to add to each request that follows.
@@ -269,8 +279,11 @@ class HttpAgent(testable_agent.TestableAgent):
     req = urllib2.Request(url=url, data=data, headers=all_headers)
     req.get_method = lambda: http_type
 
+    scrubbed_url = self.__http_scrubber.scrub_url(url)
+    scrubbed_data = self.__http_scrubber.scrub_request(data)
     if trace:
-      self.logger.debug('%s url=%s data=%s', http_type, url, data)
+      self.logger.debug('%s url=%s data=%s',
+                        http_type, scrubbed_url, scrubbed_data)
 
     output = None
     error = None
@@ -278,13 +291,15 @@ class HttpAgent(testable_agent.TestableAgent):
       response = urllib2.urlopen(req)
       code = response.getcode()
       output = response.read()
+      scrubbed_output = self.__http_scrubber.scrub_response(output)
       if trace:
-        self.logger.debug('  -> http=%d: %s', code, output)
+        self.logger.debug('  -> http=%d: %s', code, scrubbed_output)
     except urllib2.HTTPError as ex:
       code = ex.getcode()
       error = ex.read()
+      scrubbed_error = self.__http_scrubber.scrub_response(error)
       if trace:
-        self.logger.debug('  -> http=%d: %s', code, error)
+        self.logger.debug('  -> http=%d: %s', code, scrubbed_error)
     except urllib2.URLError as ex:
       if trace:
         self.logger.debug('  *** except: %s', ex)
