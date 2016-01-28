@@ -29,7 +29,7 @@ from .snapshot import JsonSnapshot
 class Journal(object):
   """Stores object snapshots into an output file.
 
-  The output fiel will contain a binary stream containing each journal entry
+  The output file will contain a binary stream containing each journal entry
   as a 32-bit framed json document. That is there will be a 32-bit length
   (in network byte order) followed by a JSON string containing the entry.
   The frame length is the json string length. This gives the journal some

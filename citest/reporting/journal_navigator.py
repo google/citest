@@ -57,7 +57,7 @@ class JournalNavigator(object):
     json_str = self.__input_stream.next()
     try:
       return json.JSONDecoder().decode(json_str)
-    except:
+    except ValueError:
       print 'Invalid json record:\n{0}'.format(json_str)
       raise
 

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Implements a JsonScrubber to remove sensitive data from a JSON document."""
+
 import re
 from json import JSONDecoder
 from json import JSONEncoder
@@ -25,10 +27,10 @@ class JsonScrubber(object):
   def __init__(self, regex='(?i)(?:password|secret|private)'):
     self.__re = re.compile(regex)
 
-    base64='[a-zA-Z0-9+/\n]'
-    pad='(?:=|\u003d)'
-    begin_marker='-+BEGIN [A-Z0-9 ]*KEY-+'
-    end_marker='-+END [A-Z0-9 ]*KEY-+'
+    base64 = '[a-zA-Z0-9+/\n]'
+    pad = '(?:=|\u003d)'
+    begin_marker = '-+BEGIN [A-Z0-9 ]*KEY-+'
+    end_marker = '-+END [A-Z0-9 ]*KEY-+'
     self.__key_re = re.compile('(?ms){begin}\n{base64}+{pad}*\n{end}\n'.format(
         begin=begin_marker, base64=base64, pad=pad, end=end_marker))
 
@@ -36,7 +38,7 @@ class JsonScrubber(object):
   def process_text(self, value):
     """Scrub text.
     Args:
-      value: The value to scrub.
+      value: [string] The value to scrub.
     Returns:
       scrubbed value.
     """
@@ -50,13 +52,14 @@ class JsonScrubber(object):
     """Scrub elements of a list.
 
     Args:
-      l: The list to redact from.
+      l: [list] The list to redact from.
 
     Returns:
       Redacted list.
     """
     result = []
     for e in l:
+       # pylint: disable=bad-indentation
        if isinstance(e, dict):
          result.append(self.process_dict(e))
        elif isinstance(e, list):
@@ -69,20 +72,22 @@ class JsonScrubber(object):
     """Scrub elements of a dictionary.
 
     Args:
-      d: The dictionary to redact from.
+      d: [dict] The dictionary to redact from.
 
     Returns:
       Redacted dict.
     """
     if len(d) == 2:
+        # pylint: disable=bad-indentation
         keys = d.keys()
         if 'key' in keys and 'value' in keys:
           match = self.__re.search(d['key'])
 
           if match:
             d['value'] = self.REDACTED
-            
+
     for name, value in d.items():
+        # pylint: disable=bad-indentation
         match = self.__re.search(name)
         if match:
           d[name] = self.REDACTED
@@ -104,16 +109,15 @@ class JsonScrubber(object):
       Redacted data.
     """
     if isinstance(data, dict):
-        return self.process_dict(data)
+      return self.process_dict(data)
     if isinstance(data, list):
-        return self.process_list(data)
+      return self.process_list(data)
     if isinstance(data, basestring):
-        try:
-          d = JSONDecoder().decode(data)
-          d = self(d)
-          return JSONEncoder().encode(d)
-        except:
-          pass
+      try:
+        value = JSONDecoder().decode(data)
+        scrubbed_value = self(value)
+        return JSONEncoder().encode(scrubbed_value)
+      except (TypeError, ValueError):
+        pass
 
     return data
-            
