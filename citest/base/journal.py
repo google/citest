@@ -98,6 +98,34 @@ class Journal(object):
     finally:
       self.__lock.release()
 
+  def begin_context(self, _title, **metadata):
+    """Write a begin context marker into the journal.
+
+    Args:
+      _title: [string] Title for the context.
+      metadata: [kwargs] Additional metadata for the entry.
+    """
+    entry = {
+        '_type': 'JournalContextControl',
+        'control': 'BEGIN',
+        '_title': _title
+    }
+    entry.update(metadata)
+    self.__write_json_object(entry)
+
+  def end_context(self, **metadata):
+    """Write a end context marker into the journal.
+
+    Args:
+      metadata: [kwargs] Additional metadata for the entry.
+    """
+    entry = {
+        '_type': 'JournalContextControl',
+        'control': 'END',
+    }
+    entry.update(metadata)
+    self.__write_json_object(entry)
+
   def write_message(self, _text, **metadata):
     """Write a message into the journal.
 

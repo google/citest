@@ -18,10 +18,17 @@ This is particular to the JSON emitted by the Journal.
 """
 
 import cgi
+import collections
 import datetime
 import json
 
 from .journal_processor import (JournalProcessor, ProcessedEntityManager)
+
+
+class RenderedContext(
+    collections.namedtuple('RenderedContext', ['control', 'html'])):
+  """Holds information about a context being rendered."""
+  pass
 
 
 def _to_string(value):
@@ -486,12 +493,58 @@ class HtmlRenderer(JournalProcessor):
     if registry is None:
       registry = {
           'JsonSnapshot': self.render_snapshot,
+          'JournalContextControl': self.handle_context_control,
           'JournalMessage': self.render_message
       }
 
     super(HtmlRenderer, self).__init__(registry)
     self.__entity_manager = ProcessedEntityManager()
     self.__document_manager = document_manager
+
+    # The context stack is an array of array of strings,
+    # Where each top level array is a context we've pushed, which
+    # contains fragments of entities. If we've pushed a context, then
+    # well render into the stack. Otherwise we'll render into the document.
+    # When we pop a context we'll render it into the parent context until
+    # we pop the root context, which will finally render into the document.
+    self.__context_stack = []
+
+  def terminate(self):
+    """Implemets JournalProcessor interface."""
+    if self.__context_stack:
+      raise ValueError(
+          'Still have {0} open contexts'.format(len(self.__context_stack)))
+
+  def handle_context_control(self, control):
+    """Begin or terminate contexts."""
+    direction = control['control']
+    if direction == 'BEGIN':
+      self.__context_stack.append(RenderedContext(control, []))
+    elif direction == 'END':
+      held = self.__context_stack[-1]
+      self.__context_stack.pop()
+
+      # Relation here is used to indicate the test status.
+      # Take that and turn it into a style.
+      relation = control.get('relation', None)
+      css = self.__document_manager.determine_attribute_css(relation)[0]
+      title_html = cgi.escape(held.control.get('_title', ''))
+      if not held.html:
+        self.render_log_tr(held.control['_timestamp'], None,
+                           title_html + ' (<i>empty</i>)', css=css)
+      else:
+        if css:
+          title_html = '<span{css}>{title}</span>'.format(
+              css=css, title=title_html)
+        lvl = min(1, len(self.__context_stack))
+        title_html = '<context{n}>{title}</context{n}>'.format(
+            n=lvl, title=title_html)
+        html = '{title}\n<table>\n{rows}\n</table>\n'.format(
+            title=title_html, rows=''.join(held.html))
+        self.render_log_tr(held.control['_timestamp'], title_html, html)
+    else:
+      raise ValueError(
+          'Invalid JournalContextControl control={0}'.format(direction))
 
   def render_snapshot(self, snapshot):
     """Default method for rendering a JsonSnapshot into HTML."""
@@ -519,10 +572,10 @@ class HtmlRenderer(JournalProcessor):
       return
 
     final_css = document_manager.determine_attribute_css(final_relation)[0]
-    title = '"{0}"'.format(info.summary_html) if info.summary_html else None
+    title = '<span{css}>"{html}" Snapshot</span>'.format(
+        css=final_css, html=info.summary_html) if info.summary_html else None
     self.render_log_tr(snapshot.get('_timestamp'),
-                       title, info.detail_html, collapse_decorator=title,
-                       css=final_css)
+                       title, info.detail_html, collapse_decorator=title)
     return
 
   @staticmethod
@@ -605,12 +658,14 @@ class HtmlRenderer(JournalProcessor):
           summary = '<ff>{0}...</ff>'.format(html[0:html.find('\n')])
         elif len(text) > processor.max_message_summary_length:
           summary = '<ff>{0}...</ff>'.format(
-              html[0:processor.max_message_summary_length - 3])
+              html[0:processor.max_message_summary_length - 2*len('expand')])
         html = '<ff>{0}</ff>'.format(html)
 
     self.render_log_tr(message.get('_timestamp'), summary, html)
 
-
   def _do_render(self, html):
     """Helper function that renders html fragment into the HTML document."""
-    self.__document_manager.write(html)
+    if self.__context_stack:
+      self.__context_stack[-1].html.append(html)
+    else:
+      self.__document_manager.write(html)

@@ -139,6 +139,10 @@ class JournalProcessor(object):
     self.__handler_registry = dict(registry or {})
     self.__default_handler = self.handle_unknown
 
+  def terminate(self):
+    """Terminate the processor (finished processing)."""
+    pass
+
   def process(self, input_path):
     """Process the contents of the journal indicatd by input_path.
 
