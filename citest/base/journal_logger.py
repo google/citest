@@ -119,6 +119,32 @@ class JournalLogger(logging.Logger):
         _msg='{0}\n{1}'.format(_msg, json_text), levelno=levelno,
         _module=_module, _alwayslog=_alwayslog, **kwargs)
 
+  @staticmethod
+  def begin_context(_title, **kwargs):
+    """
+    Mark the beginning of a context in the journal.
+
+    Future entries will be associated with this context until end_context()
+    is called. Contexts can be nested.
+
+    Args:
+      _title: [string] The title of the context.
+    """
+    journal = get_global_journal()
+    journal.begin_context(_title, **kwargs)
+    logging.getLogger(__name__).debug(
+        '+context %s', _title, extra={'citest_journal':{'nojournal':True}})
+
+  @staticmethod
+  def end_context(**kwargs):
+    """Mark the ending of the current context within the journal."""
+    logging.getLogger(__name__).debug(
+        '-context',
+        extra={'citest_journal':{'nojournal':True}})
+    journal = get_global_journal()
+    if journal:
+      journal.end_context(**kwargs)
+
 
 class JournalLogHandler(logging.StreamHandler):
   """A standard log handler that will write journal entries.

@@ -352,7 +352,7 @@ class JsonSnapshotHelper(object):
     if isinstance(value, type):
       return 'type ' + value.__name__
 
-    if isinstance(value, Exception):
+    if isinstance(value, BaseException):
       return '{0}: {1}'.format(value.__class__.__name__, value)
 
     raise TypeError(

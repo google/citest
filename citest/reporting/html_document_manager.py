@@ -79,6 +79,8 @@ function toggle_inline(id) {
 _BUILTIN_CSS = """
 <style>
   ff { display:inline; font-family:monospace; white-space:pre }
+  context0 { font-weight:bold; white-space:pre; font-size:10pt; padding:0.3em }
+  context1 { font-weight:bold; white-space:pre; font-size:8pt; padding:0.3em }
   body { font-size:10pt }
   table { font-size:8pt;border-width:none;
           border-spacing:0px;border-color:#F8F8F8;border-style:solid }
