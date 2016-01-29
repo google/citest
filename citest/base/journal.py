@@ -143,12 +143,14 @@ class Journal(object):
     entry.update(metadata)
     self.__write_json_object(entry)
 
-  def store(self, obj):
+  def store(self, obj, **metadata):
     """Stores an object as a graph within the journal.
 
-    obj: [JsonSnapshotable] The object to store into the journal.
+    Args:
+      obj: [JsonSnapshotable] The object to store into the journal.
+      metadata: [kwargs] Additional metadata for the entry.
     """
-    snapshot = JsonSnapshot()
+    snapshot = JsonSnapshot(**metadata)
     snapshot.add_data(obj)
     self.__write_json_object(snapshot.to_json_object())
 

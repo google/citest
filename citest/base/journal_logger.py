@@ -50,6 +50,22 @@ class JournalLogger(logging.Logger):
   """This class is only providing Journal-aware convienence functions."""
 
   @staticmethod
+  def delegate(method, *positional_args, **kwargs):
+    """Call the method in the underling journal, if there is one.
+
+    This has no effect if we do not have a journal.
+
+    Args:
+      method: The method name to call in the logging journal.
+      positional_args: The positional args to pass to the method
+      kwargs The keyword args to pass to the method.
+    """
+    journal = get_global_journal()
+    if not journal:
+      return
+    getattr(journal, method)(*positional_args, **kwargs)
+
+  @staticmethod
   def journal_or_log(_msg, levelno=logging.DEBUG,
                      _module=None, _alwayslog=False, **kwargs):
     """Writes a log message into the journal (if there is one) or logging API.
