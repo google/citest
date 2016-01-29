@@ -131,9 +131,13 @@ class ContractClause(predicate.ValuePredicate):
     Returns:
       ContractClauseVerifyResult with details.
     """
-    JournalLogger.begin_context('Verifying Contract: {0}'.format(self._title))
+    JournalLogger.begin_context(
+        'Verifying ContractClause: {0}'.format(self._title))
+
     context_relation = 'ERROR'
     try:
+      JournalLogger.delegate("store", self, _title='Clause Specification')
+
       result = self.__do_verify()
       context_relation = 'VALID' if result else 'INVALID'
     finally:
@@ -167,6 +171,9 @@ class ContractClause(predicate.ValuePredicate):
 
     summary = clause_result.enumerated_summary_message
     ok_str = 'OK' if clause_result else 'FAILED'
+    JournalLogger.delegate(
+        "store", clause_result,
+        _title='Validation Analysis of "{0}"'.format(self._title))
     self.logger.debug('ContractClause %s: %s\n%s',
                       ok_str, self._title, summary)
     return clause_result
