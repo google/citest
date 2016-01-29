@@ -533,6 +533,7 @@ class HtmlRenderer(JournalProcessor):
         self.render_log_tr(held.control['_timestamp'], None,
                            title_html + ' (<i>empty</i>)', css=css)
       else:
+        delta_time = control['_timestamp'] - held.control['_timestamp']
         if css:
           title_html = '<span{css}>{title}</span>'.format(
               css=css, title=title_html)
@@ -541,7 +542,8 @@ class HtmlRenderer(JournalProcessor):
             n=lvl, title=title_html)
         html = '{title}\n<table>\n{rows}\n</table>\n'.format(
             title=title_html, rows=''.join(held.html))
-        self.render_log_tr(held.control['_timestamp'], title_html, html)
+        context_title = '%s <small>+%.3fs</small>' % (title_html, delta_time)
+        self.render_log_tr(held.control['_timestamp'], context_title, html)
     else:
       raise ValueError(
           'Invalid JournalContextControl control={0}'.format(direction))
@@ -572,10 +574,15 @@ class HtmlRenderer(JournalProcessor):
       return
 
     final_css = document_manager.determine_attribute_css(final_relation)[0]
-    title = '<span{css}>"{html}" Snapshot</span>'.format(
-        css=final_css, html=info.summary_html) if info.summary_html else None
+    title = cgi.escape(snapshot.get('_title', ''))
+    if not title and info.summary_html:
+      title = '"{html}" Snapshot'.format(html=info.summary_html)
+    if title:
+      title_html = '<span{css}>{title}</span>'.format(
+          css=final_css, title=title)
+
     self.render_log_tr(snapshot.get('_timestamp'),
-                       title, info.detail_html, collapse_decorator=title)
+                       title_html, info.detail_html, collapse_decorator=title)
     return
 
   @staticmethod
@@ -638,7 +645,7 @@ class HtmlRenderer(JournalProcessor):
 
   def render_message(self, message):
     """Default method for rendering a JournalMessage into HTML."""
-    text = message.get('_value')
+    text = message.get('_value').strip()
 
     document_manager = self.__document_manager
     processor = ProcessToRenderInfo(document_manager, self.__entity_manager)
