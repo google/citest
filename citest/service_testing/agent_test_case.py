@@ -478,8 +478,13 @@ class AgentTestCase(BaseTestCase):
     verify_results = None
     final_status_ok = None
     context_relation = None
+    attempt_info = None
     try:
       JournalLogger.begin_context('Test "{0}"'.format(test_case.title))
+      JournalLogger.delegate(
+          "store", test_case.operation,
+          _title='Operation "{0}" Specification'.format(
+              test_case.operation.title))
       max_tries = 1 + max_retries
 
       # We attempt the operation on the agent multiple times until the agent
@@ -522,7 +527,9 @@ class AgentTestCase(BaseTestCase):
     except BaseException as ex:
       context_relation = 'ERROR'
       execution_trace.set_exception(ex)
-      if not attempt_info.completed:
+      if attempt_info is None:
+        execution_trace.set_exception(ex, traceback.format_exc())
+      elif not attempt_info.completed:
         # Exception happened during the attempt as opposed to during our
         # verification afterwards.
         attempt_info.set_exception(ex, traceback.format_exc())
