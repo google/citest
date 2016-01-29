@@ -213,5 +213,5 @@ class TestableAgentTest(unittest.TestCase):
 
 if __name__ == '__main__':
   loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(st.TestableAgentTest)
+  suite = loader.loadTestsFromTestCase(TestableAgentTest)
   unittest.TextTestRunner(verbosity=2).run(suite)
