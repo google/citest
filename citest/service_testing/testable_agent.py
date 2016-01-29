@@ -31,6 +31,8 @@ import time
 
 from ..base import JsonScrubber
 from ..base import JsonSnapshotable
+from ..base import JournalLogger
+
 
 class AgentError(Exception, JsonSnapshotable):
   """Denotes an error reported by a TestableAgent."""
@@ -227,19 +229,26 @@ class AgentOperationStatus(JsonSnapshotable):
     if max_secs < 0:
       max_secs = self.operation.max_wait_secs
 
-    logger = self.agent.logger
     trace = trace_first
-    logger.debug('Wait on id=%s, max_secs=%d', self.id, max_secs)
-    self.refresh(trace=trace)
-    trace = trace_every
+    message = 'Wait on id={0}, max_secs={1}'.format(self.id, max_secs)
 
+    JournalLogger.begin_context(message)
+    context_relation = 'ERROR'
+    try:
+      ok = self.__wait_helper(poll_every_secs, max_secs, trace_every)
+      context_relation = 'VALID' if ok else 'INVALID'
+    finally:
+      JournalLogger.end_context(relation=context_relation)
+  
+  def __wait_helper(self, poll_every_secs, max_secs, trace):
+    logger = logging.getLogger(__name__)
     secs_remaining = max_secs
     log_secs_remaining = 0
     while not self.finished:
         # pylint: disable=bad-indentation
         if secs_remaining <= 0 and max_secs > 0:
           logger.debug('Timed out')
-          return
+          return False
 
         sleep_secs = (poll_every_secs if max_secs < 0
                       else min(secs_remaining, poll_every_secs))
@@ -257,6 +266,7 @@ class AgentOperationStatus(JsonSnapshotable):
         self._sleep(sleep_secs)
         secs_remaining -= sleep_secs
         self.refresh(trace=trace)
+    return True
 
   def _sleep(self, secs):
     """Hook so we can mock out sleep calls in wait()'s polling loop.

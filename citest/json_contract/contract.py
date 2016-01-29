@@ -16,6 +16,7 @@
 import logging
 import time
 
+from ..base import JournalLogger
 from ..base import JsonSnapshotable
 from . import predicate
 from . import observer as ob
@@ -130,7 +131,17 @@ class ContractClause(predicate.ValuePredicate):
     Returns:
       ContractClauseVerifyResult with details.
     """
-    self.logger.debug('Verifying Contract: %s', self._title)
+    JournalLogger.begin_context('Verifying Contract: {0}'.format(self._title))
+    context_relation = 'ERROR'
+    try:
+      result = self.__do_verify()
+      context_relation = 'VALID' if result else 'INVALID'
+    finally:
+      JournalLogger.end_context(relation=context_relation)
+    return result
+
+  def __do_verify(self):
+    # self.logger.debug('Verifying Contract: %s', self._title)
     start_time = time.time()
     end_time = start_time + self._retryable_for_secs
 
