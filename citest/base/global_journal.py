@@ -40,8 +40,13 @@ def _atexit_handler():
     _global_lock.release()
 
 
-def new_global_journal_with_path(path):
-  """Creates a global journal persisted at the provided path."""
+def new_global_journal_with_path(path, **metadata):
+  """Creates a global journal persisted at the provided path.
+
+  Args:
+    path: [string] The path to the journal to open.
+    metadata: [kwargs] The journal metadata to write into the journal.
+  """
   global _global_journal
   global _added_atexit
   _global_lock.acquire(True)
@@ -56,7 +61,7 @@ def new_global_journal_with_path(path):
     journal_file = open(path, 'w')
     os.fchmod(journal_file.fileno(), 0600)  # Protect sensitive data.
     journal = Journal()
-    journal.open_with_file(journal_file)
+    journal.open_with_file(journal_file, **metadata)
 
     _global_journal = journal
   finally:
