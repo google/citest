@@ -18,6 +18,7 @@ import logging
 import re
 import subprocess
 
+from ..base import JournalLogger
 from ..base import JsonSnapshotable
 from .. import json_contract as jc
 from . import testable_agent
@@ -166,9 +167,10 @@ class CliAgent(testable_agent.TestableAgent):
       CliResponseType tuple containing program execution results.
     """
     command = self._args_to_full_commandline(args)
-    if trace:
-      logger = logging.getLogger(__name__)
-      logger.debug(command)
+    log_msg = 'spawn {0} "{1}"'.format(command[0], '" "'.join(command[1:]))
+    JournalLogger.journal_or_log(log_msg,
+                                 _module=self.logger.name, _alwayslog=trace,
+                                 _context='request')
 
     process = subprocess.Popen(
         command,
@@ -177,9 +179,9 @@ class CliAgent(testable_agent.TestableAgent):
 
     scrubber = output_scrubber or self.__output_scrubber
     if scrubber:
-      if trace:
-        logger.debug('Scrubbing output with {0}'.format(
-            scrubber.__class__.__name__))
+      log_msg = 'Scrubbing output with {0}'.format(scrubber.__class__.__name__)
+      JournalLogger.journal_or_log(log_msg,
+                                   _module=self.logger.name, _alwayslog=trace)
       stdout = scrubber(stdout)
                        
     # Strip leading/trailing eolns that program may add to errors and output.
@@ -187,8 +189,22 @@ class CliAgent(testable_agent.TestableAgent):
     stdout = stdout.strip()
     code = process.returncode
 
-    if trace:
-      logger.debug('-> %d: err=[%s] %s', code, stderr, stdout)
+    # Always log to journal
+    if stdout and stderr:
+      which = 'both stdout and stderr'
+      output_json = {'stdout':stdout, 'stderr':stderr}
+    else:
+      which = 'stderr' if stderr else 'stdout'
+      output_json = stderr if stderr else stdout
+    if output_json:
+      JournalLogger.journal_or_log_detail(
+        'Result Code {0} / {1}'.format(code, which), output_json,
+        _module=self.logger.name, _alwayslog=trace, _context='response')
+    else:
+      JournalLogger.journal_or_log(
+        'Result Code {0} / no ouptut'.format(code),
+        _module=self.logger.name, _alwayslog=trace, _context='response')
+
     return CliResponseType(code, stdout, stderr)
 
 
@@ -216,7 +232,7 @@ class CliRunOperation(testable_agent.AgentOperation):
     cli_response = agent.run(self._args, trace=trace)
     status = agent._new_status(self, cli_response)
     if trace:
-      agent.logger.debug('Returning status %s', status)
+      agent.nojournal_logger.debug('Returning status %s', statu)
     return status
 
 

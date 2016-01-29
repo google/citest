@@ -18,11 +18,15 @@
 import base64
 import collections
 import httplib
+import logging
+import traceback
 import urllib2
 
-from . import testable_agent
+from ..base import JournalLogger
 from ..base import JsonSnapshotable
 from .http_scrubber import HttpScrubber
+
+from . import testable_agent
 
 
 class HttpResponseType(collections.namedtuple('HttpResponseType',
@@ -281,9 +285,17 @@ class HttpAgent(testable_agent.TestableAgent):
 
     scrubbed_url = self.__http_scrubber.scrub_url(url)
     scrubbed_data = self.__http_scrubber.scrub_request(data)
-    if trace:
-      self.logger.debug('%s url=%s data=%s',
-                        http_type, scrubbed_url, scrubbed_data)
+
+    if data is not None:
+      JournalLogger.journal_or_log_detail(
+          '{type} {url}'.format(type=http_type, url=scrubbed_url),
+          scrubbed_data,
+          _module=self.logger.name, _alwayslog=trace,
+          _context='request')
+    else:
+      JournalLogger.journal_or_log(
+          '{type} {url}'.format(type=http_type, url=scrubbed_url),
+          _module=self.logger.name, _alwayslog=trace, _context='request')     
 
     output = None
     error = None
@@ -291,18 +303,24 @@ class HttpAgent(testable_agent.TestableAgent):
       response = urllib2.urlopen(req)
       code = response.getcode()
       output = response.read()
+
       scrubbed_output = self.__http_scrubber.scrub_response(output)
-      if trace:
-        self.logger.debug('  -> http=%d: %s', code, scrubbed_output)
+      JournalLogger.journal_or_log_detail(
+          'HTTP {code}'.format(code=code),
+          scrubbed_output,
+          _module=self.logger.name, _alwayslog=trace, _context='response')
+
     except urllib2.HTTPError as ex:
       code = ex.getcode()
       error = ex.read()
       scrubbed_error = self.__http_scrubber.scrub_response(error)
       if trace:
         self.logger.debug('  -> http=%d: %s', code, scrubbed_error)
+
     except urllib2.URLError as ex:
-      if trace:
-        self.logger.debug('  *** except: %s', ex)
+      JournalLogger.journal_or_log(
+          'Caught exception: {ex}\n{stack}'.format(
+              ex=ex, stack=traceback.format_exc()))
       code = -1
       error = str(ex)
     return HttpResponseType(code, output, error)
@@ -382,7 +400,7 @@ class BaseHttpOperation(testable_agent.AgentOperation):
 
     status = self._send_message(agent, trace)
     if trace:
-      agent.logger.debug('Returning status %s', status)
+      agent.nojournal_logger.debug('Returning status %s', status)
     return status
 
   def _send_message(self, agent, trace):

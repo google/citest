@@ -35,38 +35,45 @@ import unittest
 
 # Our modules.
 from . import args_util
-from . import (Journal, JsonSnapshotable)
+from . import JsonSnapshotable
+from . import get_global_journal
+from . import new_global_journal_with_path
 
 # If a -log_config is not provided, then use this.
 _DEFAULT_LOG_CONFIG = """{
  'version':1,
  'disable_existing_loggers':True,
  'formatters':{
- 'timestamped':{
-   'format':'%(asctime)s %(message)s',
-   'datefmt':'%H:%M:%S'
-  }
+   'timestamped':{
+     'format':'%(asctime)s %(message)s',
+     'datefmt':'%H:%M:%S'
+   }
  },
  'handlers':{
    'console':{
-   'level':'WARNING',
-   'class':'logging.StreamHandler',
-   'formatter':'timestamped'
+     'level':'WARNING',
+     'class':'logging.StreamHandler',
+     'formatter':'timestamped'
+   },
+   'file':{
+     'level':'DEBUG',
+     'class':'logging.FileHandler',
+     'formatter':'timestamped',
+     'filename':'$LOG_DIR/$LOG_FILEBASE.log',
+     'mode':'w'
+   },
+   'journal':{
+     'level':'DEBUG',
+     'class':'citest.base.JournalLogHandler',
+     'path' : '$LOG_DIR/$LOG_FILEBASE.journal'
+   }
   },
-  'file':{
-   'level':'DEBUG',
-   'class':'logging.FileHandler',
-   'formatter':'timestamped',
-   'filename':'$LOG_DIR/$LOG_FILENAME',
-   'mode':'w'
-  }
- },
   'loggers':{
-  '': {
-   'level':'DEBUG',
-   'handlers':['console', 'file']
+    '': {
+      'level':'DEBUG',
+      'handlers':['console', 'file', 'journal']
+    },
   }
- }
 }
 """
 
@@ -217,14 +224,14 @@ class TestRunner(object):
     # we are running, but we might not be running one (e.g. in interpreter).
     try:
       basename = os.path.basename(sys.argv[0])
-      main_filename = os.path.splitext(basename)[0] + '.log'
+      main_filename = os.path.splitext(basename)[0]
     except IndexError:
-      main_filename = 'debug.log'
+      main_filename = 'debug'
 
     defaults = defaults or {}
     parser.add_argument('--log_dir', default=defaults.get('LOG_DIR', '.'))
-    parser.add_argument('--log_filename',
-                        default=defaults.get('LOG_FILENAME', main_filename))
+    parser.add_argument('--log_filebase',
+                        default=defaults.get('LOG_FILEBASE', main_filename))
     parser.add_argument(
         '--log_config', default=defaults.get('LOG_CONFIG', ''),
         help='Path to text file containing custom logging configuration. The'
@@ -248,24 +255,17 @@ class TestRunner(object):
         raise
     config = ast.literal_eval(args_util.replace(text, self.bindings))
     logging.config.dictConfig(config)
-    path = os.path.join(
-        self.bindings['LOG_DIR'], self.bindings['LOG_FILENAME'])
-    os.chmod(path, 0600)
+    log_path = os.path.join(
+        self.bindings['LOG_DIR'], self.bindings['LOG_FILEBASE'] + '.log')
+    os.chmod(log_path, 0600)
 
-
-  def start_report_journal(self):
-    """Sets up report_journal and output file for high level reporting."""
-    if self.__journal is not None:
-      raise ValueError('report_journal already started.')
-
-    dirname = self.bindings.get('LOG_DIR', '.')
-    filename = os.path.basename(self.bindings.get('LOG_FILENAME'))
-    filename = os.path.splitext(filename)[0] + '.journal'
-
-    journal_file = open(os.path.join(dirname, filename), 'w')
-    os.fchmod(journal_file.fileno(), 0600)  # Protect sensitive data.
-    self.__journal = Journal()
-    self.__journal.open_with_file(journal_file)
+    self.__journal = get_global_journal()
+    if self.__journal is None:
+      # force start
+      journal_path = os.path.join(
+          self.bindings['LOG_DIR'],
+          self.bindings['LOG_FILEBASE'] + '.journal')
+      self.__journal = new_global_journal_with_path(journal_path)
 
   def report(self, obj):
     """Add object to report.
@@ -317,11 +317,8 @@ class TestRunner(object):
     self.__bindings.update(args_util.parser_args_to_bindings(self.__options))
 
     self.start_logging()
-    self.start_report_journal()
 
   def _cleanup(self):
     """Helper function when running a suite for cleaning up the global context.
-
-    This incudes closing out the report.
     """
-    self.finish_report_journal()
+    pass

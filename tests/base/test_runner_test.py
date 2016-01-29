@@ -35,15 +35,14 @@ class TestRunnerTest(BaseTestCase):
     TestRunner.global_runner().initArgumentParser(parser)
     args = parser.parse_args()
     self.assertEquals(args.log_dir, '.')
-    self.assertEquals(
-      args.log_filename,
-      os.path.basename(__main__.__file__.replace('.py', '.log')))
+    self.assertEquals(args.log_filebase,
+                      os.path.splitext(os.path.basename(__main__.__file__))[0])
 
   def test_bindings(self):
     self.assertEquals('.', TestRunner.global_runner().bindings['LOG_DIR'])
     self.assertEquals(
-      os.path.basename(__main__.__file__.replace('.py', '.log')),
-      TestRunner.global_runner().bindings['LOG_FILENAME'])
+      os.path.splitext(os.path.basename(__main__.__file__))[0],
+      TestRunner.global_runner().bindings['LOG_FILEBASE'])
 
 
 if __name__ == '__main__':

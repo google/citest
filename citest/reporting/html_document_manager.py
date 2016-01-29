@@ -26,6 +26,38 @@ import cgi
 # It defines the toggle_visibility function used to display/hide elements.
 _BUILTIN_JAVASCRIPT = """
 <script type='text/javascript'>
+function expand_tree(node, expand) {
+  if (node && node.id) {
+    if (node.id.endsWith('.0')) {
+       if (expand){
+          if (node.style.display != 'none') {
+             node.style.display = 'none'
+          }
+       } else {
+          if (node.style.display != 'inline') {
+             node.style.display = 'inline'
+          }
+       }
+    } else if (node.id.endsWith('.1')) {
+       if (expand){
+          if (node.style.display != 'inline') {
+             node.style.display = 'inline'
+          }
+       } else {
+          if (node.style.display != 'none') {
+             node.style.display = 'none'
+          }
+       }
+    }
+  }
+
+  node = node.firstChild;
+  while (node) {
+    expand_tree(node, expand)
+    node = node.nextSibling;
+  }
+}
+
 function toggle_inline_visibility(id) {
   var e = document.getElementById(id);
   if (e.style.display == 'none')
@@ -46,6 +78,7 @@ function toggle_inline(id) {
 # It defines the styles that we'll use when rendering the HTML.
 _BUILTIN_CSS = """
 <style>
+  ff { display:inline; font-family:monospace; white-space:pre }
   body { font-size:10pt }
   table { font-size:8pt;border-width:none;
           border-spacing:0px;border-color:#F8F8F8;border-style:solid }
@@ -286,6 +319,14 @@ class HtmlDocumentManager(object):
     """
     with open(output_path, 'w') as f:
       f.write(self.build_begin_html_document(self.__title))
+      f.write(
+          '<a href="#" onclick="expand_tree(document.body,true)">'
+          'Expand All</a>')
+      f.write('&nbsp;&nbsp;&nbsp;')
+      f.write(
+          '<a href="#" onclick="expand_tree(document.body,false)">'
+          'Collapse All</a>')
+      f.write('\n<p/>\n')
       f.write(self.build_key_html())
       f.write(''.join(self.__parts))
       f.write(self.build_end_html_document())
