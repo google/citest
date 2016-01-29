@@ -38,8 +38,9 @@ import traceback
 
 # Our modules.
 from ..base import args_util
+from ..base import BaseTestCase
+from ..base import JournalLogger
 from ..base import JsonSnapshotable
-from .. import base
 from .scenario_test_runner import ScenarioTestRunner
 
 
@@ -315,7 +316,7 @@ class AgentTestScenario(object):
         'new_agent not specialized on ' + cls.__name__)
 
 
-class AgentTestCase(base.BaseTestCase):
+class AgentTestCase(BaseTestCase):
   """Base class for agent integration tests."""
 
   @property
@@ -476,7 +477,9 @@ class AgentTestCase(base.BaseTestCase):
     execution_trace = OperationContractExecutionTrace(test_case)
     verify_results = None
     final_status_ok = None
+    context_relation = None
     try:
+      JournalLogger.begin_context('Test "{0}"'.format(test_case.title))
       max_tries = 1 + max_retries
 
       # We attempt the operation on the agent multiple times until the agent
@@ -514,7 +517,10 @@ class AgentTestCase(base.BaseTestCase):
           status, timeout_ok=timeout_ok,
           final_attempt=attempt_info,
           execution_trace=execution_trace)
+      context_relation = ('VALID' if (final_status_ok and verify_results)
+                          else 'INVALID')
     except BaseException as ex:
+      context_relation = 'ERROR'
       execution_trace.set_exception(ex)
       if not attempt_info.completed:
         # Exception happened during the attempt as opposed to during our
@@ -535,6 +541,7 @@ class AgentTestCase(base.BaseTestCase):
     finally:
       self.log_end_test(test_case.title)
       self.report(execution_trace)
+      JournalLogger.end_context(relation=context_relation)
 
     if not final_status_ok:
       self.raiseFinalStatusNotOk(status, attempt_info)

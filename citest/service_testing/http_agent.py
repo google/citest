@@ -314,8 +314,9 @@ class HttpAgent(testable_agent.TestableAgent):
       code = ex.getcode()
       error = ex.read()
       scrubbed_error = self.__http_scrubber.scrub_response(error)
-      if trace:
-        self.logger.debug('  -> http=%d: %s', code, scrubbed_error)
+      JournalLogger.journal_or_log_detail(
+          'HTTP {code}'.format(code=code), scrubbed_error,
+          _module=self.logger.name, _alwayslog=trace, _context='response')
 
     except urllib2.URLError as ex:
       JournalLogger.journal_or_log(
@@ -324,7 +325,6 @@ class HttpAgent(testable_agent.TestableAgent):
       code = -1
       error = str(ex)
     return HttpResponseType(code, output, error)
-
 
   def post(self, path, data, content_type='application/json', trace=True):
     """Perform an HTTP POST."""
