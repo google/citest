@@ -96,9 +96,10 @@ _BUILTIN_CSS = """
   pre { margin: 0 }
   div.valid, div.invalid, div.error,
   span.valid, span.invalid, span.error { padding:0.3em }
-  div.fodder { font-size:8pt; }
   div.title { font-weight:bold; font-size:14pt;
-              text-align:center; font-family:arial; margin:0 0 30pt 0 }
+              color:white; background-color:black;
+              text-align:left; font-family:arial;
+              padding:0.3em; margin-bottom:0.5em; }
   th.error { color:#FFEEEE; background-color:#990033 }
   *.error { background-color:#FFEEEE; color:#990033 }
   th.data { color:#fffae3; background-color:#996633 }
@@ -321,6 +322,7 @@ class HtmlDocumentManager(object):
     """
     with open(output_path, 'w') as f:
       f.write(self.build_begin_html_document(self.__title))
+      f.write('<div class="title">{title}</div>\n'.format(title=self.__title))
       f.write(
           '<a href="#" onclick="expand_tree(document.body,true)">'
           'Expand All</a>')
