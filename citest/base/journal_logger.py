@@ -130,10 +130,11 @@ class JournalLogger(logging.Logger):
     Args:
       _title: [string] The title of the context.
     """
-    journal = get_global_journal()
-    journal.begin_context(_title, **kwargs)
     logging.getLogger(__name__).debug(
         '+context %s', _title, extra={'citest_journal':{'nojournal':True}})
+    journal = get_global_journal()
+    if journal is not None:
+        journal.begin_context(_title, **kwargs)
 
   @staticmethod
   def end_context(**kwargs):
@@ -142,7 +143,7 @@ class JournalLogger(logging.Logger):
         '-context',
         extra={'citest_journal':{'nojournal':True}})
     journal = get_global_journal()
-    if journal:
+    if journal is not None:
       journal.end_context(**kwargs)
 
 

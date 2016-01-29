@@ -229,12 +229,11 @@ class AgentOperationStatus(JsonSnapshotable):
     if max_secs < 0:
       max_secs = self.operation.max_wait_secs
 
-    trace = trace_first
     message = 'Wait on id={0}, max_secs={1}'.format(self.id, max_secs)
-
     JournalLogger.begin_context(message)
     context_relation = 'ERROR'
     try:
+      self.refresh(trace=trace_first)
       ok = self.__wait_helper(poll_every_secs, max_secs, trace_every)
       context_relation = 'VALID' if ok else 'INVALID'
     finally:
@@ -266,6 +265,7 @@ class AgentOperationStatus(JsonSnapshotable):
         self._sleep(sleep_secs)
         secs_remaining -= sleep_secs
         self.refresh(trace=trace)
+
     return True
 
   def _sleep(self, secs):
