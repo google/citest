@@ -13,5 +13,7 @@
 # limitations under the License.
 
 
+"""Citest support modules for testing against Amazon Web Services (AWS)."""
+
 from aws_agent import AwsAgent
 from aws_contract import AwsContractBuilder

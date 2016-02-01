@@ -1,0 +1,24 @@
+[MESSAGES CONTROL]
+# R0201 Method could be a function
+disable=R0201
+# pylint --rcfile=pylint.rc
+
+[FORMAT]
+# Maximum number of characters on a single line.
+max-line-length=80
+
+# Regexp for a line that is allowed to be longer than the limit.
+ignore-long-lines=^\s*(# )?<?https?://\S+>?$
+
+# List of optional constructs for which whitespace checking is disabled
+no-space-check=trailing-comma,dict-separator
+
+# String used as indentation unit. This is usually " " (4 spaces) or "\t" (1
+# tab).
+indent-string='  '
+
+# Number of spaces of indent required inside a hanging or continued line.
+indent-after-paren=4
+
+variable-rgx=([a-z_][a-z0-9_]{2,30}$)|([fe]$)
+method-rgx=[a-z_][a-z0-9_]{2,40}$

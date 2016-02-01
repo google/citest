@@ -26,7 +26,6 @@ running and standard reporting hooks used by other tools.
 # Standard python modules.
 import argparse
 import ast
-import datetime
 import logging
 import logging.config
 import os.path
@@ -34,10 +33,10 @@ import sys
 import unittest
 
 # Our modules.
+from .global_journal import get_global_journal, new_global_journal_with_path
+from .snapshot import JsonSnapshotable
 from . import args_util
-from . import JsonSnapshotable
-from . import get_global_journal
-from . import new_global_journal_with_path
+
 
 # If a -log_config is not provided, then use this.
 _DEFAULT_LOG_CONFIG = """{

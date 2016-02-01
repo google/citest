@@ -13,12 +13,11 @@
 # limitations under the License.
 
 
+"""Adapts citest TestableAgent to ineract with Amazon Web Services."""
+
+
 # Standard python modules.
 import logging
-import os
-import re
-import sys
-import threading
 
 # Our modules.
 from .. import service_testing as st
@@ -34,11 +33,13 @@ class AwsAgent(st.CliAgent):
 
   @property
   def profile(self):
-    return self._profile
+    """The aws command-line client account profile to use."""
+    return self.__profile
 
   @property
   def region(self):
-    return self._region
+    """The default AWS region to interact with."""
+    return self.__region
 
   def __init__(self, profile, region, trace=True):
     """Construct instance.
@@ -49,17 +50,17 @@ class AwsAgent(st.CliAgent):
       trace: Whether to trace all I/O by default.
     """
     super(AwsAgent, self).__init__('aws')
-    self._profile = profile
-    self._region = region
+    self.__profile = profile
+    self.__region = region
     self.trace = trace
     self.logger = logging.getLogger(__name__)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     builder = snapshot.edge_builder
-    builder.make_control(entity, 'Profile', self._profile)
-    builder.make_control(entity, 'Region', self._region)
-    builder.make_control(entity, 'Trace', self._trace)
+    builder.make_control(entity, 'Profile', self.__profile)
+    builder.make_control(entity, 'Region', self.__region)
+    builder.make_control(entity, 'Trace', self.trace)
     super(AwsAgent, self).export_to_json_snapshot(snapshot, entity)
 
   def build_aws_command_args(self, aws_command, args, aws_module=None,
@@ -79,9 +80,9 @@ class AwsAgent(st.CliAgent):
     if not aws_module:
       aws_module = 'ec2'
     if not profile:
-      profile = self._profile
+      profile = self.__profile
     if not region:
-      region = self._region
+      region = self.__region
 
     preamble = []
     if profile:

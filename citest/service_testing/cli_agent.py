@@ -14,7 +14,6 @@
 
 
 import collections
-import logging
 import re
 import subprocess
 
@@ -198,12 +197,12 @@ class CliAgent(testable_agent.TestableAgent):
       output_json = stderr if stderr else stdout
     if output_json:
       JournalLogger.journal_or_log_detail(
-        'Result Code {0} / {1}'.format(code, which), output_json,
-        _module=self.logger.name, _alwayslog=trace, _context='response')
+          'Result Code {0} / {1}'.format(code, which), output_json,
+          _module=self.logger.name, _alwayslog=trace, _context='response')
     else:
       JournalLogger.journal_or_log(
-        'Result Code {0} / no ouptut'.format(code),
-        _module=self.logger.name, _alwayslog=trace, _context='response')
+          'Result Code {0} / no ouptut'.format(code),
+          _module=self.logger.name, _alwayslog=trace, _context='response')
 
     return CliResponseType(code, stdout, stderr)
 
@@ -232,7 +231,7 @@ class CliRunOperation(testable_agent.AgentOperation):
     cli_response = agent.run(self._args, trace=trace)
     status = agent._new_status(self, cli_response)
     if trace:
-      agent.nojournal_logger.debug('Returning status %s', statu)
+      agent.nojournal_logger.debug('Returning status %s', status)
     return status
 
 

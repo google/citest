@@ -32,7 +32,6 @@ but can be changed with --log_filename and --log_dir.
 
 # Standard python modules.
 from multiprocessing.pool import ThreadPool
-import sys
 import time
 import traceback
 
@@ -413,7 +412,8 @@ class AgentTestCase(BaseTestCase):
     return True
 
   def raiseFinalStatusNotOk(self, status, final_attempt):
-    raise AssertionError('{0}\n{1}'.format(status.exception_details, str(status)))
+    raise AssertionError('{0}\n{1}'.format(
+        status.exception_details, str(status)))
 
   def run_test_case_list(
       self, test_case_list, max_concurrent, timeout_ok=False,
@@ -540,8 +540,8 @@ class AgentTestCase(BaseTestCase):
         self.logger.debug('Exception was at:\n%s', traceback.format_exc())
       except BaseException as unexpected:
         self.logger.error(
-          'Unexpected error {0}\nHandling original exception {1}',
-          unexpected, ex)
+            'Unexpected error {0}\nHandling original exception {1}',
+            unexpected, ex)
         self.logger.debug('Unexpected exception was at:\n%s',
                           traceback.format_exc())
       raise

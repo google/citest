@@ -13,5 +13,8 @@
 # limitations under the License.
 
 
+"""Citest support modules for testing against Google Cloud Platform (GCP)."""
+
+
 from gce_contract import GceContractBuilder
 from gcloud_agent import GCloudAgent

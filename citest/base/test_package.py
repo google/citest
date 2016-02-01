@@ -12,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Builds a test suite containing all the tests found within a package dir."""
+
+
 import glob
 import os
 import os.path
 import unittest
 import __main__
 
-from . import TestRunner
+from .test_runner import TestRunner
+
 
 def collect_suites_in_dir(dirname):
   """Collect all the tests in the given directory.
@@ -53,13 +57,13 @@ def run_all_tests_in_dir(dirname=None, recurse=False):
     dirname = os.path.dirname(__main__.__file__)
 
   if recurse:
+    # pylint: disable=unused-variable
     suites = []
-    for walk_dir, subdir_list, file_list in os.walk(dirname):
-
+    for walk_dir, file_list, dir_list in os.walk(dirname):
       suites.extend(collect_suites_in_dir(walk_dir))
   else:
     suites = collect_suites_in_dir(dirname)
 
-  testSuite = unittest.TestSuite(suites)
+  test_suite = unittest.TestSuite(suites)
   runner = TestRunner(runner=unittest.TextTestRunner(verbosity=2))
-  runner.run(testSuite)
+  runner.run(test_suite)

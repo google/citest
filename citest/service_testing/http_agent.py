@@ -18,7 +18,6 @@
 import base64
 import collections
 import httplib
-import logging
 import traceback
 import urllib2
 
@@ -118,13 +117,17 @@ class HttpOperationStatus(testable_agent.AgentOperationStatus):
   def snapshot_format(self):
     return self.__snapshot_format
 
+  @property
+  def raw_http_response(self):
+    return self.__http_response
+
   def __init__(self, operation, http_response):
     super(HttpOperationStatus, self).__init__(operation)
     self.__http_response = http_response
     self.__snapshot_format = None
 
   def __cmp__(self, response):
-    return self.__http_response.__cmp__(response.__http_response)
+    return self.__http_response.__cmp__(response.raw_http_response)
 
   def __str__(self):
     return 'http_response={0}'.format(self.__http_response)
@@ -174,16 +177,18 @@ class HttpAgent(testable_agent.TestableAgent):
     return self.__headers
 
   @property
-  def baseUrl(self):
+  def base_url(self):
     """Returns the bound base URL used when sending messages."""
     return self.__base_url
 
   @property
   def http_scrubber(self):
+    """Returns the bound scrubber for scrubbing components of HTTP messages."""
     return self.__http_scrubber
 
   @http_scrubber.setter
   def http_scrubber(self, scrubber):
+    """Binds HttpScrubber for removing private information when logging HTTP."""
     self.__http_scrubber = scrubber
 
   def __init__(self, base_url):
@@ -295,7 +300,7 @@ class HttpAgent(testable_agent.TestableAgent):
     else:
       JournalLogger.journal_or_log(
           '{type} {url}'.format(type=http_type, url=scrubbed_url),
-          _module=self.logger.name, _alwayslog=trace, _context='request')     
+          _module=self.logger.name, _alwayslog=trace, _context='request')
 
     output = None
     error = None
@@ -382,6 +387,7 @@ class BaseHttpOperation(testable_agent.AgentOperation):
     self.__snapshot_format = None
 
   def set_snapshot_format(self, format):
+    """Sets 'format' metadata value to specify when snapshotting operation."""
     self.__snapshot_format = format
 
   def export_to_json_snapshot(self, snapshot, entity):

@@ -22,11 +22,11 @@ import threading
 
 # Our modules.
 from ..service_testing import cli_agent
-from ..service_testing import testable_agent
 from ..base.json_scrubber import JsonScrubber
 
 class PassphraseInjector(object):
   """Monitors a file descriptor and injects passphrases as requested."""
+  # pylint: disable=too-few-public-methods
 
   def __init__(self, fd, ssh_passphrase_file=None, daemon=False):
     """Constructor
@@ -39,10 +39,10 @@ class PassphraseInjector(object):
       daemon: If true then the injector should never terminate.
           Otherwise, it will terminate once there is no more input.
     """
-    self._fd = fd
-    self._ssh_passphrase_file = ssh_passphrase_file
-    self._daemon = daemon
-    self._logger = logging.getLogger(__name__)
+    self.__fd = fd
+    self.__ssh_passphrase_file = ssh_passphrase_file
+    self.__daemon = daemon
+    self.__logger = logging.getLogger(__name__)
 
   def __call__(self):
     """Reads from the bound fd and injects the passphrase when asked.
@@ -52,54 +52,55 @@ class PassphraseInjector(object):
     """
     passphrase = None
     try:
-      if self._ssh_passphrase_file:
-        with file(self._ssh_passphrase_file) as f:
+      if self.__ssh_passphrase_file:
+        with file(self.__ssh_passphrase_file) as f:
           passphrase = f.read()
           if passphrase[-1] != '\n':
             passphrase += '\n'
-    except:
-      self._logger.error(
-          '--ssh_passphrase_file=%s not found', self._ssh_passphrase_file)
+    except IOError:
+      self.__logger.error(
+          '--ssh_passphrase_file=%s not found', self.__ssh_passphrase_file)
       sys.exit(-1)
 
-    return self._read_process_output(passphrase)
+    return self.__read_process_output(passphrase)
 
-  def _read_process_output(self, passphrase):
+  def __read_process_output(self, passphrase):
+    """Collect output from subprocess, injecting passphrase when prompted."""
     lines = []
-    trigger_regex = re.compile('Enter passphrase for key ');
+    trigger_regex = re.compile('Enter passphrase for key ')
 
     injected = False
     output = ''
     while True:
       try:
-        ch = os.read(self._fd, 1)
+        value = os.read(self.__fd, 1)
       except OSError:
-        ch = None
+        value = None
 
-      if not ch:
-        if self._daemon:
+      if not value:
+        if self.__daemon:
           continue
         break
 
       if not injected and trigger_regex.search(output):
-        self._logger.debug('(Injecting Passphrase into ssh)')
+        self.__logger.debug('(Injecting Passphrase into ssh)')
         if not passphrase:
-          self._logger.error(
+          self.__logger.error(
               'SSH wants a passphrase, but --ssh_passphrase_file not provided.')
           sys.exit(-1)
-        os.write(self._fd, passphrase)
+        os.write(self.__fd, passphrase)
         injected = True
-      if ch == '\r':
+      if value == '\r':
         continue
-      if ch != '\n':
-        output += ch
+      if value != '\n':
+        output += value
         continue
 
-      if self._daemon:
-        self._logger.debug('(from ssh): %r', output)
+      if self.__daemon:
+        self.__logger.debug('(from ssh): %r', output)
       else:
         if injected:
-          self._logger.debug('(from ssh): %r', output)
+          self.__logger.debug('(from ssh): %r', output)
         else:
           lines.append(output)
       injected = False
@@ -116,9 +117,9 @@ class GCloudAgent(cli_agent.CliAgent):
     project: The default GCP project to use.
     zone: The default GCP zone to use (for commands requiring one).
   """
-  _LIST_NEEDS_ZONE = ['managed-instance-groups', 'unmanaged-instance-groups']
-  _DESCRIBE_NEEDS_ZONE = _LIST_NEEDS_ZONE + ['instances']
-  _PREVIEW_COMMANDS = []
+  __LIST_NEEDS_ZONE = ['managed-instance-groups', 'unmanaged-instance-groups']
+  __DESCRIBE_NEEDS_ZONE = __LIST_NEEDS_ZONE + ['instances']
+  __PREVIEW_COMMANDS = []
 
   @staticmethod
   def command_needs_zone(gce_type, gcloud_command, gcloud_type='compute'):
@@ -133,18 +134,20 @@ class GCloudAgent(cli_agent.CliAgent):
       True if we need a --zone, False otherwise.
     """
     if gcloud_command == 'list':
-      return gce_type in GCloudAgent._LIST_NEEDS_ZONE
+      return gce_type in GCloudAgent.__LIST_NEEDS_ZONE
     if gcloud_command == 'describe':
-      return gce_type in GCloudAgent._DESCRIBE_NEEDS_ZONE
+      return gce_type in GCloudAgent.__DESCRIBE_NEEDS_ZONE
     return False
 
   @property
   def project(self):
-    return self._project
+    """The default GCP project that this agent will interact with."""
+    return self.__project
 
   @property
   def zone(self):
-    return self._zone
+    """The default GCP zone that this agent will interact with."""
+    return self.__zone
 
   def __init__(self, project, zone, service_account=None,
                ssh_passphrase_file='', trace=True):
@@ -167,16 +170,16 @@ class GCloudAgent(cli_agent.CliAgent):
       trace: Whether to trace all the calls by default for debugging.
     """
     super(GCloudAgent, self).__init__('gcloud', output_scrubber=JsonScrubber())
-    self._project = project
-    self._zone = zone
-    self._ssh_passphrase_file = ssh_passphrase_file
-    self._service_account = service_account
+    self.__project = project
+    self.__zone = zone
+    self.__ssh_passphrase_file = ssh_passphrase_file
+    self.__service_account = service_account
     self.trace = trace
     self.logger = logging.getLogger(__name__)
 
   def _args_to_full_commandline(self, args):
-    if self._service_account:
-      args = ['--account', self._service_account] + args
+    if self.__service_account:
+      args = ['--account', self.__service_account] + args
       print 'ARGS={0}'.format(args)
 
     return super(GCloudAgent, self)._args_to_full_commandline(args)
@@ -184,10 +187,10 @@ class GCloudAgent(cli_agent.CliAgent):
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     builder = snapshot.edge_builder
-    builder.make_control(entity, 'Project', self._project)
-    builder.make_control(entity, 'Zone', self._zone)
-    builder.make_control(entity, 'Passphrase File', self._ssh_passphrase_file)
-    builder.make(entity, 'Trace', self._trace)
+    builder.make_control(entity, 'Project', self.__project)
+    builder.make_control(entity, 'Zone', self.__zone)
+    builder.make_control(entity, 'Passphrase File', self.__ssh_passphrase_file)
+    builder.make(entity, 'Trace', self.trace)
     super(GCloudAgent, self).export_to_json_snapshot(snapshot, entity)
 
   @staticmethod
@@ -200,7 +203,7 @@ class GCloudAgent(cli_agent.CliAgent):
     Args:
       gce_type: The gcloud type we're inquiring about.
     """
-    return gce_type in GCloudAgent._PREVIEW_COMMANDS
+    return gce_type in GCloudAgent.__PREVIEW_COMMANDS
 
   @staticmethod
   def zone_comes_first(gce_module, gce_type):
@@ -271,11 +274,11 @@ class GCloudAgent(cli_agent.CliAgent):
           and leaves it to the caller to run a PassphraseInjector..
     """
     cmdline = ['gcloud']
-    if self._service_account:
-      cmdline.extend(['--account', self._service_account])
+    if self.__service_account:
+      cmdline.extend(['--account', self.__service_account])
     cmdline.extend(['compute', 'ssh', instance,
-                    '--project', self._project,
-                    '--zone', self._zone])
+                    '--project', self.__project,
+                    '--zone', self.__zone])
     cmdline.extend(arg_array)
 
     bash_command = ['/bin/bash', '-c', ' '.join(cmdline)]
@@ -286,7 +289,7 @@ class GCloudAgent(cli_agent.CliAgent):
       os.execv(bash_command[0], bash_command)
     if async:
       pi = PassphraseInjector(
-          fd=fd, ssh_passphrase_file=self._ssh_passphrase_file, daemon=async)
+          fd=fd, ssh_passphrase_file=self.__ssh_passphrase_file, daemon=async)
       t = threading.Thread(target=pi)
       t.setDaemon(True)
       t.start()
@@ -308,7 +311,7 @@ class GCloudAgent(cli_agent.CliAgent):
     pid, fd = self.pty_fork_ssh(
         instance, ['--command', '"%s"' % escaped_command], async=False)
     output = PassphraseInjector(
-        fd=fd, ssh_passphrase_file=self._ssh_passphrase_file)()
+        fd=fd, ssh_passphrase_file=self.__ssh_passphrase_file)()
     retcode = os.waitpid(pid, os.WNOHANG)[1]
     if not retcode:
       return cli_agent.CliResponseType(0, output, '')
@@ -326,11 +329,11 @@ class GCloudAgent(cli_agent.CliAgent):
     Returns:
       cli.CliRunStatus with execution results.
     """
-    needs_zone = gce_type in self._LIST_NEEDS_ZONE
+    needs_zone = gce_type in self.__LIST_NEEDS_ZONE
     args = ['list'] + (extra_args or [])
     cmdline = self.build_gcloud_command_args(
-      gce_type, args, format=format, project=self._project,
-      zone=self._zone if needs_zone else None)
+        gce_type, args, format=format, project=self.__project,
+        zone=self.__zone if needs_zone else None)
     return self.run(cmdline, trace=self.trace)
 
   def describe_resource(self, gce_type, name, format='json', extra_args=None):
@@ -345,10 +348,10 @@ class GCloudAgent(cli_agent.CliAgent):
     Returns:
       cli.CliRunStatus with execution results.
     """
-    needs_zone = gce_type in self._DESCRIBE_NEEDS_ZONE
+    needs_zone = gce_type in self.__DESCRIBE_NEEDS_ZONE
     args = ['describe', name] + (extra_args or [])
     cmdline = self.build_gcloud_command_args(
-        gce_type, args, format=format, project=self._project,
-        zone=self._zone if needs_zone else None)
+        gce_type, args, format=format, project=self.__project,
+        zone=self.__zone if needs_zone else None)
 
     return self.run(cmdline, trace=self.trace)

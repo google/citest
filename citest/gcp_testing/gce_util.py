@@ -26,7 +26,6 @@ import json
 import logging
 import os
 import socket
-import sys
 import time
 import urllib2
 
@@ -43,11 +42,11 @@ class _ProcessKiller(object):
   """Helper class for killing firewall tunnels."""
 
   def  __init__(self, process):
-    self._process = process
+    self.__process = process
   def safe_kill(self):
     try:
       print '*** terminating tunnel'
-      os.kill(_process, -9)
+      os.kill(self.__process, -9)
     except:
       pass
 
@@ -74,7 +73,7 @@ def _find_internal_ip_interface(iface_list):
   return None
 
 
-def _find_external_ip_interface(iface_list):
+def _find_external_ip_interface(iface_list, gcloud_response):
   """Find an IP address that is external from GCE.
 
   Args:
@@ -86,14 +85,14 @@ def _find_external_ip_interface(iface_list):
   logger = logging.getLogger(__name__)
   for iface in iface_list:
     try:
-      accessConfigs = iface['accessConfigs']
+      access_configs = iface['accessConfigs']
     except:
       logger.error(
           'Description lacks networkInterfaces/accessConfigs field:%s',
           gcloud_response)
       continue
     # Find an external IP address in this list
-    for config in accessConfigs:
+    for config in access_configs:
       try:
         if config['name'] == 'external-nat':
           return config['natIP']
@@ -112,7 +111,7 @@ def determine_where_i_am():
     Each will be None if we are not running on GCE.
   """
   logger = logging.getLogger(__name__)
-  headers = { 'Metadata-Flavor': 'Google' }
+  headers = {'Metadata-Flavor': 'Google'}
 
   url = 'http://metadata/computeMetadata/v1/project/project-id'
   try:
@@ -152,6 +151,52 @@ def am_i(project, zone, instance):
   return not project or project == my_project
 
 
+def _network_interfaces_for_instance(gcloud, instance):
+  """Determine VM network interfaces for a given GCP instance.
+
+  Args:
+    gcloud:  [GCloudHelper] bound to the instance's project and zone.
+    instance: [string] The name of the instance to lookup.
+
+  Returns:
+    list of network interfaces (IP addresses) or None
+
+  Raises:
+    Exception if instance information could not be determined.
+  """
+  logger = logging.getLogger(__name__)
+  logger.debug('Testing locating test project instance=%s', instance)
+  gcloud_response = gcloud.describe_resource('instances', instance)
+  if gcloud_response.retcode != 0:
+    logger.error(
+        'Could not find instance=%s in project=%s, zone=%s: %s',
+        instance, gcloud.project, gcloud.zone, gcloud_response.error)
+    return None, gcloud_response
+
+  try:
+    doc = json.JSONDecoder().decode(gcloud_response.output)
+  except:
+    logger.error('Invalid JSON in response: %s', gcloud_response)
+    return None, gcloud_response
+
+  try:
+    if doc['status'] != 'RUNNING':
+      logger.error(
+          'instance=%s project=%s zone=%s is not RUNNING: %s',
+          instance, gcloud.project, gcloud.zone, doc['status'])
+      return None, gcloud_response
+  except:
+    logger.warning('Could not check VM status:%s', gcloud_response)
+
+  try:
+    iface_list = doc['networkInterfaces']
+  except KeyError:
+    logger.error('JSON has no networkInterfaces: %s', doc)
+    return None, gcloud_response
+
+  return iface_list, gcloud_response
+
+
 def establish_network_connectivity(gcloud, instance, target_port):
   """Determine conventional host:port url for a target_port on an GCE instance.
 
@@ -176,46 +221,22 @@ def establish_network_connectivity(gcloud, instance, target_port):
   # work whether or not we are running in a GCE instance ourselves.
 
   logger.debug('Testing locating test project instance=%s', instance)
-  gcloud_response = gcloud.describe_resource('instances', instance)
-  if gcloud_response.retcode != 0:
-    logger.error(
-        'Could not find instance=%s in project=%s, zone=%s: %s',
-        instance, gcloud.project, gcloud.zone, gcloud_response.error)
-    return None
-
-  decoder = json.JSONDecoder()
-  try:
-    doc = decoder.decode(gcloud_response.output)
-  except:
-    logger.error('Invalid JSON in response: %s', gcloud_response)
-    return None
-
-  try:
-    if doc['status'] != 'RUNNING':
-      logger.error(
-          'instance=%s project=%s zone=%s is not RUNNING: %s',
-          instance, gcloud.project, gcloud.zone, doc['status'])
-      return None
-  except:
-    logger.warning('Could not check VM status:%s', gcloud_response)
-
-  try:
-    iface_list = doc['networkInterfaces']
-  except KeyError:
-    logger.error('JSON has no networkInterfaces: %s', doc)
+  iface_list, gcloud_response = _network_interfaces_for_instance(
+      gcloud, instance)
+  if iface_list is None:
     return None
 
   tried_urls = []
   for which in ['external', 'internal']:
     if which == 'external':
-      ip = _find_external_ip_interface(iface_list)
+      ip = _find_external_ip_interface(iface_list, gcloud_response)
     else:
       ip = _find_internal_ip_interface(iface_list)
     if not ip:
       continue
 
     logger.debug('%s is on ip=%s', instance, ip)
-    url='http://{host}:{port}'.format(host=ip, port=target_port)
+    url = 'http://{host}:{port}'.format(host=ip, port=target_port)
     tried_urls.append(url)
     try:
       response = urllib2.urlopen(url, None, 5)
@@ -227,9 +248,9 @@ def establish_network_connectivity(gcloud, instance, target_port):
   my_project, my_zone, my_instance = determine_where_i_am()
   if my_project and (my_project == gcloud.project or not gcloud.project):
     logger.error(
-      'We are in the same project %s but cannot reach the server %s.'
-      ' It must not be running on port %d, or is bound to localhost',
-      my_project, instance, target_port)
+        'We are in the same project %s but cannot reach the server %s.'
+        ' It must not be running on port %d, or is bound to localhost',
+        my_project, instance, target_port)
 
   local_port = _unused_port()
   # The use of 'localhost' here will be relative to the instance we ssh into
@@ -237,7 +258,7 @@ def establish_network_connectivity(gcloud, instance, target_port):
   # GCloud wont need the actual IP address.
   # Since we have the tunnel, we'll be returning 'localhost' with our new port.
   tunnel_spec = '{local_port}:localhost:{target_port}'.format(
-    local_port=local_port, target_port=target_port)
+      local_port=local_port, target_port=target_port)
 
   logger.debug(
       'None of %s were directly reachable;\nEstablishing tunnel as %s',

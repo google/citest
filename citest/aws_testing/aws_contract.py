@@ -13,12 +13,15 @@
 # limitations under the License.
 
 
+"""Support for specifying citest.json_contract.Contract on AWS resources."""
+
 import json
 
 from .. import json_contract as jc
 from ..service_testing import cli_agent
 
 class AwsObjectObserver(jc.ObjectObserver):
+  """Observe AWS resources."""
 
   def __init__(self, agent, args, filter=None):
     """Construct new observer.
@@ -29,16 +32,17 @@ class AwsObjectObserver(jc.ObjectObserver):
       filter: If provided, then use this to filter observations.
     """
     super(AwsObjectObserver, self).__init__(filter)
-    self._aws = agent
-    self._args = args
+    self.__aws = agent
+    self.__args = args
 
   def __str__(self):
-    return 'AwsObjectObserver({0})'.format(self._args)
+    return 'AwsObjectObserver({0})'.format(self.__args)
 
   def collect_observation(self, observation, trace=True):
-    aws_response = self._aws.run(self._args, trace)
+    aws_response = self.__aws.run(self.__args, trace)
     if aws_response.retcode != 0:
-      observation.add_error(cli_agent.CliAgentRunError(self._aws, aws_response))
+      observation.add_error(
+          cli_agent.CliAgentRunError(self.__aws, aws_response))
       return []
 
     decoder = json.JSONDecoder()
@@ -54,7 +58,7 @@ class AwsObjectObserver(jc.ObjectObserver):
       doc = [doc]
     self.filter_all_objects_to_observation(doc, observation)
 
-    return observation._objects
+    return observation.objects
 
 
 class AwsClauseBuilder(jc.ContractClauseBuilder):
@@ -75,11 +79,11 @@ class AwsClauseBuilder(jc.ContractClauseBuilder):
          constraint basis.
     """
     super(AwsClauseBuilder, self).__init__(
-      title=title, retryable_for_secs=retryable_for_secs)
-    self._aws = aws
-    self._strict = strict
+        title=title, retryable_for_secs=retryable_for_secs)
+    self.__aws = aws
+    self.__strict = strict
 
-  def collect_resources(self, aws_module, command, args=[], filter=None,
+  def collect_resources(self, aws_module, command, args=None, filter=None,
                         no_resources_ok=False):
     """Collect the AWS resources of a particular type.
 
@@ -92,10 +96,11 @@ class AwsClauseBuilder(jc.ContractClauseBuilder):
           If the resource is not required, 'resource not found' error is
           considered successful.
     """
-    cmd = self._aws.build_aws_command_args(
-        command, args, aws_module=aws_module, profile=self._aws.profile)
+    args = args or []
+    cmd = self.__aws.build_aws_command_args(
+        command, args, aws_module=aws_module, profile=self.__aws.profile)
 
-    self.observer = AwsObjectObserver(self._aws, cmd)
+    self.observer = AwsObjectObserver(self.__aws, cmd)
 
     if no_resources_ok:
       error_verifier = cli_agent.CliAgentObservationFailureVerifier(
@@ -106,14 +111,14 @@ class AwsClauseBuilder(jc.ContractClauseBuilder):
       disjunction_builder.append_verifier(error_verifier)
 
       collect_builder = jc.ValueObservationVerifierBuilder(
-          'Collect {0}'.format(command), strict=self._strict)
+          'Collect {0}'.format(command), strict=self.__strict)
       disjunction_builder.append_verifier_builder(
           collect_builder, new_term=True)
       self.verifier_builder.append_verifier_builder(
           disjunction_builder, new_term=True)
     else:
       collect_builder = jc.ValueObservationVerifierBuilder(
-          'Collect {0}'.format(command), strict=self._strict)
+          'Collect {0}'.format(command), strict=self.__strict)
       self.verifier_builder.append_verifier_builder(collect_builder)
 
     return collect_builder
@@ -130,6 +135,6 @@ class AwsContractBuilder(jc.ContractBuilder):
     """
     super(AwsContractBuilder, self).__init__(
         lambda title, retryable_for_secs=0, strict=False:
-            AwsClauseBuilder(
-                title, aws=aws,
-                retryable_for_secs=retryable_for_secs, strict=strict))
+        AwsClauseBuilder(
+            title, aws=aws,
+            retryable_for_secs=retryable_for_secs, strict=strict))
