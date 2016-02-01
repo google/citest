@@ -101,9 +101,9 @@ class HttpContractBuilder(jc.ContractBuilder):
     """
     super(HttpContractBuilder, self).__init__(
         lambda title, retryable_for_secs=0, strict=False:
-            HttpContractClauseBuilder(
-                title=title, agent=agent,
-                retryable_for_secs=retryable_for_secs, strict=strict))
+        HttpContractClauseBuilder(
+            title=title, agent=agent,
+            retryable_for_secs=retryable_for_secs, strict=strict))
 
 
 class HttpContractClauseBuilder(jc.ContractClauseBuilder):

@@ -44,7 +44,7 @@ class FakeStatus(st.AgentOperationStatus):
     self.got_refresh_count = 0
     self.got_sleep_count = 0
 
-  def _sleep(self, secs):
+  def _do_sleep(self, secs):
     self.got_sleep_secs = secs
     self.got_sleep_count += 1
 

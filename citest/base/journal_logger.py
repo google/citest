@@ -150,7 +150,7 @@ class JournalLogger(logging.Logger):
         '+context %s', _title, extra={'citest_journal':{'nojournal':True}})
     journal = get_global_journal()
     if journal is not None:
-        journal.begin_context(_title, **kwargs)
+      journal.begin_context(_title, **kwargs)
 
   @staticmethod
   def end_context(**kwargs):

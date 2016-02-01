@@ -152,7 +152,7 @@ class AgentOperationStatus(JsonSnapshotable):
   @property
   def error(self):
     """Contains the error object, if any."""
-    return self._error
+    return self.__error
 
   @property
   def exception_details(self):
@@ -162,12 +162,12 @@ class AgentOperationStatus(JsonSnapshotable):
   @property
   def operation(self):
     """A reference to the AgentOperation this status is for."""
-    return self._operation
+    return self.__operation
 
   @property
   def agent(self):
     """A reference to the TestableAgent that executed the |operation|."""
-    return self._operation.agent
+    return self.__operation.agent
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
@@ -196,8 +196,8 @@ class AgentOperationStatus(JsonSnapshotable):
     Args:
       operation: [AgentOperation] The status is for.
     """
-    self._error = None
-    self._operation = operation
+    self.__error = None
+    self.__operation = operation
 
   def refresh(self, trace=True):
     """Refresh the status with the current data.
@@ -238,7 +238,7 @@ class AgentOperationStatus(JsonSnapshotable):
       context_relation = 'VALID' if ok else 'INVALID'
     finally:
       JournalLogger.end_context(relation=context_relation)
-  
+
   def __wait_helper(self, poll_every_secs, max_secs, trace):
     logger = logging.getLogger(__name__)
     secs_remaining = max_secs
@@ -262,13 +262,13 @@ class AgentOperationStatus(JsonSnapshotable):
         else:
           log_secs_remaining -= sleep_secs
 
-        self._sleep(sleep_secs)
+        self._do_sleep(sleep_secs)
         secs_remaining -= sleep_secs
         self.refresh(trace=trace)
 
     return True
 
-  def _sleep(self, secs):
+  def _do_sleep(self, secs):
     """Hook so we can mock out sleep calls in wait()'s polling loop.
 
     Args:
@@ -295,20 +295,20 @@ class AgentOperation(JsonSnapshotable):
     This may be None if the binding is deferred. However, it must be bound
     before it is executed.
     """
-    return self._agent
+    return self.__agent
 
   @property
   def title(self):
     """The name of the operation for tracing/reporting purposes."""
-    return self._title
+    return self.__title
 
   @property
   def max_wait_secs(self):
     """How long an OperationStatus for this operation can wait."""
-    if self._max_wait_secs:
-      return self._max_wait_secs
-    if self._agent:
-      return self._agent.default_max_wait_secs
+    if self.__max_wait_secs:
+      return self.__max_wait_secs
+    if self.__agent:
+      return self.__agent.default_max_wait_secs
     return 0
 
   def bind_agent(self, agent):
@@ -317,9 +317,9 @@ class AgentOperation(JsonSnapshotable):
     Args:
       agent: [TestableAgent] If None then unbind.
     """
-    if self._agent:
+    if self.__agent:
       logging.getLogger(__name__).warning('Rebinding agent on ' + str(self))
-    self._agent = agent
+    self.__agent = agent
 
   def __init__(self, title, agent=None):
     """Construct operation instance.
@@ -329,9 +329,9 @@ class AgentOperation(JsonSnapshotable):
       agent: [TestableAgent] The agent performing the operation can be bound
           later, but must eventually be bound.
     """
-    self._title = title
-    self._agent = agent
-    self._max_wait_secs = None
+    self.__title = title
+    self.__agent = agent
+    self.__max_wait_secs = None
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""

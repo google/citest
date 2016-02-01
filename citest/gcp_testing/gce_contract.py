@@ -16,19 +16,16 @@
 """Provides a means for specifying and verifying expectations of GCE state."""
 
 # Standard python modules.
-import collections
 import json
 import logging
-import re
-import time
 import traceback
 
 # Our modules.
-from . import gcloud_agent
 from .. import json_contract as jc
 from ..service_testing import cli_agent
 
 class GCloudObjectObserver(jc.ObjectObserver):
+  """Observe GCP resources."""
 
   def __init__(self, gcloud, args, filter=None):
     """Construct observer.
@@ -62,14 +59,14 @@ class GCloudObjectObserver(jc.ObjectObserver):
       if not isinstance(doc, list):
         doc = [doc]
       observation.add_all_objects(doc)
-    except Exception as e:
+    except ValueError as vex:
       error = 'Invalid JSON in response: %s' % str(gcloud_response)
       logging.getLogger(__name__).info('%s\n%s\n----------------\n',
                                        error, traceback.format_exc())
-      observation.add_error(jc.JsonError(error, e))
+      observation.add_error(jc.JsonError(error, vex))
       return []
 
-    return observation._objects
+    return observation.objects
 
 
 class GCloudObjectFactory(object):
@@ -219,6 +216,6 @@ class GceContractBuilder(jc.ContractBuilder):
     """
     super(GceContractBuilder, self).__init__(
         lambda title, retryable_for_secs=0, strict=False:
-          GCloudClauseBuilder(
-              title, gcloud=gcloud,
-              retryable_for_secs=retryable_for_secs, strict=strict))
+        GCloudClauseBuilder(
+            title, gcloud=gcloud,
+            retryable_for_secs=retryable_for_secs, strict=strict))
