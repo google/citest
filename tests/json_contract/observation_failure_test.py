@@ -44,7 +44,7 @@ class ObservationFailureTest(unittest.TestCase):
             jc.ObservationFailedError([ValueError('blah')], valid=True),
             jc.ObservationFailedError([TypeError('blah')], valid=True))
 
-  def _doTestObservationFailureVerifierWithError(self, klass):
+  def __doTestObservationFailureVerifierWithError(self, klass):
       valid = klass == IOError
       error = klass('Could not connect')
       observation = jc.Observation()
@@ -70,10 +70,10 @@ class ObservationFailureTest(unittest.TestCase):
         self.assertEqual('Expected error was not found.', result.comment)
 
   def testObservationFailureVerifierWithExpectedError(self):
-      self._doTestObservationFailureVerifierWithError(IOError)
+      self.__doTestObservationFailureVerifierWithError(IOError)
 
   def testObservationFailureVerifierWithUnexpectedError(self):
-      self._doTestObservationFailureVerifierWithError(Exception)
+      self.__doTestObservationFailureVerifierWithError(Exception)
 
   def testObservationFailureVerifierWithoutError(self):
       observation = jc.Observation()

@@ -31,7 +31,7 @@ class FakeGCloudAgent(gcp_testing.GCloudAgent):
     """
     super(FakeGCloudAgent, self).__init__(project, zone,
                                           service_account=service_account)
-    self._default_response = default_response
+    self.__default_response = default_response
     self.last_run_params = []
 
   @staticmethod
@@ -41,4 +41,4 @@ class FakeGCloudAgent(gcp_testing.GCloudAgent):
 
   def run(self, params, trace=True):
     self.last_run_params = list(params)
-    return self._default_response
+    return self.__default_response

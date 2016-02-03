@@ -31,11 +31,11 @@ _COMPOSITE_DICT = { 'letters': _LETTER_DICT, 'numbers': _NUMBER_DICT }
 class FakeObserver(jc.ObjectObserver):
   def __init__(self, fake_observation):
     super(FakeObserver, self).__init__()
-    self._fake_observation = fake_observation
+    self.__fake_observation = fake_observation
 
 
   def collect_observation(self, observation, trace=True):
-    observation.extend(self._fake_observation)
+    observation.extend(self.__fake_observation)
     return observation.objects
 
 

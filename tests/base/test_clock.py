@@ -13,17 +13,17 @@
 # limitations under the License.
 
 class TestClock(object):
-  _BASE_TIME = 100.123
+  __BASE_TIME = 100.123
   @property
   def last_time(self):
     return self.next_time - 1
 
   @property
   def elapsed_time(self):
-    return self.next_time - TestClock._BASE_TIME
+    return self.next_time - TestClock.__BASE_TIME
 
   def __init__(self):
-    self.next_time = TestClock._BASE_TIME
+    self.next_time = TestClock.__BASE_TIME
 
   def __call__(self):
     self.next_time += 1
