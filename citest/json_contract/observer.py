@@ -19,44 +19,41 @@
 from ..base import JsonSnapshotable
 
 class Observation(JsonSnapshotable):
-  """Tracks details for ObjectObserver and ObservationVerifier.
+  """Tracks details for ObjectObserver and ObservationVerifier."""
 
-  Attributes:
-    objects: The observed objects.
-    errors: Failed PredicateResult objects or other observer errors.
-  """
   @property
   def objects(self):
-    return self._objects
+    """The observed objects."""
+    return self.__objects
 
   @property
   def errors(self):
-    return self._errors
+    """Failed PredicateResult objects or other observer errors."""
+    return self.__errors
 
   def __init__(self):
-    self._objects = []
-    self._errors = []
-    pass
+    self.__objects = []
+    self.__errors = []
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     builder = snapshot.edge_builder
-    edge = builder.make(entity, 'Errors', self._errors)
-    if self._errors:
+    edge = builder.make(entity, 'Errors', self.__errors)
+    if self.__errors:
       edge.add_metadata('relation', 'ERROR')
-    builder.make_data(entity, 'Objects', self._objects,
+    builder.make_data(entity, 'Objects', self.__objects,
                       format='json',
-                      summary=builder.object_count_to_summary(self._objects))
+                      summary=builder.object_count_to_summary(self.__objects))
 
   def __str__(self):
     return 'objects={0!r}  errors={1!r}'.format(
-      self._objects, ','.join([str(x) for x in self._errors]))
+        self.__objects, ','.join([str(x) for x in self.__errors]))
 
   def __eq__(self, observation):
-    if not self.error_lists_equal(self._errors, observation._errors):
+    if not self.error_lists_equal(self.__errors, observation.errors):
       return False
 
-    return self._objects == observation._objects
+    return self.__objects == observation.objects
 
   def __ne__(self, observation):
     return not self.__eq__(observation)
@@ -67,7 +64,7 @@ class Observation(JsonSnapshotable):
     Args:
       error: A failed PredicateResult or other error type.
     """
-    self._errors.append(error)
+    self.__errors.append(error)
 
   def add_object(self, obj):
     """Adds observed object.
@@ -75,7 +72,7 @@ class Observation(JsonSnapshotable):
     Args:
       obj: The object to add.
     """
-    self._objects.append(obj)
+    self.__objects.append(obj)
 
   def add_all_objects(self, objs):
     """Adds a list of observed objects.
@@ -84,7 +81,7 @@ class Observation(JsonSnapshotable):
       objs: A list of individual objects to add.
         To add the list as a single object, call add_object.
     """
-    self._objects.extend(objs)
+    self.__objects.extend(objs)
 
   def extend(self, observation):
     """Extend the observation by another call.
@@ -92,8 +89,8 @@ class Observation(JsonSnapshotable):
     Args:
       observation: The Observation to extend by.
     """
-    self._objects.extend(observation._objects)
-    self._errors.extend(observation._errors)
+    self.__objects.extend(observation.objects)
+    self.__errors.extend(observation.errors)
 
   @staticmethod
   def error_lists_equal(list_a, list_b):
@@ -115,8 +112,8 @@ class Observation(JsonSnapshotable):
       error_a = list_a[i]
       error_b = list_b[i]
       if isinstance(error_a, Exception):
-          if error_a.__class__ != error_b.__class__:
-            return False
+        if error_a.__class__ != error_b.__class__:
+          return False
       else:
         if error_a != error_b:
           return False
@@ -127,18 +124,18 @@ class ObjectObserver(JsonSnapshotable):
   """Acts as an object source to feed objects into a contract.
 
   This class requires specialization for specific sources.
-
-  Attributes:
-    filter: A predicate, or None, for filtering objects before adding
-        them to the Observation.
   """
   @property
   def filter(self):
-    return self._filter
+    """A predicate for filtering objects before adding them to the Observation.
+
+    None indicates there is no filter (add all objects).
+    """
+    return self.__filter
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make_mechanism(entity, 'Filter', self._filter)
+    snapshot.edge_builder.make_mechanism(entity, 'Filter', self.__filter)
 
   def __init__(self, filter=None):
     """Construct instance.
@@ -148,7 +145,7 @@ class ObjectObserver(JsonSnapshotable):
           objects as they are collected. Only objects passing the filter will
           be added to observations.
     """
-    self._filter = filter
+    self.__filter = filter
 
   def filter_all_objects_to_observation(self, objects, observation):
     """Add objects to Observation that comply with the observer's filter.
@@ -158,14 +155,14 @@ class ObjectObserver(JsonSnapshotable):
         Each element will be filtered independently
       observation: The Observation object to add filtered objects to.
     """
-    if not self._filter:
+    if not self.__filter:
       observation.add_all_objects(objects)
       return
 
     if not isinstance(objects, list):
       objects = [objects]
     for obj in objects:
-      obj_result = self._filter(obj)
+      obj_result = self.__filter(obj)
       if obj_result:
         observation.add_object(obj)
 

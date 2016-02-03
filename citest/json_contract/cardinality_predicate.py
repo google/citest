@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""A predicate that count the number of values that satisfy another predicate.
+"""
+
 
 from . import predicate
 from . import map_predicate
@@ -31,60 +34,92 @@ class CardinalityResult(predicate.PredicateResult):
 
   @property
   def pred(self):
-    return self._pred
+    """The predicate we mapped over the collection."""
+    return self.__pred
 
   @property
   def count(self):
-    return self._count
+    """The number of elements that satisfied the predicate."""
+    return self.__count
+
+  @property
+  def source(self):
+    """The source value (collection) that we are mapping the predicateover."""
+    return self.__source
+
+  @property
+  def pred_result(self):
+    """The result of mapping the underlying predicate over the source."""
+    return self.__pred_result
 
   def summary_string(self):
-    raise NotImplemented('{0}.summary_string not implemented.'.format(
+    """A human readable string summarizing this result."""
+    raise NotImplementedError('{0}.summary_string not implemented.'.format(
         self.__class__))
 
   def __init__(self, source, count, pred, pred_result, valid=False):
+    """Constructor.
+
+    Args:
+      source: [any] The source value that we applied the predicate to.
+      count: [int] The number of elements in the source satisfying predicate.
+      pred: [CarindalityPredicate] The predicate applied to the source.
+      pred_result: [PredicateResult]. The result of applying pred to source.
+      valid: [bool] Whether or not the cardinality predicate was satisfied.
+    """
     super(CardinalityResult, self).__init__(valid)
-    self._source = source
-    self._count = count
-    self._pred = pred
-    self._pred_result = pred_result
+    self.__source = source
+    self.__count = count
+    self.__pred = pred
+    self.__pred_result = pred_result
 
   def __str__(self):
     return '{summary} detail={detail}'.format(
-        summary=self.summary_string(), detail=self._pred_result)
+        summary=self.summary_string(), detail=self.__pred_result)
 
   def __eq__(self, event):
     return (self.__class__ == event.__class__
-            and self._count == event._count
-            and self._pred == event._pred
-            and self._source == event._source
-            and self._pred_result == event._pred_result)
+            and self.__count == event.count
+            and self.__pred == event.pred
+            and self.__source == event.source
+            and self.__pred_result == event.pred_result)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     builder = snapshot.edge_builder
     count_relation = builder.determine_valid_relation(self)
-    result_relation = builder.determine_valid_relation(self._pred_result)
-    builder.make(entity, 'Count', self._count, relation=count_relation)
-    builder.make_mechanism(entity, 'Predicate', self._pred)
-    builder.make_input(entity, 'Source', self._source, format='json')
-    builder.make(entity, 'Result', self._pred_result, relation=result_relation)
+    result_relation = builder.determine_valid_relation(self.__pred_result)
+    builder.make(entity, 'Count', self.__count, relation=count_relation)
+    builder.make_mechanism(entity, 'Predicate', self.__pred)
+    builder.make_input(entity, 'Source', self.__source, format='json')
+    builder.make(entity, 'Result', self.__pred_result, relation=result_relation)
 
 
 class ConfirmedCardinalityResult(CardinalityResult):
   """Denotes a CardinalityPredicate that was satisfied."""
 
   def __init__(self, source, count, pred, pred_result, valid=True):
+    """Constructor.
+
+    Args:
+      source: [any] The value we applied the cardinality predicate to.
+      count: [number] The number of source values satisfying the predicate.
+      pred: [ValuePredicate] The predicate we applied to each source value.
+      pred_results: [PredicateResult] The results from applying the predicate.
+      value [boolean]: Whether the cardinality was satisifed or not.
+    """
     super(ConfirmedCardinalityResult, self).__init__(
         source=source, count=count, pred=pred, pred_result=pred_result,
         valid=valid)
 
   def summary_string(self):
+    """Returns human-readable summary of this result."""
     if not self.count:
       return 'Confirmed no {value}.'.format(
           value=self.pred.predicate_string)
 
     return 'Confirmed pred={summary} with count={count}'.format(
-        summary=self.pred, count=self._count)
+        summary=self.pred, count=self.count)
 
 
 class FailedCardinalityResult(CardinalityResult):
@@ -145,26 +180,35 @@ class CardinalityPredicate(predicate.ValuePredicate):
   """
   @property
   def pred(self):
-    return self._map_pred.pred
+    """The underlying predicate that we are mapping."""
+    return self.__map_pred.pred
 
   @property
   def min(self):
-    return self._min
+    """The minimum desired cardinality, or None for no lower bound."""
+    return self.__min
 
   @property
   def max(self):
-    return self._max
+    """The maximum desired cardinality, or None for no upper bound."""
+    return self.__max
+
+  @property
+  def _map_pred(self):
+    """For internal use, the MapPredicate wrapping the underlying predicate."""
+    return self.__map_pred
 
   @property
   def predicate_string(self):
+    """A human-readable form of the predicate being mapped."""
     return str(self.pred)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.pred)
-    snapshot.edge_builder.make_control(entity, 'Min', self._min)
+    snapshot.edge_builder.make_control(entity, 'Min', self.__min)
     snapshot.edge_builder.make_control(entity, 'Max',
-                                       'Any' if self._max < 0 else self._max)
+                                       'Any' if self.__max < 0 else self.__max)
 
   def __init__(self, pred, min=0, max=None):
     """Constructor.
@@ -178,18 +222,18 @@ class CardinalityPredicate(predicate.ValuePredicate):
       raise TypeError(
           'Got {0}, expected jc.ValuePredicate'.format(pred.__class__))
 
-    self._map_pred = map_predicate.MapPredicate(pred, min=min, max=max)
-    self._min = min
-    self._max = max
+    self.__map_pred = map_predicate.MapPredicate(pred, min=min, max=max)
+    self.__min = min
+    self.__max = max
 
   def __eq__(self, pred):
     return (self.__class__ == pred.__class__
-            and self._min == pred._min
-            and self._max == pred._max
+            and self.__min == pred.min
+            and self.__max == pred.max
             and self._map_pred == pred._map_pred)
 
   def __str__(self):
-    return '[{0}] {1}..{2}'.format(self.pred, self._min, self._max)
+    return '[{0}] {1}..{2}'.format(self.pred, self.__min, self.__max)
 
   def __call__(self, obj):
     """Attempt to match object.
@@ -200,20 +244,20 @@ class CardinalityPredicate(predicate.ValuePredicate):
     Returns:
       PredicateResponse
     """
-    map_pred_result = self._map_pred(obj)
+    map_pred_result = self.__map_pred(obj)
     count = len(map_pred_result.good_object_result_mappings)
 
     if not count:
-      if self._max == 0:
+      if self.__max == 0:
         result_type = ConfirmedCardinalityResult
       else:
         result_type = MissingValueCardinalityResult
 
-    elif self._max == 0:
+    elif self.__max == 0:
       result_type = UnexpectedValueCardinalityResult
 
-    elif (count >= self._min
-          and (self._max == None or count <= self._max)):
+    elif (count >= self.__min
+          and (self.__max == None or count <= self.__max)):
       result_type = ConfirmedCardinalityResult
 
     else:

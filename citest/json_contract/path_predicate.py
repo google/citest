@@ -22,24 +22,22 @@ from . import quantification_predicate2
 
 
 class PathPredicate(predicate.ValuePredicate):
-  """Delegates value reachable at field path to another predicate.
+  """Delegates value reachable at field path to another predicate."""
 
-  Attributes
-    path: A '/'-delimited string specifying the path through the object.
-    pred: A delegate predicate.ValuePredicate used to find acceptable values.
-  """
   @property
   def path(self):
-    return self._path
+    """A '/'-delimited string specifying the path through the object."""
+    return self.__path
 
   @property
   def pred(self):
-    return self._pred
+    """A delegate predicate.ValuePredicate used to find acceptable values."""
+    return self.__pred
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make_control(entity, 'Path', self._path)
-    snapshot.edge_builder.make_mechanism(entity, 'Predicate', self._pred)
+    snapshot.edge_builder.make_control(entity, 'Path', self.__path)
+    snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.__pred)
 
   def __init__(self, path, pred=None):
     """Construct finder instance.
@@ -48,16 +46,16 @@ class PathPredicate(predicate.ValuePredicate):
       pred: The predicate.ValuePredicate to apply to the field we find.
          This can be None indicating to just find the value at the field.
     """
-    self._pred = pred
-    self._path = path
+    self.__pred = pred
+    self.__path = path
 
   def __eq__(self, finder):
     return (self.__class__ == finder.__class__
-            and self._path == finder._path
-            and self._pred == finder._pred)
+            and self.__path == finder.path
+            and self.__pred == finder.pred)
 
   def __str__(self):
-    return '"{path}" {pred}'.format(path=self._path, pred=self._pred)
+    return '"{path}" {pred}'.format(path=self.__path, pred=self.__pred)
 
   def __call__(self, source):
     """Attempt to lookup the field in a JSON object.
@@ -69,14 +67,14 @@ class PathPredicate(predicate.ValuePredicate):
         (i.e. pred(lookup(source, path)))
       If the lookup itself failed, the failed lookup result will be returned.
     """
-    lookup_result = (lookup.lookup_path(source, self._path)
-                     if self._path
+    lookup_result = (lookup.lookup_path(source, self.__path)
+                     if self.__path
                      else path_predicate_result.JsonFoundValueResult(source))
 
-    if not self._pred or not lookup_result:
+    if not self.__pred or not lookup_result:
       return lookup_result
 
-    pred_result = self._pred(lookup_result.value)
+    pred_result = self.__pred(lookup_result.value)
     if isinstance(pred_result, path_predicate_result.JsonPathResult):
       return pred_result.clone_in_context(
           source, path=lookup_result.path, path_trace=lookup_result.path_trace)

@@ -12,6 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Binary predicates define a predicate relating the value to a fixed operand.
+
+For example a comparator operation that compares a given value against a
+reference point. The reference point would be the fixed operand, and the given
+value would be the value that the base interface is given to apply the predicate
+to.
+"""
+
 
 import inspect
 
@@ -29,10 +37,12 @@ class BinaryPredicate(predicate.ValuePredicate):
   """
   @property
   def name(self):
+    """The predicate name."""
     return self._name
 
   @property
   def operand(self):
+    """The fixed operand argument."""
     return self._operand
 
   def __str__(self):
@@ -43,10 +53,10 @@ class BinaryPredicate(predicate.ValuePredicate):
     self._name = name
     self._operand = operand
 
-  def __eq__(self, op):
-    return (self.__class__ == op.__class__
-            and self._name == op._name
-            and self._operand == op._operand)
+  def __eq__(self, pred):
+    return (self.__class__ == pred.__class__
+            and self._name == pred.name
+            and self._operand == pred.operand)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
@@ -56,6 +66,7 @@ class BinaryPredicate(predicate.ValuePredicate):
 
 class StandardBinaryPredicateFactory(object):
   """Create a StandardBinaryPredicate once we have an operand to bind to it."""
+  # pylint: disable=too-few-public-methods
 
   def __init__(self, name, comparison_op, operand_type=None):
     """Constructor.
@@ -126,13 +137,14 @@ class DictSubsetPredicate(BinaryPredicate):
 
   def _is_subset(self, source, path, a, b):
     """Determine if |a| is a subset of |b|."""
+    # pylint: disable=invalid-name
 
     ## FOR EACH element of operand...
     for name, a_value in a.items():
       namepath = '{0}/{1}'.format(path, name) if path else name
       try:
         b_value = b[name]
-      except KeyError as e:
+      except KeyError:
         ## IF element was not in |b| then it is not a subset.
         return jc.JsonMissingPathResult(source, namepath)
 
@@ -148,9 +160,9 @@ class DictSubsetPredicate(BinaryPredicate):
       # THEN ensure that |a_item| is a subset of |b_item|.
       if isinstance(b_value, list):
         elem_pred = (LIST_SUBSET
-                        if isinstance(a_value, list)
-                        else qp.UniversalOrExistentialPredicateFactory(
-                            False, CONTAINS))
+                     if isinstance(a_value, list)
+                     else qp.UniversalOrExistentialPredicateFactory(
+                         False, CONTAINS))
         result = elem_pred(a_value)(b_value)
         if not result:
           return result.clone_with_new_context(source, namepath)
@@ -219,7 +231,7 @@ class _BaseListMembershipPredicate(BinaryPredicate):
         return True
 
     return False
-  
+
 
 class ListSubsetPredicate(_BaseListMembershipPredicate):
   """Implements binary predicate comparison predicate for list subsets."""
@@ -236,9 +248,9 @@ class ListSubsetPredicate(_BaseListMembershipPredicate):
     if not isinstance(value, list):
       return jc.JsonTypeMismatchResult(list, value.__class__, value)
 
-    for index, elem in enumerate(self.operand):
+    for elem in self.operand:
       if not self._verify_elem(elem, the_list=value):
-         return jc.JsonFoundValueResult(value=value, valid=False, pred=self)
+        return jc.JsonFoundValueResult(value=value, valid=False, pred=self)
 
     return jc.JsonFoundValueResult(
         valid=True, source=None, path=None, value=value, pred=self)
@@ -302,50 +314,6 @@ class ContainsPredicate(BinaryPredicate):
                                    source=value, value=bad_values)
 
 
-class ContainsPredicate(BinaryPredicate):
-  """Specifies a predicate that expects the value "contains" the operand.
-
-  The interpretation of "contains" depends on the value's type:
-        type        | operand interpretation
-        ------------+-----------------------
-        basestring  | 'is-substring-of'
-        dict        | 'is-subset-of'
-        list        | 'is-subset-of' if operand is a list.
-                    | EXISTS and element that CONTAINS operand otherwise.
-        numeric     | '=='
-  """
-
-  def __init__(self, operand):
-    super(ContainsPredicate, self).__init__('Contains', operand)
-
-  def __call__(self, value):
-    if isinstance(value, basestring):
-      return STR_SUBSTR(self._operand)(value)
-    if isinstance(value, dict):
-      return DICT_SUBSET(self._operand)(value)
-    if isinstance(value, int or long or float):
-      return NUM_EQ(self._operand)(value)
-    if not isinstance(value, list):
-      raise NotImplementedError(
-          'Unhandled value class {0}'.format(value.__class__))
-    if isinstance(self._operand, list):
-      return LIST_SUBSET(self._operand)(value)
-
-    # The value is a list but operand is not a list.
-    # So we'll look for existance of the operand in the list
-    # by recursing on each element of the list until we find something
-    # or exhaust the list.
-    bad_values = []
-    for elem in value:
-      result = self(elem)
-      if result:
-        return result
-      bad_values.append(elem)
-
-    return jc.JsonFoundValueResult(valid=False, pred=self,
-                                   source=value, value=bad_values)
-
-
 class EquivalentPredicate(BinaryPredicate):
   """Specifies a predicate that expects the value and operand are "equal".
 
@@ -353,22 +321,39 @@ class EquivalentPredicate(BinaryPredicate):
   """
 
   def __init__(self, operand):
+    """Constructor.
+
+    Args:
+      operand: [any] The value to compare the argument against.
+    """
     super(EquivalentPredicate, self).__init__('Equivalent', operand)
 
-  def _check_operand_and_call(self, type, value, pred_factory):
-    if not isinstance(self._operand, type):
-      return jc.JsonTypeMismatchResult(type, self._operand.__class__, value)
+  def __check_operand_and_call(self, operand_type, value, pred_factory):
+    """Ensure the operand is of the expected type and apply the predicate.
+
+    Args:
+      operand_type: [type] The type we expect the operand to be.
+      value: [any] The value we want to apply the predicate to.
+      pred_factory: [method] Given the operand, constructs a binary predicate
+         that performs a == comparision and returns a PredicateResult.
+    Returns
+      PredicateResult might be JsonTypeMismatchResult if operand_type is wrong.
+    """
+    if not isinstance(self._operand, operand_type):
+      return jc.JsonTypeMismatchResult(
+          operand_type, self._operand.__class__, value)
     return pred_factory(self._operand)(value)
 
   def __call__(self, value):
+    """Implements the predicate by determining if value == operand."""
     if isinstance(value, basestring):
-      return self._check_operand_and_call(basestring, value, STR_EQ)
+      return self.__check_operand_and_call(basestring, value, STR_EQ)
     if isinstance(value, dict):
-      return self._check_operand_and_call(dict, value, DICT_EQ)
+      return self.__check_operand_and_call(dict, value, DICT_EQ)
     if isinstance(value, list):
-      return self._check_operand_and_call(list, value, LIST_EQ)
+      return self.__check_operand_and_call(list, value, LIST_EQ)
     if isinstance(value, int or long or float):
-      return self._check_operand_and_call((int, long, float), value, NUM_EQ)
+      return self.__check_operand_and_call((int, long, float), value, NUM_EQ)
     raise NotImplementedError(
         'Unhandled value class {0}'.format(value.__class__))
 
@@ -380,22 +365,39 @@ class DifferentPredicate(BinaryPredicate):
   """
 
   def __init__(self, operand):
+    """Constructor.
+
+    Args:
+      operand: [any] The value to compare the argument against.
+    """
     super(DifferentPredicate, self).__init__('Different', operand)
 
-  def _check_operand_and_call(self, type, value, pred_factory):
-    if not isinstance(self._operand, type):
-      return jc.JsonTypeMismatchResult(type, self._operand.__class__, value)
+  def __check_operand_and_call(self, operand_type, value, pred_factory):
+    """Ensure the operand is of the expected type and apply the predicate.
+
+    Args:
+      operand_type: [type] The type we expect the operand to be.
+      value: [any] The value we want to apply the predicate to.
+      pred_factory: [method] Given the operand, constructs a binary predicate
+         that performs a != comparision and returns a PredicateResult.
+    Returns
+      PredicateResult might be JsonTypeMismatchResult if operand_type is wrong.
+    """
+    if not isinstance(self._operand, operand_type):
+      return jc.JsonTypeMismatchResult(
+          operand_type, self._operand.__class__, value)
     return pred_factory(self._operand)(value)
 
   def __call__(self, value):
+    """Implements the predicate by determining if value != operand."""
     if isinstance(value, basestring):
-      return self._check_operand_and_call(basestring, value, STR_NE)
+      return self.__check_operand_and_call(basestring, value, STR_NE)
     if isinstance(value, dict):
-      return self._check_operand_and_call(dict, value, DICT_NE)
+      return self.__check_operand_and_call(dict, value, DICT_NE)
     if isinstance(value, list):
-      return self._check_operand_and_call(list, value, LIST_NE)
+      return self.__check_operand_and_call(list, value, LIST_NE)
     if isinstance(value, int or long or float):
-      return self._check_operand_and_call((int, long, float), value, NUM_NE)
+      return self.__check_operand_and_call((int, long, float), value, NUM_NE)
     raise NotImplementedError(
         'Unhandled value class {0}'.format(value.__class__))
 
@@ -427,9 +429,9 @@ LIST_EQ = StandardBinaryPredicateFactory(
 LIST_NE = StandardBinaryPredicateFactory(
     '!=', lambda a, b: a != b, operand_type=list)
 LIST_MEMBER = (lambda operand, strict=False:
-                  ListMembershipPredicate(operand, strict=strict))
+               ListMembershipPredicate(operand, strict=strict))
 LIST_SUBSET = (lambda operand, strict=False:
-                  ListSubsetPredicate(operand, strict=strict))
+               ListSubsetPredicate(operand, strict=strict))
 
 CONTAINS = ContainsPredicate
 EQUIVALENT = EquivalentPredicate

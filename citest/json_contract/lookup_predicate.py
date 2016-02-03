@@ -66,6 +66,7 @@ def lookup_path(source, path):
   path_trace = []
   path_offset = 0
   while path_offset < len(path):
+      # pylint: disable=bad-indentation
       if isinstance(value, list):
         result = _lookup_path_elements(value, path[path_offset:])
         if path_offset > 0:

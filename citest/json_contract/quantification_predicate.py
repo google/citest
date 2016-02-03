@@ -12,19 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Predicates for existential (exists) and universal (all) quanitification."""
+
 
 from . import predicate
 
+
 class UniversalOrExistentialPredicateFactory(object):
   """Creates either universal or existential predicates."""
+  # pylint: disable=too-few-public-methods
 
   def __init__(self, is_universal, elem_pred_factory):
-    self._is_universal = is_universal
-    self._elem_pred_factory = elem_pred_factory
+    self.__is_universal = is_universal
+    self.__elem_pred_factory = elem_pred_factory
 
   def __call__(self, operand):
     return UniversalOrExistentialPredicate(
-        self._is_universal, self._elem_pred_factory(operand))
+        self.__is_universal, self.__elem_pred_factory(operand))
 
 
 class UniversalOrExistentialPredicate(predicate.ValuePredicate):
@@ -32,57 +36,61 @@ class UniversalOrExistentialPredicate(predicate.ValuePredicate):
 
   If the value is not a list, then apply the bound element predicate on
   the value itself.
-
-  Attributes:
-    element_pred:  ValuePredicate to apply to elements of list values.
-        The existential predicate is valid when the element_pred is satisfied
-        by one or more list value elements against the provided operand.
-    is_existential: True if this acts as an existential predicate
-        An existential predicate will accept values when the bound element_pred
-        accepts at least one element of a value list (or the non-list
-        value). Once an existential predicate finds a valid element, it will
-        stop iterating over the value list elements.
-        This is the complement of is_universal.
-    is_universal: True if this acts as a universal predicate.
-        A universal predicate will accept values when the bound element_pred
-        accepts all the individual elements of the value list (or the non-list
-        value). This is the complement of is_existential.
   """
 
   @property
   def element_pred(self):
-    return self._element_pred
+    """ValuePredicate to apply to elements of list values.
+
+       The existential predicate is valid when the element_pred is satisfied
+       by one or more list value elements against the provided operand.
+    """
+    return self.__element_pred
 
   @property
   def is_existential(self):
-    return not self._is_universal
+    """True if this acts as an existential predicate
+
+       An existential predicate will accept values when the bound element_pred
+       accepts at least one element of a value list (or the non-list
+       value). Once an existential predicate finds a valid element, it will
+       stop iterating over the value list elements.
+       This is the complement of is_universal.
+    """
+    return not self.__is_universal
 
   @property
   def is_universal(self):
-    return self._is_universal
+    """True if this acts as a universal predicate.
+
+       A universal predicate will accept values when the bound element_pred
+       accepts all the individual elements of the value list (or the non-list
+       value). This is the complement of is_existential.
+    """
+    return self.__is_universal
 
   def __init__(self, is_universal, element_pred):
-    self._is_universal = is_universal
-    self._element_pred = element_pred
-    self._name = 'All' if is_universal else 'Exists'
+    self.__is_universal = is_universal
+    self.__element_pred = element_pred
+    self.__name = 'All' if is_universal else 'Exists'
 
   def __str__(self):
-    return '{0}({1})'.format(self._name, self._element_pred)
+    return '{0}({1})'.format(self.__name, self.__element_pred)
 
-  def __eq__(self, op):
-    return (self.__class__ == op.__class__
-            and self._is_universal == op._is_universal
-            and self._element_pred == op._element_pred)
+  def __eq__(self, pred):
+    return (self.__class__ == pred.__class__
+            and self.__is_universal == pred.is_universal
+            and self.__element_pred == pred.element_pred)
 
   def export_to_json_snapshot(self, snapshot, entity):
     builder = snapshot.edge_builder
     # 2200 is FORALL
     # 2203 is EXISTS
     builder.make_control(
-        entity, 'Operator', u'\u2200' if self._is_universal else u'\u2203')
-    builder.make_mechanism(entity, 'Elem Pred', self._element_pred)
+        entity, 'Operator', u'\u2200' if self.__is_universal else u'\u2203')
+    builder.make_mechanism(entity, 'Elem Pred', self.__element_pred)
 
-  def _apply_existential(self, value):
+  def __apply_existential(self, value):
     """Helper function that interprets predicate as existential predicate.
 
     Returns:
@@ -98,7 +106,7 @@ class UniversalOrExistentialPredicate(predicate.ValuePredicate):
       if isinstance(elem, list):
         result = self(elem)
       else:
-        result = self._element_pred(elem)
+        result = self.__element_pred(elem)
 
       if result:
         good_builder.append_result(result)
@@ -109,13 +117,13 @@ class UniversalOrExistentialPredicate(predicate.ValuePredicate):
     return (good_builder if valid else bad_builder).build(valid)
 
 
-  def _apply_universal(self, value):
+  def __apply_universal(self, value):
     """Helper function that interprets predicate as universal predicate."""
 
     builder = predicate.CompositePredicateResultBuilder(self)
     valid = True
     for elem in value:
-      result = self._element_pred(elem)
+      result = self.__element_pred(elem)
       builder.append_result(result)
       if not result:
         valid = False
@@ -124,9 +132,9 @@ class UniversalOrExistentialPredicate(predicate.ValuePredicate):
 
   def __call__(self, value):
     if not isinstance(value, list):
-      return self._element_pred(value)
+      return self.__element_pred(value)
 
-    if self._is_universal:
-      return self._apply_universal(value)
+    if self.__is_universal:
+      return self.__apply_universal(value)
     else:
-      return self._apply_existential(value)
+      return self.__apply_existential(value)

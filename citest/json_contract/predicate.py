@@ -64,63 +64,63 @@ class PredicateResult(JsonSnapshotable):
   def summary(self):
     return '{name} ({valid})'.format(
         name=self.__class__.__name__,
-        valid='GOOD' if self._valid else 'BAD')
+        valid='GOOD' if self.__valid else 'BAD')
 
   @property
   def comment(self):
-    return self._comment
+    return self.__comment
 
   @property
   def cause(self):
-    return self._cause
+    return self.__cause
 
   @property
   def valid(self):
-    return self._valid
+    return self.__valid
 
   def export_to_json_snapshot(self, snapshot, entity):
     builder = snapshot.edge_builder
-    verified_relation = builder.determine_valid_relation(self._valid)
-    builder.make(entity, 'Valid', self._valid, relation=verified_relation)
-    if self._comment:
-      builder.make(entity, 'Comment', self._comment)
-    if self._cause:
-      builder.make(entity, 'Cause', self._cause)
+    verified_relation = builder.determine_valid_relation(self.__valid)
+    builder.make(entity, 'Valid', self.__valid, relation=verified_relation)
+    if self.__comment:
+      builder.make(entity, 'Comment', self.__comment)
+    if self.__cause:
+      builder.make(entity, 'Cause', self.__cause)
 
     # Set a default relation so that this can be picked up when it appears
     # as a list element.
     entity.add_metadata('_default_relation', verified_relation)
 
   def __init__(self, valid, comment="", cause=None):
-    self._valid = valid
-    self._comment = comment
-    self._cause = cause
+    self.__valid = valid
+    self.__comment = comment
+    self.__cause = cause
 
   def __repr__(self):
     return str(self)
 
   def __str__(self):
-    return (self._comment
+    return (self.__comment
             or '{0} is {1}'.format(self.__class__.__name__,
-                                   'OK' if self._valid else 'FAILURE'))
+                                   'OK' if self.__valid else 'FAILURE'))
 
   def __nonzero__(self):
-    return self._valid
+    return self.__valid
 
   def __eq__(self, result):
     if (self.__class__ != result.__class__
-        or self._valid != result._valid
-        or self._comment != result._comment):
+        or self.__valid != result.valid
+        or self.__comment != result.comment):
       return False
 
     # If cause was an exception then just compare classes.
     # Otherwise compare causes.
     # We assume cause is None, and Exception, or another PredicateResult.
     # Exceptions do not typically support value equality.
-    if self._cause != result._cause:
-      return (isinstance(self._cause, Exception)
-              and self._cause.__class__ == result._cause.__class__)
-    return self._cause == result._cause
+    if self.__cause != result.cause:
+      return (isinstance(self.__cause, Exception)
+              and self.__cause.__class__ == result.cause.__class__)
+    return self.__cause == result.cause
 
   def __ne__(self, result):
     return not self.__eq__(result)
@@ -136,21 +136,21 @@ class CompositePredicateResult(PredicateResult):
 
   @property
   def pred(self):
-    return self._pred
+    return self.__pred
 
   @property
   def results(self):
-    return self._results
+    return self.__results
 
   def export_to_json_snapshot(self, snapshot, entity):
     builder = snapshot.edge_builder
     summary = builder.object_count_to_summary(
-        self._results, subject='mapped result')
-    builder.make_mechanism(entity, 'Predicate', self._pred)
-    builder.make(entity, '#', len(self._results))
+        self.__results, subject='mapped result')
+    builder.make_mechanism(entity, 'Predicate', self.__pred)
+    builder.make(entity, '#', len(self.__results))
 
     result_entity = snapshot.new_entity(summary='Composite Results')
-    for index, result in enumerate(self._results):
+    for index, result in enumerate(self.__results):
         builder.make(result_entity, '[{0}]'.format(index), result,
                      relation=builder.determine_valid_relation(result),
                      summary=result.summary)
@@ -160,35 +160,35 @@ class CompositePredicateResult(PredicateResult):
         snapshot, entity)
 
   def __str__(self):
-    return '{0}'.format(self._results)
+    return '{0}'.format(self.__results)
 
   def __init__(self, valid, pred, results, comment=None, cause=None):
     super(CompositePredicateResult, self).__init__(
         valid, comment=comment, cause=cause)
-    self._pred = pred
-    self._results = results
+    self.__pred = pred
+    self.__results = results
 
   def __eq__(self, result):
     return (self.__class__ == result.__class__
-            and self._pred == result._pred
-            and self._results == result._results)
+            and self.__pred == result.pred
+            and self.__results == result.results)
 
 
 class CompositePredicateResultBuilder(object):
   """Helper class for building a composite result."""
 
   def __init__(self, pred):
-    self._pred = pred
+    self.__pred = pred
     self.cause = None
     self.comment = None
-    self._results = []
+    self.__results = []
 
   def append_result(self, result):
-    self._results.append(result)
+    self.__results.append(result)
 
   def extend_results(self, results):
-    self._results.extend(results)
+    self.__results.extend(results)
 
   def build(self, valid):
     return CompositePredicateResult(
-        valid, self._pred, self._results, self.comment, self.cause)
+        valid, self.__pred, self.__results, self.comment, self.cause)

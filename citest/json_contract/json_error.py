@@ -13,6 +13,9 @@
 # limitations under the License.
 
 
+"""Common errors the the citest.json_contract package."""
+
+
 from ..base import JsonSnapshotable
 
 
@@ -25,9 +28,20 @@ class JsonError(ValueError, JsonSnapshotable):
     if self.__cause:
       snapshot.edge_builder.make(entity, 'CausedBy', str(self.__cause))
 
-  def __init_(self, message, cause=None):
-    super(JsonError, self).__init__(message)
+  @property
+  def cause(self):
+    """An error leading to this error, if any."""
+    return self.__cause
+
+  def __init__(self, message, cause=None):
+    """Constructor.
+
+    Args:
+      message: [string] The error message.
+      cause: [error] Optional error that lead to this error.
+    """
     self.__cause = cause
+    super(JsonError, self).__init__(message)
 
   def __str__(self):
     return self.message or self.__class__.__name__
@@ -35,7 +49,4 @@ class JsonError(ValueError, JsonSnapshotable):
   def __eq__(self, error):
     return (self.__class__ == error.__class__
             and self.message == error.message
-            and self.__cause == error.__cause)
-
-
-        
+            and self.__cause == error.cause)
