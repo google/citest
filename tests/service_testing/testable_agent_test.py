@@ -29,18 +29,18 @@ class FakeStatus(st.AgentOperationStatus):
 
   @property
   def finished(self):
-    return self._finished
+    return self.__finished
 
   def __init__(self, operation):
     super(FakeStatus, self).__init__(operation)
-    self._finished = False
-    self._calls_remaining = 0
+    self.__finished = False
+    self.calls_remaining = 0
     self.got_refresh_count = 0
     self.got_sleep_count = 0
 
   def set_expected_iterations(self, n):
-    self._finished = False
-    self._calls_remaining = n
+    self.__finished = False
+    self.calls_remaining = n
     self.got_refresh_count = 0
     self.got_sleep_count = 0
 
@@ -50,10 +50,10 @@ class FakeStatus(st.AgentOperationStatus):
 
   def refresh(self, trace):
     self.got_refresh_count += 1
-    if self._calls_remaining >= 0:
-      self._calls_remaining -= 1
-      if self._calls_remaining < 0:
-        self._finished = True
+    if self.calls_remaining >= 0:
+      self.calls_remaining -= 1
+      if self.calls_remaining < 0:
+        self.__finished = True
 
 
 class TestableAgentTest(unittest.TestCase):
@@ -148,7 +148,7 @@ class TestableAgentTest(unittest.TestCase):
     status.set_expected_iterations(20)
     status.wait()
     self.assertEquals(1 + 5, status.got_refresh_count)
-    self.assertEqual(15 - 1, status._calls_remaining)
+    self.assertEqual(15 - 1, status.calls_remaining)
     self.assertEqual(5, status.got_sleep_count)
     self.assertEqual(1, status.got_sleep_secs)
 
@@ -157,7 +157,7 @@ class TestableAgentTest(unittest.TestCase):
     status.got_sleep_secs = 0
     status.set_expected_iterations(15)
     status.wait()
-    self.assertEqual(10 - 1, status._calls_remaining)
+    self.assertEqual(10 - 1, status.calls_remaining)
     self.assertEqual(5, status.got_sleep_count)
     self.assertEqual(1, status.got_sleep_secs)
 
@@ -175,14 +175,14 @@ class TestableAgentTest(unittest.TestCase):
     status.wait(max_secs=2)
     status.got_sleep_count = 0
     self.assertFalse(status.finished)
-    self.assertEqual(8 - 1, status._calls_remaining)
+    self.assertEqual(8 - 1, status.calls_remaining)
 
     # Show timeout doesnt prevent us from waiting until completion later.
     status.set_expected_iterations(9)
     status.wait(max_secs=10)
     self.assertEqual(9, status.got_sleep_count)
     self.assertEqual(1, status.got_sleep_secs)
-    self.assertEqual(-1, status._calls_remaining)
+    self.assertEqual(-1, status.calls_remaining)
 
   def test_wait_interval(self):
     agent = FakeAgent()

@@ -37,12 +37,12 @@ class FakeObservationVerifier(jc.ObservationVerifier):
   def __init__(self, title, dnf_verifier, result):
     super(FakeObservationVerifier, self).__init__(
         title=title, dnf_verifiers=dnf_verifier)
-    self._result = result
+    self.__result = result
 
   def __call__(self, observation):
     global _called_verifiers
     _called_verifiers.append(self)
-    return self._result
+    return self.__result
 
 
 class ObservationVerifierTest(unittest.TestCase):
