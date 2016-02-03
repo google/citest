@@ -226,6 +226,6 @@ class ValueObservationVerifier(ov.ObservationVerifier):
       if not valid:
         logging.getLogger(__name__).error(
           'Strict verifier "%s" only confirmed %d of %d objects.',
-          self._title, len_validated, len_objects)
+          self.title, len_validated, len_objects)
 
     return final_builder.build(valid)

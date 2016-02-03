@@ -13,6 +13,16 @@
 # limitations under the License.
 
 
+"""Provides supporting classes for specifying and verifying Contracts.
+
+A contract specifies a list of observations and their expected properties.
+Each member of this list is called a Clause. The expectations are typically
+specified as ObservationVerifiers which may specify values that are expected
+(or not), or perhaps properties of the observation itself, such as errors
+attempting to make it (e.g. the observed resource does not exist).
+"""
+
+
 import logging
 import time
 
@@ -24,17 +34,21 @@ from . import observation_verifier as ov
 
 
 class ContractClauseVerifyResult(predicate.PredicateResult):
+  """Represents the analysis result of verifying a contract clause."""
   @property
   def clause(self):
-    return self._clause
+    """The clause that was verified."""
+    return self.__clause
 
   @property
   def verify_results(self):
-    return self._verify_results
+    """The results from applying the clause verifier."""
+    return self.__verify_results
 
   @property
   def enumerated_summary_message(self):
-    verify_summary = self._verify_results.enumerated_summary_message
+    """Human readable verification result summary string."""
+    verify_summary = self.__verify_results.enumerated_summary_message
     if verify_summary:
       verify_summary = '  {0}'.format(verify_summary.replace('\n', '\n  '))
     else:
@@ -46,52 +60,56 @@ class ContractClauseVerifyResult(predicate.PredicateResult):
         verify=verify_summary)
 
   def __init__(self, valid, clause, verify_results):
+    """Constructor.
+
+    Args:
+      valid: [bool] Whether the verification succeeded or not.
+      clause: [ContractClause] The clause being validated
+      verify_results: [ObservationVerifyResult] The result of verifying
+         the clause (against an observation).
+    """
     super(ContractClauseVerifyResult, self).__init__(valid)
-    self._clause = clause
-    self._verify_results = verify_results
+    self.__clause = clause
+    self.__verify_results = verify_results
 
   def __eq__(self, result):
     return  (super(ContractClauseVerifyResult, self).__eq__(result)
-             and self._clause == result._clause
-             and self._verify_results == result._verify_results)
+             and self.__clause == result.clause
+             and self.__verify_results == result.verify_results)
 
   def __str__(self):
     return 'Clause {0}:\n  {1}'.format(
-        self._clause.title,
-        self._verify_results.enumerated_summary_message)
+        self.__clause.title,
+        self.__verify_results.enumerated_summary_message)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     builder = snapshot.edge_builder
     entity.add_metadata('_title',
-                        'Verification of "{0}"'.format(self._clause.title))
+                        'Verification of "{0}"'.format(self.__clause.title))
 
-    relation = builder.determine_valid_relation(self._verify_results)
-    builder.make_control(entity, 'Clause', self._clause)
-    builder.make(entity, 'Results', self._verify_results, relation=relation)
+    relation = builder.determine_valid_relation(self.__verify_results)
+    builder.make_control(entity, 'Clause', self.__clause)
+    builder.make(entity, 'Results', self.__verify_results, relation=relation)
     super(ContractClauseVerifyResult, self).export_to_json_snapshot(
         snapshot, entity)
 
 
 class ContractClause(predicate.ValuePredicate):
-  """Specifies how to obtain state information and expectations on it.
-
-  Attributes:
-    observer: The ObjectObserver used to collect Observation.
-      This can be bound after construction, but can only be set once.
-    verifier: The ObservationVerifier used to verify the observed state.
-      This can be bound after construction, but can only be set once.
-  """
+  """Specifies how to obtain state information and expectations on it."""
   @property
   def observer(self):
+    """The ObjectObserver used to collect the Observation."""
     return self._observer
 
   @property
   def verifier(self):
+    """The ObservationVerifier used to verify the observed state."""
     return self._verifier
 
   @property
   def title(self):
+    """The name of the clause for reporting purposes."""
     return self._title
 
   def __str__(self):
@@ -145,6 +163,16 @@ class ContractClause(predicate.ValuePredicate):
     return result
 
   def __do_verify(self):
+    """Helper function that implements the clause verification policy.
+
+    We will periodically attempt to verify the clause until we succeed
+    or give up trying. Each individual iteration attempt is performed
+    by the verify_once method.
+
+    Returns:
+      VerifyClauseResult specifying the final outcome.
+    """
+
     # self.logger.debug('Verifying Contract: %s', self._title)
     start_time = time.time()
     end_time = start_time + self._retryable_for_secs
@@ -158,15 +186,15 @@ class ContractClause(predicate.ValuePredicate):
       if end_time <= now:
         if end_time > start_time:
           self.logger.debug(
-            'Giving up verifying %s after %d of %d secs.',
-            self._title, end_time - start_time, self._retryable_for_secs)
+              'Giving up verifying %s after %d of %d secs.',
+              self._title, end_time - start_time, self._retryable_for_secs)
         break
 
       secs_remaining = end_time - now
       sleep = min(secs_remaining, min(5, self._retryable_for_secs / 10))
       self.logger.debug(
-        '%s not yet satisfied with secs_remaining=%d. Retry in %d secs\n%s',
-        self._title, secs_remaining, sleep, clause_result)
+          '%s not yet satisfied with secs_remaining=%d. Retry in %d secs\n%s',
+          self._title, secs_remaining, sleep, clause_result)
       time.sleep(sleep)
 
     summary = clause_result.enumerated_summary_message
@@ -179,12 +207,20 @@ class ContractClause(predicate.ValuePredicate):
     return clause_result
 
   def verify_once(self):
+    """Make a single attempt to collect an observation and verify it.
+
+    Raises:
+      ValueError of the clause is not yet fully specified.
+
+    Returns:
+      ContractClauseVerifyResult from verifying the observation
+    """
     if not self._observer:
-      raise Exception(
-        'No ObjectObserver bound to clause {0!r}'.format(self._title))
+      raise ValueError(
+          'No ObjectObserver bound to clause {0!r}'.format(self._title))
     if not self._verifier:
-      raise Exception(
-        'No ObservationVerifier bound to clause {0!r}'.format(self._title))
+      raise ValueError(
+          'No ObservationVerifier bound to clause {0!r}'.format(self._title))
 
     observation = ob.Observation()
     self._observer.collect_observation(observation)
@@ -195,78 +231,110 @@ class ContractClause(predicate.ValuePredicate):
 
 
 class ContractClauseBuilder(object):
+  """A helper class for constructing a ContractClause."""
+
   @property
   def verifier_builder(self):
-    return self._verifier_builder
+    """Builds the clause verifier."""
+    return self.__verifier_builder
 
   @verifier_builder.setter
   def verifier_builder(self, builder):
-    self._verifier_builder = builder
+    """Sets the builder used to construct the clause verifier."""
+    self.__verifier_builder = builder
 
   @property
   def retryable_for_secs(self):
-    return self._retryable_for_secs
+    """How long to continue validating the clause until it holds.
+
+    This does not specify the interval for retrying. Only the elapsed time.
+    """
+    return self.__retryable_for_secs
 
   @retryable_for_secs.setter
   def retryable_for_secs(self, secs):
-    self._retryable_for_secs = secs
+    """Set how long to continue validating the clause until it holds."""
+    self.__retryable_for_secs = secs
 
   @property
   def observer(self):
-    return self._observer
+    """The observer used to gather the required data to verify."""
+    return self.__observer
 
   @observer.setter
   def observer(self, observer):
-    if self._observer != None:
+    """Sets the observer used to gather the required data to verify."""
+    if self.__observer != None:
       raise ValueError('Observer was already set on clause')
-    self._observer = observer
+    self.__observer = observer
 
   def __init__(self, title, observer=None, verifier_builder=None,
                retryable_for_secs=0, strict=False):
-    self._title = title
-    self._observer = observer
-    self._verifier_builder = (verifier_builder
-                              or ov.ObservationVerifierBuilder(title))
-    self._retryable_for_secs = retryable_for_secs
+    """Constructor.
+
+    Args:
+      title: [string] The name of the clause.
+      observer: [Observer] The observer used to collect verification data.
+      verifier_builder: Builds the clause verifier.
+      retryable_for_secs: [int] How long the clause can continue colllecting
+         observation data until it can be confirmed to hold.
+    """
+    self.__title = title
+    self.__observer = observer
+    self.__verifier_builder = (verifier_builder
+                               or ov.ObservationVerifierBuilder(title))
+    self.__retryable_for_secs = retryable_for_secs
 
   def build(self):
+    """Build the clause from the builder specification."""
     return ContractClause(
-        title=self._title,
-        observer=self._observer,
-        verifier=self._verifier_builder.build(),
-        retryable_for_secs=self._retryable_for_secs)
+        title=self.__title,
+        observer=self.__observer,
+        verifier=self.__verifier_builder.build(),
+        retryable_for_secs=self.__retryable_for_secs)
 
 
 class ContractVerifyResult(predicate.PredicateResult):
+  """Represents the analysis results of verifying a contract and its clauses.
+  """
   @property
   def enumerated_summary_message(self):
+    """Human readable summary of the verification results."""
     return '\n'.join(
-        [c.enumerated_summary_message for c in self._clause_results])
+        [c.enumerated_summary_message for c in self.__clause_results])
 
   @property
   def clause_results(self):
-    return self._clause_results
+    """The aggregated results of verifying each of the contract's clauses."""
+    return self.__clause_results
 
   def __init__(self, valid, clause_results):
+    """Constructor.
+
+    Args:
+      valid: [bool] Whether the contract validated or not.
+      clause_results: {PredicateResult] The aggregated results of validating
+         eacho of the clauses is usually a CompositePredicateResult.
+    """
     super(ContractVerifyResult, self).__init__(valid)
-    self._clause_results = clause_results
+    self.__clause_results = clause_results
 
   def __eq__(self, result):
     return (super(ContractVerifyResult, self).__eq__(result)
-            and self._clause_results == result._clause_results)
+            and self.__clause_results == result.clause_results)
 
   def __str__(self):
     str_ok = 'OK' if self else 'FAILED'
     return 'Contract {0}\n{1}'.format(
         str_ok,
         '\n'.join(
-            [c.enumerated_summary_message for c in self._clause_results]))
+            [c.enumerated_summary_message for c in self.__clause_results]))
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     relation = snapshot.edge_builder.determine_valid_relation(self)
     snapshot.edge_builder.make(
-        entity, 'Clause Results', self._clause_results, relation=relation)
+        entity, 'Clause Results', self.__clause_results, relation=relation)
     super(ContractVerifyResult, self).export_to_json_snapshot(snapshot, entity)
 
 
@@ -278,14 +346,15 @@ class Contract(JsonSnapshotable):
   """
   @property
   def clauses(self):
-    return self._clauses
+    """The list of ContractClause."""
+    return self.__clauses
 
   def __init__(self):
-    self._clauses = []
+    self.__clauses = []
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make_control(entity, 'Clauses', self._clauses)
+    snapshot.edge_builder.make_control(entity, 'Clauses', self.__clauses)
 
   def add_clause(self, clause):
     """Adds a clause to the contract.
@@ -293,7 +362,7 @@ class Contract(JsonSnapshotable):
     Args:
       clause: A ContractClause.
     """
-    self._clauses.append(clause)
+    self.__clauses.append(clause)
 
   def verify(self):
     """Verify the clauses in the contract are currently satisified.
@@ -303,7 +372,7 @@ class Contract(JsonSnapshotable):
     """
     valid = True
     all_results = []
-    for clause in self._clauses:
+    for clause in self.__clauses:
       clause_results = clause.verify()
       all_results.append(clause_results)
       if not clause_results:
@@ -325,11 +394,11 @@ class ContractBuilder(object):
          because in the future the strict flag will be on individual
          constraints added to the clause.
     """
-    self._clause_factory = (
+    self.__clause_factory = (
         clause_factory
         or (lambda title, retryable_for_secs=0, strict=False:
-           ContractClauseBuilder(title, retryable_for_secs, strict=strict)))
-    self._builders = []
+            ContractClauseBuilder(title, retryable_for_secs, strict=strict)))
+    self.__builders = []
 
   def new_clause_builder(self, title, retryable_for_secs=0, strict=False):
     """Add new clause to contract from which specific constraints can be added.
@@ -345,14 +414,14 @@ class ContractBuilder(object):
     Returns:
       A new ClauseBuilder created with the factory bound in the constructor.
     """
-    builder = self._clause_factory(
+    builder = self.__clause_factory(
         title, retryable_for_secs=retryable_for_secs, strict=strict)
-    self._builders.append(builder)
+    self.__builders.append(builder)
     return builder
 
   def build(self):
     """Creates a new contract with the added clauses."""
     contract = Contract()
-    for builder in self._builders:
-        contract.add_clause(builder.build())
+    for builder in self.__builders:
+      contract.add_clause(builder.build())
     return contract

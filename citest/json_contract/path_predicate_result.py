@@ -28,21 +28,21 @@ class JsonPathResult(predicate.PredicateResult):
 
   @property
   def path(self):
-    return self._path
+    return self.__path
 
   @property
   def path_trace(self):
-    return self._path_trace
+    return self.__path_trace
 
   @property
   def source(self):
-    return self._source
+    return self.__source
 
   def export_to_json_snapshot(self, snapshot, entity):
     builder = snapshot.edge_builder
-    builder.make_control(entity, 'Path', self._path)
-    builder.make_input(entity, 'Source', self._source, format='json')
-    builder.make_output(entity, 'Trace', self._path_trace)
+    builder.make_control(entity, 'Path', self.__path)
+    builder.make_input(entity, 'Source', self.__source, format='json')
+    builder.make_output(entity, 'Trace', self.__path_trace)
     super(JsonPathResult, self).export_to_json_snapshot(snapshot, entity)
 
   def clone_in_context(self, source, path=None, path_trace=None):
@@ -58,13 +58,13 @@ class JsonPathResult(predicate.PredicateResult):
           and path=|path|+our path.
     """
     if path and not path_trace:
-      old_source = self._source or self._value
+      old_source = self.__source
       path_trace = [path_module.PathValue(path, old_source)]
     else:
       path_trace = path_trace or []
 
     return self._do_clone_in_context(
-        source, self._add_outer_path(path), path_trace + self._path_trace)
+        source, self._add_outer_path(path), path_trace + self.__path_trace)
 
   def _do_clone_in_context(self, source, final_path, final_path_trace):
     return self.__class__(
@@ -73,25 +73,25 @@ class JsonPathResult(predicate.PredicateResult):
         path_trace=final_path_trace)
 
   def __init__(self, source, path, valid,
-               comment=None, pred=None, cause=None, path_trace=None):
+               comment=None, cause=None, path_trace=None):
     super(JsonPathResult, self).__init__(valid, comment=comment, cause=cause)
-    self._source = source
-    self._path = path
-    self._path_trace = path_trace or []
+    self.__source = source
+    self.__path = path
+    self.__path_trace = path_trace or []
 
   def __eq__(self, result):
     return (super(JsonPathResult, self).__eq__(result)
-            and self._path == result._path
-            and self._source == result._source
-            and self._path_trace == result._path_trace)
+            and self.__path == result.__path
+            and self.__source == result.__source
+            and self.__path_trace == result.__path_trace)
 
   def _add_outer_path(self, path):
     """Helper function to add outer context to our path when cloning it."""
     if not path:
-      return self._path
-    if not self._path:
+      return self.__path
+    if not self.__path:
       return path
-    return '{0}/{1}'.format(path, self._path)
+    return '{0}/{1}'.format(path, self.__path)
 
 
 class JsonFoundValueResult(JsonPathResult):
@@ -104,21 +104,21 @@ class JsonFoundValueResult(JsonPathResult):
 
   @property
   def value(self):
-    return self._value
+    return self.__value
 
   @property
   def pred(self):
-    return self._pred
+    return self.__pred
 
   def export_to_json_snapshot(self, snapshot, entity):
-    snapshot.edge_builder.make_mechanism(entity, 'Predicate', self._pred)
-    snapshot.edge_builder.make_input(entity, 'Value', self._value,
+    snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.__pred)
+    snapshot.edge_builder.make_input(entity, 'Value', self.__value,
                                      format='json')
     super(JsonFoundValueResult, self).export_to_json_snapshot(snapshot, entity)
 
   def _do_clone_in_context(self, source, final_path, final_path_trace):
     return self.__class__(
-        value=self._value,
+        value=self.__value,
         source=source, path=final_path, valid=self.valid,
         comment=self.comment, pred=self.pred, cause=self.cause,
         path_trace=final_path_trace)
@@ -126,30 +126,30 @@ class JsonFoundValueResult(JsonPathResult):
   def __init__(self, value,
                source=None, path=None, valid=True,
                comment=None, pred=None, cause=None, path_trace=None):
-     if source == None:
-       source = value
-     if not path_trace and path:
-       path_trace = [path_module.PathValue(path, source)]
+    if source == None:
+      source = value
+    if not path_trace and path:
+      path_trace = [path_module.PathValue(path, source)]
 
-     super(JsonFoundValueResult, self).__init__(
-         source, path, valid,
-         comment=comment, cause=cause, path_trace=path_trace)
-     self._pred = pred
-     self._value = value
+    super(JsonFoundValueResult, self).__init__(
+        source, path, valid,
+        comment=comment, cause=cause, path_trace=path_trace)
+    self.__pred = pred
+    self.__value = value
 
   def __eq__(self, result):
     return (super(JsonFoundValueResult, self).__eq__(result)
-             and self._pred == result._pred
-             and self._value == result._value)
+            and self.__pred == result.pred
+            and self.__value == result.value)
 
   def __str__(self):
-     parts = ['value={0} pred={1}'.format(self._value, self._pred)]
-     if self.path:
-       parts.append('source={0!r} path={1!r}'.format(self.source, self.path))
-     parts.extend(['trace={0!r}'.format(self.path_trace)])
+    parts = ['value={0} pred={1}'.format(self.__value, self.__pred)]
+    if self.path:
+      parts.append('source={0!r} path={1!r}'.format(self.source, self.path))
+      parts.extend(['trace={0!r}'.format(self.path_trace)])
 
-     parts.append('GOOD' if self._valid else 'BAD')
-     return ' '.join(parts)
+    parts.append('GOOD' if self.valid else 'BAD')
+    return ' '.join(parts)
 
 
 class JsonMissingPathResult(JsonPathResult):
@@ -165,43 +165,55 @@ class JsonMissingPathResult(JsonPathResult):
 class JsonTypeMismatchResult(JsonPathResult):
   """A PredicatePathResult indicating the field was not the expected type."""
 
+  @property
+  def expect_type(self):
+    return self.__expect_type
+
+  @property
+  def got_type(self):
+    return self.__got_type
+
   def _do_clone_in_context(self, source, final_path, final_path_trace):
     return self.__class__(
-        expect_type=self._expect_type, got_type=self._got_type,
+        expect_type=self.__expect_type, got_type=self.__got_type,
         source=source, path=final_path, valid=self.valid,
         comment=self.comment, cause=self.cause,
         path_trace=final_path_trace)
 
   def __init__(self, expect_type, got_type, source, path=None,
                valid=False, comment=None, cause=None, path_trace=None):
-      super(JsonTypeMismatchResult, self).__init__(
-          source, path, valid, comment=comment, path_trace=path_trace)
-      self._expect_type = expect_type
-      self._got_type = got_type
+    super(JsonTypeMismatchResult, self).__init__(
+        source, path, valid, comment=comment, path_trace=path_trace)
+    self.__expect_type = expect_type
+    self.__got_type = got_type
 
   def __str__(self):
     return '{0} is not a {1} for field="{2}" trace={3}.'.format(
-      self._got_type, self._expect_type, self.path, self.path_trace)
+        self.__got_type, self.__expect_type, self.path, self.path_trace)
 
   def __eq__(self, error):
-      return (super(JsonTypeMismatchResult, self).__eq__(error)
-              and self._got_type == error._got_type
-              and self._expect_type == error._expect_type)
+    return (super(JsonTypeMismatchResult, self).__eq__(error)
+            and self.__got_type == error.got_type
+            and self.__expect_type == error.expect_type)
 
 
 class WrappedPathResult(JsonPathResult):
+  @property
+  def result(self):
+    return self.__result
+
   def __init__(self, valid, result, source, path, path_trace=None):
     super(WrappedPathResult, self).__init__(
         valid=valid, source=source, path=path, path_trace=path_trace)
-    self._result = result
+    self.__result = result
 
   def __eq__(self, result):
     return (super(WrappedPathResult, self).__eq__(result)
-            and self._result == result._result)
+            and self.__result == result.result)
 
   def __str__(self):
     parts = ['path={0!r}'.format(self.path)]
     if self.path_trace:
-       parts.extend(['trace={0!r}'.format(self.path_trace)])
-    parts.extend([' delegate={0!r}'.format(self._result)])
+      parts.extend(['trace={0!r}'.format(self.path_trace)])
+    parts.extend([' delegate={0!r}'.format(self.__result)])
     return ' '.join(parts)

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Maps a predicate over each member of a collectio of value objects."""
+
 
 import collections
 
@@ -22,8 +24,11 @@ from . import predicate
 class ObjectResultMapAttempt(
     collections.namedtuple('ObjectResultMapAttempt', ['obj', 'result']),
     JsonSnapshotable):
+  """Holds a individual value and its result."""
+
   @property
   def summary(self):
+    """Human readable summary of applying the map for reporting purposes."""
     return self.result.summary
 
   def __str__(self):
@@ -46,52 +51,64 @@ class ObjectResultMapAttempt(
 
 
 class MapPredicateResultBuilder(object):
+  """Builds MapPredicateResult instances."""
+
   def __init__(self, pred):
-    self._pred = pred
-    self._obj_list = []
-    self._all_results = []
-    self._good_map = []
-    self._bad_map = []
+    self.__pred = pred
+    self.__obj_list = []
+    self.__all_results = []
+    self.__good_map = []
+    self.__bad_map = []
 
   def apply_object(self, obj):
-    result = self._pred(obj)
+    """Applies the predicate to an element value."""
+    result = self.__pred(obj)
     self.add_result(obj, result)
     return result
 
   def add_result(self, obj, result):
-    self._obj_list.append(obj)
-    self._all_results.append(result)
+    """Adds the result from an element value."""
+    self.__obj_list.append(obj)
+    self.__all_results.append(result)
     if result:
-      self._good_map.append(ObjectResultMapAttempt(obj, result))
+      self.__good_map.append(ObjectResultMapAttempt(obj, result))
     else:
-      self._bad_map.append(ObjectResultMapAttempt(obj, result))
+      self.__bad_map.append(ObjectResultMapAttempt(obj, result))
 
   def build(self, valid):
+    """Creates the MapPredicateResult instance specified by this builder."""
     return MapPredicateResult(
-        valid=valid, pred=self._pred,
-        obj_list=self._obj_list, all_results=self._all_results,
-        good_map=self._good_map, bad_map=self._bad_map)
+        valid=valid, pred=self.__pred,
+        obj_list=self.__obj_list, all_results=self.__all_results,
+        good_map=self.__good_map, bad_map=self.__bad_map)
 
 
 class MapPredicateResult(predicate.CompositePredicateResult):
+  """PredicateResult when mapping a predicate over a collection of values."""
+
   @property
   def good_object_result_mappings(self):
-    return self._good_map
+    """The subset of mappings that were valid."""
+    return self.__good_map
 
   @property
   def bad_object_result_mappings(self):
-    return self._bad_map
+    """The subset of mappings that were invalid."""
+    return self.__bad_map
 
   @property
   def obj_list(self):
-    return self._obj_list
+    """The list of objects we mapped the predicate over."""
+    return self.__obj_list
 
   @staticmethod
   def __map_attempt_to_entity(attempt, snapshot):
+    """Helper method exporting a snapshot entity for an individual attempt."""
+
     attempt_entity = snapshot.new_entity()
     attempt_entity.add_metadata('class', attempt.__class__)
     builder = snapshot.edge_builder
-    builder.make_input(attempt_entity,'Object', attempt.obj,
+    builder.make_input(attempt_entity, 'Object', attempt.obj,
                        format='json',
                        summary=attempt.obj.__class__)
     builder.make(attempt_entity, 'Result Map', attempt.result,
@@ -101,23 +118,23 @@ class MapPredicateResult(predicate.CompositePredicateResult):
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    fn = lambda l: [self.__map_attempt_to_entity(e, snapshot) for e in l]
+    func = lambda l: [self.__map_attempt_to_entity(e, snapshot) for e in l]
     builder = snapshot.edge_builder
-    builder.make_input(entity, 'Object List', self._obj_list,
+    builder.make_input(entity, 'Object List', self.__obj_list,
                        format='json',
                        summary=builder.object_count_to_summary(
-                           self._obj_list, subject='mapped object'))
+                           self.__obj_list, subject='mapped object'))
     edge = builder.make(entity, 'Good Mappings',
-                        fn(self._good_map),
+                        func(self.__good_map),
                         summary=builder.object_count_to_summary(
-                            self._good_map, subject='valid mapping'))
-    if self._good_map:
+                            self.__good_map, subject='valid mapping'))
+    if self.__good_map:
       edge.add_metadata('relation', 'VALID')
     edge = builder.make(entity, 'Bad Mappings',
-                        fn(self._bad_map),
+                        func(self.__bad_map),
                         summary=builder.object_count_to_summary(
-                            self._bad_map, subject='invalid mapping'))
-    if self._bad_map:
+                            self.__bad_map, subject='invalid mapping'))
+    if self.__bad_map:
       edge.add_metadata('relation', 'INVALID')
     super(MapPredicateResult, self).export_to_json_snapshot(snapshot, entity)
 
@@ -125,15 +142,15 @@ class MapPredicateResult(predicate.CompositePredicateResult):
                good_map, bad_map, comment=None):
     super(MapPredicateResult, self).__init__(
         valid=valid, pred=pred, results=all_results, comment=comment)
-    self._obj_list = obj_list
-    self._good_map = good_map
-    self._bad_map = bad_map
+    self.__obj_list = obj_list
+    self.__good_map = good_map
+    self.__bad_map = bad_map
 
   def __eq__(self, result):
     return (super(MapPredicateResult, self).__eq__(result)
-            and self._obj_list == result._obj_list
-            and self._good_map == result._good_map
-            and self._bad_map == result._bad_map)
+            and self.__obj_list == result.obj_list
+            and self.__good_map == result.good_object_result_mappings
+            and self.__bad_map == result.bad_object_result_mappings)
 
 class MapPredicate(predicate.ValuePredicate):
   """Applies a predicate to all elements of a list or a non-list object.
@@ -143,19 +160,21 @@ class MapPredicate(predicate.ValuePredicate):
   """
   @property
   def pred(self):
-    return self._pred
+    """The predicate to map over the individual values."""
+    return self.__pred
 
   def __init__(self, pred, min=1, max=None):
-    self._pred = pred
-    self._min = min
-    self._max = max
+    # pylint: disable=redefined-builtin
+    self.__pred = pred
+    self.__min = min
+    self.__max = max
 
   def __str__(self):
-    return 'Map({0!r})'.format(self._pred)
+    return 'Map({0!r})'.format(self.__pred)
 
   def __eq__(self, pred):
     return (self.__class__ == pred.__class__
-            and self._pred == pred._pred)
+            and self.__pred == pred.pred)
 
   def __call__(self, obj):
     """Determine if object or its members match the expected fields.
@@ -177,17 +196,17 @@ class MapPredicate(predicate.ValuePredicate):
 
     if obj_list != None:
       for elem in obj_list:
-        result = self._pred(elem)
+        result = self.__pred(elem)
         all_results.append(result)
         if result:
           good_map.append(ObjectResultMapAttempt(elem, result))
         else:
           bad_map.append(ObjectResultMapAttempt(elem, result))
 
-    valid = not (self._min != None and len(good_map) < self._min
-                 or self._max != None and len(good_map) > self._max)
+    valid = not (self.__min != None and len(good_map) < self.__min
+                 or self.__max != None and len(good_map) > self.__max)
     return MapPredicateResult(
-        valid=valid, pred=self._pred,
+        valid=valid, pred=self.__pred,
         obj_list=obj_list,
         all_results=all_results,
         good_map=good_map,
@@ -196,7 +215,7 @@ class MapPredicate(predicate.ValuePredicate):
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     builder = snapshot.edge_builder
-    builder.make_mechanism(entity, 'Mapped Predicate', self._pred,
-                           summary=self._pred.__class__)
-    builder.make_control(entity, 'Min', self._min)
-    builder.make_control(entity, 'Max', self._max)
+    builder.make_mechanism(entity, 'Mapped Predicate', self.__pred,
+                           summary=self.__pred.__class__)
+    builder.make_control(entity, 'Min', self.__min)
+    builder.make_control(entity, 'Max', self.__max)

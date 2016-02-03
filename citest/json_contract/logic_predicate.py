@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Declares some predicates useful for expressing IF/AND/OR conditions."""
+
 
 from . import predicate
 
@@ -21,37 +23,39 @@ class ConjunctivePredicate(predicate.ValuePredicate):
 
   @property
   def predicates(self):
-    return self._conjunction
+    """The list of predicates that are ANDed together."""
+    return self.__conjunction
 
   def __init__(self, conjunction):
-    self._conjunction = [] + conjunction # Elements are ValuePredicate
+    self.__conjunction = [] + conjunction # Elements are ValuePredicate
 
   def append(self, pred):
-    self._conjunction.append(pred)
+    """Adds predicate to the conjunction."""
+    self.__conjunction.append(pred)
 
   def __str__(self):
-    return ' AND '.join([str(c) for c in self._conjunction])
+    return ' AND '.join([str(c) for c in self.__conjunction])
 
   def __eq__(self, pred):
     return (self.__class__ == pred.__class__
-            and self._conjunction == pred._conjunction)
+            and self.predicates == pred.predicates)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make(entity, 'Conjunction', self._conjunction,
+    snapshot.edge_builder.make(entity, 'Conjunction', self.__conjunction,
                                join='AND')
 
   def __call__(self, value):
-    all = []
+    everything = []
     valid = True
-    for pred in self._conjunction:
+    for pred in self.__conjunction:
       result = pred(value)
-      all.append(result)
+      everything.append(result)
       if not result:
         valid = False
-        break;
+        break
     return predicate.CompositePredicateResult(
-        valid=valid, pred=self, results=all)
+        valid=valid, pred=self, results=everything)
 
 
 class DisjunctivePredicate(predicate.ValuePredicate):
@@ -59,37 +63,39 @@ class DisjunctivePredicate(predicate.ValuePredicate):
 
   @property
   def predicates(self):
-    return self._disjunction
+    """The list of predicates that are ORed together."""
+    return self.__disjunction
 
   def __init__(self, disjunction):
-    self._disjunction = [] + disjunction # Elements are ValuePredicate
+    self.__disjunction = [] + disjunction # Elements are ValuePredicate
 
   def __str__(self):
-    return ' OR '.join([str(c) for c in self._disjunction])
+    return ' OR '.join([str(c) for c in self.__disjunction])
 
   def __eq__(self, pred):
     return (self.__class__ == pred.__class__
-            and self._disjunction == pred._disjunction)
+            and self.predicates == pred.predicates)
 
   def append(self, pred):
-    self._disjunction.append(pred)
+    """Adds predicate to the disjunction."""
+    self.__disjunction.append(pred)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make(entity, 'Disjunction', self._disjunction,
+    snapshot.edge_builder.make(entity, 'Disjunction', self.__disjunction,
                                join='OR')
 
   def __call__(self, value):
-    all = []
+    everything = []
     valid = False
-    for pred in self._disjunction:
+    for pred in self.__disjunction:
       result = pred(value)
-      all.append(result)
+      everything.append(result)
       if result:
         valid = True
-        break;
+        break
     return predicate.CompositePredicateResult(
-        valid=valid, pred=self, results=all)
+        valid=valid, pred=self, results=everything)
 
 
 class NegationPredicate(predicate.ValuePredicate):
@@ -97,26 +103,27 @@ class NegationPredicate(predicate.ValuePredicate):
 
   @property
   def predicate(self):
-    return self._pred
+    """The list of predicates that are NOTed together."""
+    return self.__pred
 
   def __init__(self, pred):
-    self._pred = pred
+    self.__pred = pred
 
   def __str__(self):
-    return 'NOT ({0})'.format(self._pred)
+    return 'NOT ({0})'.format(self.__pred)
 
   def __eq__(self, other):
     return (self.__class__ == other.__class__
-            and self._pred == other._pred)
+            and self.__pred == other.predicate)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make_mechanism(entity, 'Predicate', self._pred)
+    snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.__pred)
 
   def __call__(self, value):
-    base_result = self._pred(value)
+    base_result = self.__pred(value)
     return predicate.CompositePredicateResult(
-       valid=not base_result.valid, pred=self, results=[base_result])
+        valid=not base_result.valid, pred=self, results=[base_result])
 
 
 class ConditionalPredicate(predicate.ValuePredicate):
@@ -134,15 +141,18 @@ class ConditionalPredicate(predicate.ValuePredicate):
 
   @property
   def if_predicate(self):
-    return self._if_pred
+    """The predicate forming the IF condition."""
+    return self.__if_pred
 
   @property
   def then_predicate(self):
-    return self._then_pred
+    """The predicate forming the THEN clause."""
+    return self.__then_pred
 
   @property
   def else_predicate(self):
-    return self._then_pred
+    """The predicate forming the ELSE clause."""
+    return self.__then_pred
 
   def __init__(self, if_predicate, then_predicate, else_predicate=None):
     """Constructs an if/then clause.
@@ -151,45 +161,48 @@ class ConditionalPredicate(predicate.ValuePredicate):
       if_predicate: The ValuePredicate acting as the antecedent
       then_predicate: The ValuePredicate acting as the consequent
     """
-    self._if_pred = if_predicate
-    self._then_pred = then_predicate
-    self._else_pred = else_predicate
-    self._demorgan_pred = None # If else is none, this is impl as Demogans Law.
+    self.__if_pred = if_predicate
+    self.__then_pred = then_predicate
+    self.__else_pred = else_predicate
+    self.__demorgan_pred = None # If else is None, this is Demogans Law.
 
     if not else_predicate:
       # The clause is implemented using DeMorgan's law.
-      self._demorgan_pred = DisjunctivePredicate(
+      self.__demorgan_pred = DisjunctivePredicate(
           [NegationPredicate(if_predicate), then_predicate])
 
   def __str__(self):
-    return 'IF ({0}) THEN ({1})'.format(self._if_pred, self._then_pred)
+    return 'IF ({0}) THEN ({1})'.format(self.__if_pred, self.__then_pred)
 
   def __eq__(self, other):
     return (self.__class__ == other.__class__
-            and self._if_pred == other._if_pred
-            and self._then_pred == other._then_pred)
+            and self.__if_pred == other.if_predicate
+            and self.__then_pred == other.then_predicate
+            and self.__else_pred == other.else_predicate)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make_mechanism(entity, 'If', self._if_pred)
-    snapshot.edge_builder.make_mechanism(entity, 'Then', self._then_pred)
+    snapshot.edge_builder.make_mechanism(entity, 'If', self.__if_pred)
+    snapshot.edge_builder.make_mechanism(entity, 'Then', self.__then_pred)
+    if self.__else_pred:
+      snapshot.edge_builder.make_mechanism(entity, 'Else', self.__else_pred)
 
   def __call__(self, value):
-    if self._demorgan_pred:
-      return self._demorgan_pred(value)
+    if self.__demorgan_pred:
+      return self.__demorgan_pred(value)
 
     # Run the "if" predicate
     # then, depending on the result, run either "then" or "else" predicate.
-    result = self._if_pred(value)
+    result = self.__if_pred(value)
     tried = [result]
     if result:
-      result = self._then_pred(value)
+      result = self.__then_pred(value)
     else:
-      result = self._else_pred(value)
+      result = self.__else_pred(value)
     tried.append(result)
 
     return predicate.CompositePredicateResult(
-       valid=result.valid, pred=self, results=tried)
+        valid=result.valid, pred=self, results=tried)
 
 
 AND = ConjunctivePredicate

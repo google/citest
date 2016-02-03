@@ -22,24 +22,36 @@ from . import predicate
 
 
 class ObservationFailedError(predicate.PredicateResult):
+  """Denotes a PredicateResult for a failure to make an observation.
+
+  This is intended for ObservationVerifier where the attempt to make an
+  observation failed as opposed to a successful observation whose content
+  was not as expected.
+  """
+
+  @property
+  def failures(self):
+    """The failures encountered while trying to make the observation."""
+    return self.__failures
+
   def __init__(self, failures, valid=False):
     super(ObservationFailedError, self).__init__(valid)
-    self._failures = failures
+    self.__failures = failures
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     super(ObservationFailedError, self).export_to_json_snapshot(
         snapshot, entity)
-    snapshot.edge_builder.make(entity, 'Failures', self._failures)
+    snapshot.edge_builder.make(entity, 'Failures', self.__failures)
 
   def __str__(self):
     return 'Observation has failures: {0}'.format(
-        ','.join([str(x) for x in self._failures]))
+        ','.join([str(x) for x in self.__failures]))
 
   def __eq__(self, event):
     return (super(ObservationFailedError, self).__eq__(event)
             and observer.Observation.error_lists_equal(
-                self._failures, event._failures))
+                self.__failures, event.failures))
 
 
 class ObservationFailureVerifier(ov.ObservationVerifier):
@@ -54,30 +66,31 @@ class ObservationFailureVerifier(ov.ObservationVerifier):
     super(ObservationFailureVerifier, self).__init__(title)
 
   def _error_comment_or_none(self, error):
-      """Determine if the error is expected or not.
+    """Determine if the error is expected or not.
 
-      Args:
-        error: An error among the observation.errors
+    Args:
+      error: An error among the observation.errors
 
-      Returns:
-        None if the error is not expected, otherwise a comment string.
-            The comment string will propagate back our the results.
-      """
-      raise NotImplementedError(
-          '{0}._error_comment_or_none not implemented.'.format(self.__class__))
+    Returns:
+      None if the error is not expected, otherwise a comment string.
+          The comment string will propagate back our the results.
+    """
+    raise NotImplementedError(
+        '{0}._error_comment_or_none not implemented.'.format(self.__class__))
 
   def _error_not_found_comment(self, observation):
-      """Provide a comment string indicating no suitable errors were found."""
-      return ("Observation had no errors."
-              if not observation.errors else "Expected error was not found.""")
+    """Provide a comment string indicating no suitable errors were found."""
+    return ("Observation had no errors."
+            if not observation.errors else "Expected error was not found.""")
 
   def __call__(self, observation):
     valid = False
+    error = None
     for error in observation.errors:
       comment = self._error_comment_or_none(error)
       if comment != None:
-          valid = True
-          break
+        valid = True
+        break
 
     if valid:
       result = ObservationFailedError(valid=True, failures=[error])
@@ -92,7 +105,7 @@ class ObservationFailureVerifier(ov.ObservationVerifier):
       bad_results = [map_attempt]
 
     return ov.ObservationVerifyResult(
-          valid=valid, observation=observation,
-          all_results=[result],
-          good_results=good_results, bad_results=bad_results,
-          failed_constraints=[], comment=comment)
+        valid=valid, observation=observation,
+        all_results=[result],
+        good_results=good_results, bad_results=bad_results,
+        failed_constraints=[], comment=comment)
