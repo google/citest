@@ -28,7 +28,7 @@ invocation of command-line programs.
 """
 
 # The testable_agent module contains the base definitions.
-from .testable_agent import(
+from testable_agent import(
     AgentError,
     AgentOperation,
     AgentOperationStatus,
@@ -36,7 +36,7 @@ from .testable_agent import(
 
 
 # The cli_agent module implements an agent that uses command-line programs.
-from .cli_agent import (
+from cli_agent import (
     CliAgent,
     CliAgentObservationFailureVerifier,
     CliAgentRunError,
@@ -46,7 +46,7 @@ from .cli_agent import (
 
 
 # The cli_agent module implements an agent that uses HTTP messaging.
-from .http_agent import (
+from http_agent import (
     HttpAgent,
     HttpDeleteOperation,
     HttpOperationStatus,
@@ -54,23 +54,25 @@ from .http_agent import (
     HttpResponseType,
     SynchronousHttpOperationStatus)
 
-from .http_observer import (
+from http_observer import (
     HttpObjectObserver,
     HttpContractBuilder,
     HttpContractClauseBuilder,
     )
 
-from .http_scrubber import (
+from http_scrubber import (
     DefaultHttpHeadersScrubber,
     HttpScrubber)
 
 # The operation_contract module combines AgentOperation and JsonContract.
-from .operation_contract import OperationContract
+from operation_contract import OperationContract
 
+# A NoOpOperation can be used to create a contract for an invariant.
+from nop_operation import NoOpOperation
 
 # The service_testing module adds support for writing tests with TestableAgent.
-from .agent_test_case import (
+from agent_test_case import (
     AgentTestCase,
     AgentTestScenario)
 
-from .scenario_test_runner import ScenarioTestRunner
+from scenario_test_runner import ScenarioTestRunner
