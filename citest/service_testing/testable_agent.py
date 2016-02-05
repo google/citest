@@ -152,7 +152,7 @@ class AgentOperationStatus(JsonSnapshotable):
   @property
   def error(self):
     """Contains the error object, if any."""
-    return self.__error
+    return None
 
   @property
   def exception_details(self):
@@ -196,7 +196,6 @@ class AgentOperationStatus(JsonSnapshotable):
     Args:
       operation: [AgentOperation] The status is for.
     """
-    self.__error = None
     self.__operation = operation
 
   def refresh(self, trace=True):

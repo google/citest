@@ -26,22 +26,22 @@ class OperationContract(JsonSnapshotable):
   @property
   def title(self):
     """The name of the test case."""
-    return self._operation.title
+    return self.__operation.title
 
   @property
   def operation(self):
     """The AgentOperation to perform."""
-    return self._operation
+    return self.__operation
 
   @property
   def contract(self):
     """The json.Contract to verify the operation."""
-    return self._contract
+    return self.__contract
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make(entity, 'Operation', self._operation)
-    snapshot.edge_builder.make(entity, 'Contract', self._contract)
+    snapshot.edge_builder.make(entity, 'Operation', self.__operation)
+    snapshot.edge_builder.make(entity, 'Contract', self.__contract)
 
   def __init__(self, operation, contract):
     """Construct instance.
@@ -50,5 +50,5 @@ class OperationContract(JsonSnapshotable):
       operation: [AgentOperation] To be performed.
       contract: [JsonContract] To verify operation.
     """
-    self._operation = operation
-    self._contract = contract
+    self.__operation = operation
+    self.__contract = contract
