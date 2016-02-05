@@ -38,30 +38,30 @@ class BinaryPredicate(predicate.ValuePredicate):
   @property
   def name(self):
     """The predicate name."""
-    return self._name
+    return self.__name
 
   @property
   def operand(self):
     """The fixed operand argument."""
-    return self._operand
+    return self.__operand
 
   def __str__(self):
     return '{0}({1} {2!r})'.format(
-        self.__class__.__name__, self._name, self._operand)
+        self.__class__.__name__, self.__name, self.__operand)
 
   def __init__(self, name, operand):
-    self._name = name
-    self._operand = operand
+    self.__name = name
+    self.__operand = operand
 
   def __eq__(self, pred):
     return (self.__class__ == pred.__class__
-            and self._name == pred.name
-            and self._operand == pred.operand)
+            and self.__name == pred.name
+            and self.__operand == pred.operand)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make(entity, 'Name', self._name)
-    snapshot.edge_builder.make_control(entity, 'Operand', self._operand)
+    snapshot.edge_builder.make(entity, 'Name', self.__name)
+    snapshot.edge_builder.make_control(entity, 'Operand', self.__operand)
 
 
 class StandardBinaryPredicateFactory(object):
@@ -76,13 +76,13 @@ class StandardBinaryPredicateFactory(object):
       comparison_op: Callable that takes (value, operand) and returns bool.
       operand_type: Class expected for operands, or None to not enforce.
     """
-    self._type = operand_type
-    self._name = name
-    self._comparison_op = comparison_op
+    self.__type = operand_type
+    self.__name = name
+    self.__comparison_op = comparison_op
 
   def __call__(self, operand):
     return StandardBinaryPredicate(
-        self._name, self._comparison_op, operand, operand_type=self._type)
+        self.__name, self.__comparison_op, operand, operand_type=self.__type)
 
 
 class StandardBinaryPredicate(BinaryPredicate):
@@ -101,23 +101,23 @@ class StandardBinaryPredicate(BinaryPredicate):
       raise TypeError(
           '{0} is not {1}: {1!r}', operand.__class__, operand_type, operand)
     super(StandardBinaryPredicate, self).__init__(name, operand)
-    self._type = operand_type
-    self._comparison_op = comparison_op
+    self.__type = operand_type
+    self.__comparison_op = comparison_op
 
   def __str__(self):
-    if self._type == None:
+    if self.__type == None:
       type_name = 'Any'
-    if inspect.isclass(self._type):
-      type_name = self._type.__name__
+    if inspect.isclass(self.__type):
+      type_name = self.__type.__name__
     else:
-      type_name = str(self._type)
-    return '{0}.{1}({2!r})'.format(type_name, self._name, self.operand)
+      type_name = str(self.__type)
+    return '{0}.{1}({2!r})'.format(type_name, self.name, self.operand)
 
   def __call__(self, value):
-    if self._type and not isinstance(value, self._type):
-      return jc.JsonTypeMismatchResult(self._type, value.__class__, value)
+    if self.__type and not isinstance(value, self.__type):
+      return jc.JsonTypeMismatchResult(self.__type, value.__class__, value)
 
-    valid = self._comparison_op(value, self.operand)
+    valid = self.__comparison_op(value, self.operand)
     return jc.JsonFoundValueResult(value=value, valid=valid, pred=self)
 
 
@@ -288,16 +288,16 @@ class ContainsPredicate(BinaryPredicate):
 
   def __call__(self, value):
     if isinstance(value, basestring):
-      return STR_SUBSTR(self._operand)(value)
+      return STR_SUBSTR(self.operand)(value)
     if isinstance(value, dict):
-      return DICT_SUBSET(self._operand)(value)
+      return DICT_SUBSET(self.operand)(value)
     if isinstance(value, int or long or float):
-      return NUM_EQ(self._operand)(value)
+      return NUM_EQ(self.operand)(value)
     if not isinstance(value, list):
       raise NotImplementedError(
           'Unhandled value class {0}'.format(value.__class__))
-    if isinstance(self._operand, list):
-      return LIST_SUBSET(self._operand)(value)
+    if isinstance(self.operand, list):
+      return LIST_SUBSET(self.operand)(value)
 
     # The value is a list but operand is not a list.
     # So we'll look for existance of the operand in the list
@@ -339,10 +339,10 @@ class EquivalentPredicate(BinaryPredicate):
     Returns
       PredicateResult might be JsonTypeMismatchResult if operand_type is wrong.
     """
-    if not isinstance(self._operand, operand_type):
+    if not isinstance(self.operand, operand_type):
       return jc.JsonTypeMismatchResult(
-          operand_type, self._operand.__class__, value)
-    return pred_factory(self._operand)(value)
+          operand_type, self.operand.__class__, value)
+    return pred_factory(self.operand)(value)
 
   def __call__(self, value):
     """Implements the predicate by determining if value == operand."""
@@ -383,10 +383,10 @@ class DifferentPredicate(BinaryPredicate):
     Returns
       PredicateResult might be JsonTypeMismatchResult if operand_type is wrong.
     """
-    if not isinstance(self._operand, operand_type):
+    if not isinstance(self.operand, operand_type):
       return jc.JsonTypeMismatchResult(
-          operand_type, self._operand.__class__, value)
-    return pred_factory(self._operand)(value)
+          operand_type, self.operand.__class__, value)
+    return pred_factory(self.operand)(value)
 
   def __call__(self, value):
     """Implements the predicate by determining if value != operand."""

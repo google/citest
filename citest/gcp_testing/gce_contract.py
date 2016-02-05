@@ -35,22 +35,22 @@ class GCloudObjectObserver(jc.ObjectObserver):
       args: Command-line argument list to execute.
     """
     super(GCloudObjectObserver, self).__init__(filter)
-    self._gcloud = gcloud
-    self._args = args
+    self.__gcloud = gcloud
+    self.__args = args
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make_control(entity, 'Args', self._args)
+    snapshot.edge_builder.make_control(entity, 'Args', self.__args)
     super(GCloudObjectObserver, self).export_to_json_snapshot(snapshot, entity)
 
   def __str__(self):
-    return 'GCloudObjectObserver({0})'.format(self._args)
+    return 'GCloudObjectObserver({0})'.format(self.__args)
 
   def collect_observation(self, observation, trace=True):
-    gcloud_response = self._gcloud.run(self._args, trace=trace)
+    gcloud_response = self.__gcloud.run(self.__args, trace=trace)
     if gcloud_response.retcode != 0:
       observation.add_error(
-          cli_agent.CliAgentRunError(self._gcloud, gcloud_response))
+          cli_agent.CliAgentRunError(self.__gcloud, gcloud_response))
       return []
 
     decoder = json.JSONDecoder()
@@ -72,7 +72,7 @@ class GCloudObjectObserver(jc.ObjectObserver):
 class GCloudObjectFactory(object):
 
   def __init__(self, gcloud):
-    self._gcloud = gcloud
+    self.__gcloud = gcloud
 
   def new_list_resources(self, type, extra_args=None):
     """Specify a resource list to be returned later.
@@ -86,8 +86,8 @@ class GCloudObjectFactory(object):
     zone = None
     if extra_args is None:
       extra_args = []
-    if self._gcloud.command_needs_zone(type, 'list'):
-      zone = self._gcloud.zone
+    if self.__gcloud.command_needs_zone(type, 'list'):
+      zone = self.__gcloud.zone
       # But if we already had it, dont add it.
       try:
         if extra_args.index('--zone') >= 0:
@@ -95,9 +95,9 @@ class GCloudObjectFactory(object):
       except ValueError:
         pass
 
-    cmd = self._gcloud.build_gcloud_command_args(
-        type, ['list'] + extra_args, project=self._gcloud.project, zone=zone)
-    return GCloudObjectObserver(self._gcloud, cmd)
+    cmd = self.__gcloud.build_gcloud_command_args(
+        type, ['list'] + extra_args, project=self.__gcloud.project, zone=zone)
+    return GCloudObjectObserver(self.__gcloud, cmd)
 
   def new_inspect_resource(self, type, name, extra_args=None):
     """Specify a resource instance to inspect later.
@@ -113,18 +113,18 @@ class GCloudObjectFactory(object):
     if extra_args is None:
       extra_args = []
 
-    if self._gcloud.command_needs_zone(type, 'describe'):
-      zone = self._gcloud.zone
+    if self.__gcloud.command_needs_zone(type, 'describe'):
+      zone = self.__gcloud.zone
       try:
         if extra_args.index('--zone') >= 0:
           zone = None
       except ValueError:
         pass
 
-    cmd = self._gcloud.build_gcloud_command_args(
+    cmd = self.__gcloud.build_gcloud_command_args(
         type, ['describe', name] + extra_args,
-        project=self._gcloud.project, zone=zone)
-    return GCloudObjectObserver(self._gcloud, cmd)
+        project=self.__gcloud.project, zone=zone)
+    return GCloudObjectObserver(self.__gcloud, cmd)
 
 
 class GCloudClauseBuilder(jc.ContractClauseBuilder):
@@ -146,17 +146,17 @@ class GCloudClauseBuilder(jc.ContractClauseBuilder):
     """
     super(GCloudClauseBuilder, self).__init__(
         title=title, retryable_for_secs=retryable_for_secs)
-    self._factory = GCloudObjectFactory(gcloud)
-    self._strict = strict
+    self.__factory = GCloudObjectFactory(gcloud)
+    self.__strict = strict
 
   def list_resources(self, type, extra_args=None):
     """Observe resources of a particular type.
 
     This ultimately calls a "gcloud ... |type| list |extra_args|"
     """
-    self.observer = self._factory.new_list_resources(type, extra_args)
+    self.observer = self.__factory.new_list_resources(type, extra_args)
     observation_builder = jc.ValueObservationVerifierBuilder(
-        'List ' + type, strict=self._strict)
+        'List ' + type, strict=self.__strict)
     self.verifier_builder.append_verifier_builder(observation_builder)
 
     return observation_builder
@@ -180,7 +180,7 @@ class GCloudClauseBuilder(jc.ContractClauseBuilder):
           when its verify() method is run.
     """
 
-    self.observer = self._factory.new_inspect_resource(type, name, extra_args)
+    self.observer = self.__factory.new_inspect_resource(type, name, extra_args)
 
     if no_resource_ok:
       # Unfortunately gcloud does not surface the actual 404 but prints an
@@ -192,14 +192,14 @@ class GCloudClauseBuilder(jc.ContractClauseBuilder):
       disjunction_builder.append_verifier(error_verifier)
 
       inspect_builder = jc.ValueObservationVerifierBuilder(
-          'Inspect {0} {1}'.format(type, name), strict=self._strict)
+          'Inspect {0} {1}'.format(type, name), strict=self.__strict)
       disjunction_builder.append_verifier_builder(
           inspect_builder, new_term=True)
       self.verifier_builder.append_verifier_builder(
           disjunction_builder, new_term=True)
     else:
       inspect_builder = jc.ValueObservationVerifierBuilder(
-          'Inspect {0} {1}'.format(type, name), strict=self._strict)
+          'Inspect {0} {1}'.format(type, name), strict=self.__strict)
       self.verifier_builder.append_verifier_builder(inspect_builder)
 
     return inspect_builder

@@ -27,31 +27,31 @@ from . import predicate
 class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
   def __init__(self, title, strict=False):
     super(ValueObservationVerifierBuilder, self).__init__(title)
-    self._strict = strict
-    self._constraints = []
+    self.__strict = strict
+    self.__constraints = []
 
   def __eq__(self, builder):
     return (super(ValueObservationVerifierBuilder, self).__eq__(builder)
-            and self._strict == builder._strict
-            and self._constraints == builder._constraints)
+            and self.__strict == builder.__strict
+            and self.__constraints == builder.__constraints)
 
   def _do_build_generate(self, dnf_verifiers):
       return ValueObservationVerifier(
           title=self.title,
           dnf_verifiers=dnf_verifiers,
-          unmapped_constraints=self._constraints,
-          strict=self._strict)
+          unmapped_constraints=self.__constraints,
+          strict=self.__strict)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make_control(entity, 'Strict', self._strict)
-    if len(self._constraints) == 1:
+    snapshot.edge_builder.make_control(entity, 'Strict', self.__strict)
+    if len(self.__constraints) == 1:
       # Optimize model for single-element list
       snapshot.edge_builder.make_control(
-        entity, 'Constraint', self._constraints[0])
+        entity, 'Constraint', self.__constraints[0])
     else:
       snapshot.edge_builder.make_control(
-        entity, 'Constraints', self._constraints)
+        entity, 'Constraints', self.__constraints)
 
     super(ValueObserverVerifierBuilder, self).export_to_json_snapshot(
         snapshot, entity)
@@ -60,12 +60,12 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
     if not isinstance(constraint, predicate.ValuePredicate):
       raise TypeError('{0} is not predicate.ValuePredicate'.format(
           constraint.__class__))
-    self._constraints.append(constraint)
+    self.__constraints.append(constraint)
     return self
 
   def add_mapped_constraint(self, constraint, min=1, max=None):
     pred = map_predicate.MapPredicate(pred=constraint, min=min, max=max)
-    self._constraints.append(
+    self.__constraints.append(
         map_predicate.MapPredicate(pred=constraint, min=min, max=max))
     return self
 
@@ -113,25 +113,25 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
 class ValueObservationVerifier(ov.ObservationVerifier):
   @property
   def constraints(self):
-    return self._constraints
+    return self.__constraints
 
   @property
   def strict(self):
-    return self._strict
+    return self.__strict
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make_control(entity, 'Strict', self._strict)
+    snapshot.edge_builder.make_control(entity, 'Strict', self.__strict)
     snapshot.edge_builder.make_control(
-        entity, 'Constraints', self._constraints)
+        entity, 'Constraints', self.__constraints)
     super(ValueObservationVerifier, self).export_to_json_snapshot(
         snapshot, entity)
 
   def __str__(self):
     return '{0} constraints={1} strict={2}'.format(
         super(ValueObservationVerifier, self).__str__(),
-        [str(x) for x in self._constraints],
-        self._strict)
+        [str(x) for x in self.__constraints],
+        self.__strict)
 
   def __init__(self,
                title, dnf_verifiers=None,
@@ -156,12 +156,12 @@ class ValueObservationVerifier(ov.ObservationVerifier):
           object, nor does any object have to satisfy even one constraint.
     """
     super(ValueObservationVerifier, self).__init__(title, dnf_verifiers)
-    self._strict = strict
-    self._constraints = []
+    self.__strict = strict
+    self.__constraints = []
     if unmapped_constraints:
-      self._constraints.extend(unmapped_constraints)
+      self.__constraints.extend(unmapped_constraints)
     for c in mapped_constraints or []:
-      self._constraints.append(map_predicate.MapPredicate(c))
+      self.__constraints.append(map_predicate.MapPredicate(c))
 
   def __call__(self, observation):
     if observation.errors:
@@ -190,7 +190,7 @@ class ValueObservationVerifier(ov.ObservationVerifier):
     valid = True
     final_builder = ov.ObservationVerifyResultBuilder(observation)
 
-    for constraint in self._constraints:
+    for constraint in self.__constraints:
       logging.getLogger(__name__).debug('Verifying constraint=%s', constraint)
       constraint_result = constraint(object_list)
 
@@ -218,7 +218,7 @@ class ValueObservationVerifier(ov.ObservationVerifier):
             skip_strict = True
       final_builder.add_map_result(constraint_result)
 
-    if valid and self._strict and not skip_strict:
+    if valid and self.__strict and not skip_strict:
       len_validated = len(final_builder.validated_object_set)
       len_objects = len(object_list)
       valid = len_validated == len_objects

@@ -64,7 +64,7 @@ class JsonPathResult(predicate.PredicateResult):
       path_trace = path_trace or []
 
     return self._do_clone_in_context(
-        source, self._add_outer_path(path), path_trace + self.__path_trace)
+        source, self.__add_outer_path(path), path_trace + self.__path_trace)
 
   def _do_clone_in_context(self, source, final_path, final_path_trace):
     return self.__class__(
@@ -81,11 +81,11 @@ class JsonPathResult(predicate.PredicateResult):
 
   def __eq__(self, result):
     return (super(JsonPathResult, self).__eq__(result)
-            and self.__path == result.__path
-            and self.__source == result.__source
-            and self.__path_trace == result.__path_trace)
+            and self.__path == result.path
+            and self.__source == result.source
+            and self.__path_trace == result.path_trace)
 
-  def _add_outer_path(self, path):
+  def __add_outer_path(self, path):
     """Helper function to add outer context to our path when cloning it."""
     if not path:
       return self.__path

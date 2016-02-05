@@ -59,7 +59,7 @@ class CliRunStatus(testable_agent.AgentOperationStatus):
 
   @property
   def finished_ok(self):
-    return self._cli_response.retcode == 0
+    return self.__cli_response.retcode == 0
 
   @property
   def timed_out(self):
@@ -67,24 +67,24 @@ class CliRunStatus(testable_agent.AgentOperationStatus):
 
   @property
   def detail(self):
-    return self._cli_response.output
+    return self.__cli_response.output
 
   @property
   def error(self):
-    return self._cli_response.error
+    return self.__cli_response.error
 
   def __init__(self, operation, cli_response):
     super(CliRunStatus, self).__init__(operation)
-    self._cli_response = cli_response
+    self.__cli_response = cli_response
 
   def __cmp__(self, response):
-    return self._cli_response.__cmp__(response._cli_response)
+    return self.__cli_response.__cmp__(response.__cli_response)
 
   def __str__(self):
-    return 'cli_response={0}'.format(self._cli_response)
+    return 'cli_response={0}'.format(self.__cli_response)
 
   def update_cli_response(self, cli_response):
-    self._cli_response = cli_response
+    self.__cli_response = cli_response
 
 
 class CliAgentRunError(testable_agent.AgentError):
@@ -95,20 +95,20 @@ class CliAgentRunError(testable_agent.AgentError):
   """
   @property
   def run_response(self):
-    return self._run_response
+    return self.__run_response
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     super(CliAgentRunError, self).export_to_json_snapshot(snapshot, entity)
     snapshot.edge_builder.make_data(
-        entity, 'Cli Response', self._run_response)
+        entity, 'Cli Response', self.__run_response)
 
   def __init__(self, agent, run_response):
     super(CliAgentRunError, self).__init__(run_response.error)
-    self._run_response = run_response
+    self.__run_response = run_response
 
   def __eq__(self, error):
-    return self._run_response == error._run_response
+    return self.__run_response == error.__run_response
 
   def match_regex(self, regex):
     """Attempt to match a regular expression against the error.
@@ -119,7 +119,7 @@ class CliAgentRunError(testable_agent.AgentError):
     Returns:
       re.MatchObject or None
     """
-    return re.search(regex, self._run_response.error, re.MULTILINE)
+    return re.search(regex, self.__run_response.error, re.MULTILINE)
 
 
 class CliAgent(testable_agent.TestableAgent):
@@ -132,13 +132,12 @@ class CliAgent(testable_agent.TestableAgent):
       program: A path of the program to execute.
     """
     super(CliAgent, self).__init__()
-    self._program = program
-    self._strip_trailing_eoln = True
+    self.__program = program
     self.__output_scrubber = output_scrubber
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make_mechanism(entity, 'Program', self._program)
+    snapshot.edge_builder.make_mechanism(entity, 'Program', self.__program)
     super(CliAgent, self).export_to_json_snapshot(snapshot, entity)
 
   def _new_run_operation(self, title, args):
@@ -153,13 +152,13 @@ class CliAgent(testable_agent.TestableAgent):
     This is an internal method used to ensure that the arguments are ultimately
     consistent if needed, regardless of how the agent is invoked.
     """
-    return [self._program] + args
+    return [self.__program] + args
 
   def run(self, args, trace=True, output_scrubber=None):
     """Run the specified command.
 
     Args:
-      args: The list of command-line arguments for self._program.
+      args: The list of command-line arguments for self.__program.
       trace: If True then we should trace the call/response.
 
     Returns:
@@ -214,11 +213,11 @@ class CliRunOperation(testable_agent.AgentOperation):
     if cli_agent and not isinstance(cli_agent, CliAgent):
       raise TypeError(
           'cli_agent is not CliAgent: {0}'.format(cli_agent.__class__))
-    self._args = list(args)
+    self.__args = list(args)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make_control(entity, 'Args', self._args)
+    snapshot.edge_builder.make_control(entity, 'Args', self.__args)
     super(CliRunOperation, self).export_to_json_snapshot(snapshot, entity)
 
   def execute(self, agent=None, trace=True):
@@ -228,7 +227,7 @@ class CliRunOperation(testable_agent.AgentOperation):
       raise TypeError(
           'agent is not CliAgent: {0}'.format(agent.__class__))
 
-    cli_response = agent.run(self._args, trace=trace)
+    cli_response = agent.run(self.__args, trace=trace)
     status = agent._new_status(self, cli_response)
     if trace:
       agent.nojournal_logger.debug('Returning status %s', status)
@@ -246,15 +245,15 @@ class CliAgentObservationFailureVerifier(jc.ObservationFailureVerifier):
       error_regex: Regex pattern for errors we're looking for.
     """
     super(CliAgentObservationFailureVerifier, self).__init__(title)
-    self._error_regex = error_regex
+    self.__error_regex = error_regex
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make_control(entity, 'Regex', self._error_regex)
+    snapshot.edge_builder.make_control(entity, 'Regex', self.__error_regex)
     super(CliAgentObservationFailureVerifier, self).export_to_json_snapshot(
         snapshot, entity)
 
   def _error_comment_or_none(self, error):
     if (isinstance(error, CliAgentRunError)
-        and error.match_regex(self._error_regex)):
-      return 'Error matches {0}'.format(self._error_regex)
+        and error.match_regex(self.__error_regex)):
+      return 'Error matches {0}'.format(self.__error_regex)

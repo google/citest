@@ -230,7 +230,7 @@ class CardinalityPredicate(predicate.ValuePredicate):
     return (self.__class__ == pred.__class__
             and self.__min == pred.min
             and self.__max == pred.max
-            and self._map_pred == pred._map_pred)
+            and self.__map_pred == pred.__map_pred)
 
   def __str__(self):
     return '[{0}] {1}..{2}'.format(self.pred, self.__min, self.__max)

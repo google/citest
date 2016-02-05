@@ -243,7 +243,7 @@ class AgentTestScenario(object):
   @property
   def agent(self):
     """The primary TestableAgent that is the focal point for the test."""
-    return self._agent
+    return self.__agent
 
   @property
   def bindings(self):
@@ -255,7 +255,7 @@ class AgentTestScenario(object):
     upper-case by convention for readability to make binding keys more
     distinct within the code.
     """
-    return self._bindings
+    return self.__bindings
 
   @staticmethod
   def make_scenario(scenario_class, bindings):
@@ -284,8 +284,8 @@ class AgentTestScenario(object):
           If not prodided then construct a new one with the class new_agent
           factory method.
     """
-    self._bindings = bindings
-    self._agent = agent or self.new_agent(bindings)
+    self.__bindings = bindings
+    self.__agent = agent or self.new_agent(bindings)
     self.__test_id = bindings.get('TEST_ID', _DEFAULT_TEST_ID)
 
   def substitute_variables(self, text):
@@ -294,7 +294,7 @@ class AgentTestScenario(object):
     Returns:
       Copy of text with bound variables substituted with their values.
     """
-    return args_util.replace(text, self._bindings)
+    return args_util.replace(text, self.__bindings)
 
   @classmethod
   def initArgumentParser(cls, parser, defaults=None):

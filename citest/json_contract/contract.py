@@ -100,27 +100,27 @@ class ContractClause(predicate.ValuePredicate):
   @property
   def observer(self):
     """The ObjectObserver used to collect the Observation."""
-    return self._observer
+    return self.__observer
 
   @property
   def verifier(self):
     """The ObservationVerifier used to verify the observed state."""
-    return self._verifier
+    return self.__verifier
 
   @property
   def title(self):
     """The name of the clause for reporting purposes."""
-    return self._title
+    return self.__title
 
   def __str__(self):
-    return 'Clause {0}  verifier={1}'.format(self._title, self._verifier)
+    return 'Clause {0}  verifier={1}'.format(self.__title, self._verifier)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    entity.add_metadata('_title', self._title)
-    snapshot.edge_builder.make(entity, 'Title', self._title)
-    snapshot.edge_builder.make_mechanism(entity, 'Observer', self._observer)
-    snapshot.edge_builder.make_mechanism(entity, 'Verifier', self._verifier)
+    entity.add_metadata('_title', self.__title)
+    snapshot.edge_builder.make(entity, 'Title', self.__title)
+    snapshot.edge_builder.make_mechanism(entity, 'Observer', self.__observer)
+    snapshot.edge_builder.make_mechanism(entity, 'Verifier', self.__verifier)
 
   def __init__(self, title, observer=None, verifier=None,
                retryable_for_secs=0):
@@ -133,10 +133,10 @@ class ContractClause(predicate.ValuePredicate):
       retryable_for_secs: If > 0, then how long to continue retrying
         when a verification attempt fails.
     """
-    self._title = title
-    self._observer = observer
-    self._verifier = verifier
-    self._retryable_for_secs = retryable_for_secs
+    self.__title = title
+    self.__observer = observer
+    self.__verifier = verifier
+    self.__retryable_for_secs = retryable_for_secs
     self.logger = logging.getLogger(__name__)
 
   def verify(self):
@@ -150,7 +150,7 @@ class ContractClause(predicate.ValuePredicate):
       ContractClauseVerifyResult with details.
     """
     JournalLogger.begin_context(
-        'Verifying ContractClause: {0}'.format(self._title))
+        'Verifying ContractClause: {0}'.format(self.__title))
 
     context_relation = 'ERROR'
     try:
@@ -173,9 +173,9 @@ class ContractClause(predicate.ValuePredicate):
       VerifyClauseResult specifying the final outcome.
     """
 
-    # self.logger.debug('Verifying Contract: %s', self._title)
+    # self.logger.debug('Verifying Contract: %s', self.__title)
     start_time = time.time()
-    end_time = start_time + self._retryable_for_secs
+    end_time = start_time + self.__retryable_for_secs
 
     while True:
       clause_result = self.verify_once()
@@ -187,23 +187,23 @@ class ContractClause(predicate.ValuePredicate):
         if end_time > start_time:
           self.logger.debug(
               'Giving up verifying %s after %d of %d secs.',
-              self._title, end_time - start_time, self._retryable_for_secs)
+              self.__title, end_time - start_time, self.__retryable_for_secs)
         break
 
       secs_remaining = end_time - now
-      sleep = min(secs_remaining, min(5, self._retryable_for_secs / 10))
+      sleep = min(secs_remaining, min(5, self.__retryable_for_secs / 10))
       self.logger.debug(
           '%s not yet satisfied with secs_remaining=%d. Retry in %d secs\n%s',
-          self._title, secs_remaining, sleep, clause_result)
+          self.__title, secs_remaining, sleep, clause_result)
       time.sleep(sleep)
 
     summary = clause_result.enumerated_summary_message
     ok_str = 'OK' if clause_result else 'FAILED'
     JournalLogger.delegate(
         "store", clause_result,
-        _title='Validation Analysis of "{0}"'.format(self._title))
+        _title='Validation Analysis of "{0}"'.format(self.__title))
     self.logger.debug('ContractClause %s: %s\n%s',
-                      ok_str, self._title, summary)
+                      ok_str, self.__title, summary)
     return clause_result
 
   def verify_once(self):
@@ -215,17 +215,17 @@ class ContractClause(predicate.ValuePredicate):
     Returns:
       ContractClauseVerifyResult from verifying the observation
     """
-    if not self._observer:
+    if not self.__observer:
       raise ValueError(
-          'No ObjectObserver bound to clause {0!r}'.format(self._title))
-    if not self._verifier:
+          'No ObjectObserver bound to clause {0!r}'.format(self.__title))
+    if not self.__verifier:
       raise ValueError(
-          'No ObservationVerifier bound to clause {0!r}'.format(self._title))
+          'No ObservationVerifier bound to clause {0!r}'.format(self.__title))
 
     observation = ob.Observation()
-    self._observer.collect_observation(observation)
+    self.__observer.collect_observation(observation)
 
-    verify_result = self._verifier(observation)
+    verify_result = self.__verifier(observation)
     return ContractClauseVerifyResult(
         verify_result.__nonzero__(), self, verify_result)
 

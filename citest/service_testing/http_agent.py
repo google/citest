@@ -261,8 +261,8 @@ class HttpAgent(testable_agent.TestableAgent):
     """
     return self.__status_class(operation, http_response)
 
-  def _send_http_request(self, path, http_type,
-                         data=None, headers=None, trace=True):
+  def __send_http_request(self, path, http_type,
+                          data=None, headers=None, trace=True):
     """Send an HTTP message.
 
     Args:
@@ -333,19 +333,19 @@ class HttpAgent(testable_agent.TestableAgent):
 
   def post(self, path, data, content_type='application/json', trace=True):
     """Perform an HTTP POST."""
-    return self._send_http_request(
+    return self.__send_http_request(
         path, 'POST', data=data,
         headers={'Content-Type': content_type}, trace=trace)
 
   def delete(self, path, data, content_type='application/json', trace=True):
     """Perform an HTTP DELETE."""
-    return self._send_http_request(
+    return self.__send_http_request(
         path, 'DELETE', data=data,
         headers={'Content-Type': content_type}, trace=trace)
 
   def get(self, path, trace=True):
     """Perform an HTTP GET."""
-    return self._send_http_request(path, 'GET', trace=trace)
+    return self.__send_http_request(path, 'GET', trace=trace)
 
 
 class BaseHttpOperation(testable_agent.AgentOperation):

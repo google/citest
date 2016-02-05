@@ -296,31 +296,31 @@ class ObservationVerifierBuilder(JsonSnapshotable):
   def __eq__(self, builder):
     return (self.__class__ == builder.__class__
             and self.__title == builder.title
-            and self._dnf_verifier_builders == builder._dnf_verifier_builders
-            and self._current_builder_conjunction
-                == builder._current_builder_conjunction)
+            and self.__dnf_verifier_builders == builder.__adnf_verifier_builders
+            and self.__current_builder_conjunction
+                == builder.__current_builder_conjunction)
 
   def __init__(self, title):
     self.__title = title
 
     # This is a list of lists acting as a disjunction.
     # Each embedded list acts as a conjunction.
-    self._dnf_verifier_builders = []
+    self.__dnf_verifier_builders = []
 
     # This is the conjunction we're currently building.
     # It is not yet in the _dnf_verifier_builders.
     # If None then we'll add a new one when needed.
-    self._current_builder_conjunction = None
+    self.__current_builder_conjunction = None
 
     # This is the term we're currently building.
-    self._current_builder = None
+    self.__current_builder = None
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     entity.add_metadata('_title', self.__title)
     snapshot.edge_builder.make(entity, 'Title', self.__title)
     snapshot.edge_builder.make(
-        entity, 'Verifiers', self._dnf_verifier_builders)
+        entity, 'Verifiers', self.__dnf_verifier_builders)
     super(ObservationVerifierBuilder, self).export_to_json_snapshot(
         snapshot, entity)
 
@@ -329,22 +329,22 @@ class ObservationVerifierBuilder(JsonSnapshotable):
         _VerifierBuilderWrapper(verifier), new_term=new_term)
 
   def append_verifier_builder(self, builder, new_term=False):
-    if new_term and self._current_builder_conjunction:
-      self._dnf_verifier_builders.append(self._current_builder_conjunction)
-      self._current_builder_conjunction = None
+    if new_term and self.__current_builder_conjunction:
+      self.__dnf_verifier_builders.append(self.__current_builder_conjunction)
+      self.__current_builder_conjunction = None
 
-    if not self._current_builder_conjunction:
-      self._current_builder_conjunction = [builder]
+    if not self.__current_builder_conjunction:
+      self.__current_builder_conjunction = [builder]
     else:
-      self._current_builder_conjunction.append(builder)
+      self.__current_builder_conjunction.append(builder)
 
   def build(self):
-    if self._current_builder_conjunction:
-      self._dnf_verifier_builders.append(self._current_builder_conjunction)
-      self._current_builder_conjunction = None
+    if self.__current_builder_conjunction:
+      self.__dnf_verifier_builders.append(self.__current_builder_conjunction)
+      self.__current_builder_conjunction = None
 
     disjunction = []
-    for conjunction in self._dnf_verifier_builders:
+    for conjunction in self.__dnf_verifier_builders:
       verifiers = []
       for builder in conjunction:
         verifiers.append(builder.build())
