@@ -233,8 +233,8 @@ class AgentOperationStatus(JsonSnapshotable):
     context_relation = 'ERROR'
     try:
       self.refresh(trace=trace_first)
-      good = self.__wait_helper(poll_every_secs, max_secs, trace_every)
-      context_relation = 'VALID' if good else 'INVALID'
+      self.__wait_helper(poll_every_secs, max_secs, trace_every)
+      context_relation = 'VALID' if self.finished_ok else 'INVALID'
     finally:
       JournalLogger.end_context(relation=context_relation)
 
