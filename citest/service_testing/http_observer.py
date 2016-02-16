@@ -39,6 +39,7 @@ class HttpObjectObserver(jc.ObjectObserver):
       agent: [HttpAgent] Instance to use.
       path: [string] Path to GET from server that agent is bound to.
     """
+    # pylint: disable=redefined-builtin
     super(HttpObjectObserver, self).__init__(filter)
     self.__agent = agent
     self.__path = path
@@ -57,7 +58,8 @@ class HttpObjectObserver(jc.ObjectObserver):
     # collect some thing out of the results.
     result = self.agent.get(self.__path, trace=trace)
     if not result.ok():
-      error = 'Observation failed with HTTP %d.' % result.retcode
+      error = 'Observation failed with HTTP %d.\n%s' % (result.retcode,
+                                                        result.error)
       logging.getLogger(__name__).error(error)
       observation.add_error(AgentError(error))
       return []

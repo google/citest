@@ -281,7 +281,7 @@ def establish_network_connectivity(gcloud, instance, target_port):
 
   logger.debug('Confirming tunnel is working')
   url = 'http://localhost:%d' % local_port
-  for i in range(5):
+  for i in range(15):
     try:
       response = urllib2.urlopen(url, None, 10)
       logger.debug('Confirmed availability (%d)', response.getcode())

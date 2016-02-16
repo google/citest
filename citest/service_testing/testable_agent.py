@@ -233,12 +233,19 @@ class AgentOperationStatus(JsonSnapshotable):
     context_relation = 'ERROR'
     try:
       self.refresh(trace=trace_first)
-      ok = self.__wait_helper(poll_every_secs, max_secs, trace_every)
-      context_relation = 'VALID' if ok else 'INVALID'
+      good = self.__wait_helper(poll_every_secs, max_secs, trace_every)
+      context_relation = 'VALID' if good else 'INVALID'
     finally:
       JournalLogger.end_context(relation=context_relation)
 
   def __wait_helper(self, poll_every_secs, max_secs, trace):
+    """Helper function for wait to keep its try/finally block simple.
+
+    Args:
+      poll_every_secs: [int] Frequency to poll.
+      max_secs: [int] How long to poll before giving up.
+      trace_every: [bool] Whether to log each attempt.
+    """
     logger = logging.getLogger(__name__)
     secs_remaining = max_secs
     log_secs_remaining = 0
@@ -340,13 +347,17 @@ class AgentOperation(JsonSnapshotable):
         entity, 'Agent Class', self.agent.__class__.__name__)
     builder.make_control(entity, 'Max Wait Secs', self.max_wait_secs)
 
-  def execute(self):
+  def execute(self, agent=None):
     """Have the bound agent perform this operation.
 
     This method must be specialized.
 
+    Args:
+      agent: [TestableAgent] If provided, use instead of the one bound.
+
     Returns:
       OperationStatus for this invocation.
     """
+    # pylint: disable=unused-argument
     raise NotImplementedError(
         'execute was not specialized on {0}.'.format(self.__class__))

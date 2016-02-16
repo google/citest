@@ -140,7 +140,7 @@ class ProcessToRenderInfo(object):
     self.max_uncollapsable_entity_rows = 0  # Num attributes within an entity.
     self.max_uncollapsable_metadata_rows = 0  # Num metadata keys.
     self.max_uncollapsable_message_lines = 0  # Always collapse log messages.
-    self.max_message_summary_length = 100
+    self.max_message_summary_length = 60
 
   def determine_default_expanded(self, relation):
     """Determine whether entities should be expanded by default or not.
