@@ -17,6 +17,7 @@
 
 
 # Standard python modules.
+import json
 import logging
 
 # Our modules.
@@ -63,7 +64,7 @@ class AwsAgent(st.CliAgent):
     builder.make_control(entity, 'Trace', self.trace)
     super(AwsAgent, self).export_to_json_snapshot(snapshot, entity)
 
-  def build_aws_command_args(self, aws_command, args, aws_module=None,
+  def build_aws_command_args(self, aws_command, args, aws_module='ec2',
                              profile=None, region=None):
     """Build commandline for a given resource type, independent of the action.
 
@@ -77,8 +78,6 @@ class AwsAgent(st.CliAgent):
     Returns:
       list of complete command line arguments following implied 'aws'
     """
-    if not aws_module:
-      aws_module = 'ec2'
     if not profile:
       profile = self.__profile
     if not region:
@@ -91,3 +90,37 @@ class AwsAgent(st.CliAgent):
       preamble += ['--region', region]
 
     return preamble + [aws_module, aws_command] + args
+
+  def run_resource_list_commandline(self, command_args, root_key, trace=True):
+    """Runs the given command and returns the json resource list.
+
+    Args:
+      command_args: The commandline returned by build_aws_command_args
+      root_key: The key in the resulting command output containing the list
+         to return. If empty, return the whole document.
+    Raises:
+      ValueError if the command fails
+
+    Returns:
+      List of objects from the command.
+    """
+    aws_response = self.run(command_args, trace)
+    if aws_response.retcode != 0:
+      raise ValueError(aws_response.error)
+
+    decoder = json.JSONDecoder()
+    doc = decoder.decode(aws_response.output)
+    return doc[root_key] if root_key else doc
+
+  def get_resource_list(self, root_key, aws_command, args, aws_module='ec2',
+                        profile=None, region=None, trace=True):
+    """Returns a resource list returned when executing the aws commandline.
+
+    This is a combination of build_aws_command_args and
+    run_resource_list_commandline.
+    """
+    args = self.build_aws_command_args(aws_command=aws_command, args=args,
+                                       aws_module=aws_module, profile=profile,
+                                       region=region)
+    return self.run_resource_list_commandline(args, root_key, trace=trace)
+
