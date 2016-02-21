@@ -31,23 +31,26 @@ import urllib2
 
 
 def _unused_port():
-  s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-  s.bind(('localhost', 0))
-  addr, port = s.getsockname()
-  s.close()
+  sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  sock.bind(('localhost', 0))
+  addr, port = sock.getsockname()
+  sock.close()
   return port
 
 
 class _ProcessKiller(object):
   """Helper class for killing firewall tunnels."""
+  # pylint: disable=too-few-public-methods
 
   def  __init__(self, process):
     self.__process = process
+
   def safe_kill(self):
+    """Terminates the gcloud ssh tunnel when our process terminates."""
     try:
       print '*** terminating tunnel'
       os.kill(self.__process, -9)
-    except:
+    except OSError:
       pass
 
 
@@ -63,10 +66,10 @@ def _find_internal_ip_interface(iface_list):
   logger = logging.getLogger(__name__)
   for iface in iface_list:
     try:
-      ip = iface['networkIP']
-      if ip != '127.0.0.1':
-        return ip
-    except:
+      ip_addr = iface['networkIP']
+      if ip_addr != '127.0.0.1':
+        return ip_addr
+    except KeyError:
       logger.warning('Network Interface has no "networkIP": %s', iface)
 
   logger.warning('Could not find internal IP interface in %s:', iface_list)
@@ -86,7 +89,7 @@ def _find_external_ip_interface(iface_list, gcloud_response):
   for iface in iface_list:
     try:
       access_configs = iface['accessConfigs']
-    except:
+    except KeyError:
       logger.error(
           'Description lacks networkInterfaces/accessConfigs field:%s',
           gcloud_response)
@@ -96,7 +99,7 @@ def _find_external_ip_interface(iface_list, gcloud_response):
       try:
         if config['name'] == 'external-nat':
           return config['natIP']
-      except:
+      except KeyError:
         logger.warning('Config lacks name or natIP:%s', config)
 
   logger.warning('Could not find external IP interface in %s:', iface_list)
@@ -116,9 +119,9 @@ def determine_where_i_am():
   url = 'http://metadata/computeMetadata/v1/project/project-id'
   try:
     my_project = urllib2.urlopen(urllib2.Request(url, headers=headers)).read()
-  except Exception as e:
+  except urllib2.URLError as e:
     # Likely we are not running on GCE at all.
-    logger.debug('We are not running on GCE.' + str(e))
+    logger.debug('We are not running on GCE.\n  %s', str(e))
     return None, None, None
 
   # Since the above succeeded, we expect this to succeed
@@ -142,8 +145,8 @@ def am_i(project, zone, instance):
     instance: A GCE instance name.
 
   Returns:
-    True if this process is being run in the specified instance, false otherwise
-        including not on GCP at all.
+    True if this process is being run in the specified instance,
+    false otherwise including not on GCP at all.
   """
   my_project, my_zone, my_instance = determine_where_i_am()
   if instance != my_instance or my_zone != zone:
@@ -175,7 +178,7 @@ def _network_interfaces_for_instance(gcloud, instance):
 
   try:
     doc = json.JSONDecoder().decode(gcloud_response.output)
-  except:
+  except ValueError:
     logger.error('Invalid JSON in response: %s', gcloud_response)
     return None, gcloud_response
 
@@ -185,7 +188,7 @@ def _network_interfaces_for_instance(gcloud, instance):
           'instance=%s project=%s zone=%s is not RUNNING: %s',
           instance, gcloud.project, gcloud.zone, doc['status'])
       return None, gcloud_response
-  except:
+  except KeyError:
     logger.warning('Could not check VM status:%s', gcloud_response)
 
   try:
@@ -226,27 +229,31 @@ def establish_network_connectivity(gcloud, instance, target_port):
   if iface_list is None:
     return None
 
+  my_project, my_zone, my_instance = determine_where_i_am()
+  in_same_project = my_project and my_project == gcloud.project
   tried_urls = []
   for which in ['external', 'internal']:
     if which == 'external':
-      ip = _find_external_ip_interface(iface_list, gcloud_response)
+      ip_addr = _find_external_ip_interface(iface_list, gcloud_response)
+    elif in_same_project:
+      ip_addr = _find_internal_ip_interface(iface_list)
     else:
-      ip = _find_internal_ip_interface(iface_list)
-    if not ip:
+      logger.debug("Dont try internal IP since we're not in the same project")
+      ip_addr = None
+    if not ip_addr:
       continue
 
-    logger.debug('%s is on ip=%s', instance, ip)
-    url = 'http://{host}:{port}'.format(host=ip, port=target_port)
+    logger.debug('%s is on ip=%s', instance, ip_addr)
+    url = 'http://{host}:{port}'.format(host=ip_addr, port=target_port)
     tried_urls.append(url)
     try:
       response = urllib2.urlopen(url, None, 5)
       logger.debug('%s is directly reachable already.', url)
-      return '{0}:{1}'.format(ip, target_port)
+      return '{0}:{1}'.format(ip_addr, target_port)
     except urllib2.URLError:
       pass
 
-  my_project, my_zone, my_instance = determine_where_i_am()
-  if my_project and (my_project == gcloud.project or not gcloud.project):
+  if in_same_project:
     logger.error(
         'We are in the same project %s but cannot reach the server %s.'
         ' It must not be running on port %d, or is bound to localhost',
@@ -281,13 +288,18 @@ def establish_network_connectivity(gcloud, instance, target_port):
 
   logger.debug('Confirming tunnel is working')
   url = 'http://localhost:%d' % local_port
-  for i in range(15):
+
+  # It takes some time for the subprocess to establish the tunnel.
+  # Since the tunnel is not set up, the local port will not be available
+  # and the open attempt will fail right away. Retry until it is set up.
+  for i in range(20):
     try:
-      response = urllib2.urlopen(url, None, 10)
+      # 5 second timeout
+      response = urllib2.urlopen(url, None, 5)
       logger.debug('Confirmed availability (%d)', response.getcode())
       return 'localhost:%d' % local_port
-    except:
-      time.sleep(1)  # wait a bit longer
+    except urllib2.URLError:
+      time.sleep(1)
 
   logger.error('Could not connect to our own tunnel at %s', url)
   logger.error('Could not establish connection to %s.', instance)
