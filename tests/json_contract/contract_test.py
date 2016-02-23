@@ -163,7 +163,7 @@ class JsonContractTest(unittest.TestCase):
     # Non strict means some result should not contain B.
     builder = jc.ValueObservationVerifierBuilder(
         'Test Excludes', strict=strict)
-    builder.excludes(None, 'B')
+    builder.excludes_path_value(None, 'B')
 
     clause = jc.ContractClause('TestClause', fake_observer, builder.build())
     contract = jc.Contract()
@@ -192,7 +192,7 @@ class JsonContractTest(unittest.TestCase):
 
     eq_A_or_B = jc.OR([jc.STR_EQ('A'), jc.STR_EQ('B')])
     builder = jc.ValueObservationVerifierBuilder('Test Multiple')
-    builder.contains_pred(None, eq_A_or_B, min=2)
+    builder.contains_path_pred(None, eq_A_or_B, min=2)
 
     clause = jc.ContractClause('TestClause', fake_observer, builder.build())
     contract = jc.Contract()

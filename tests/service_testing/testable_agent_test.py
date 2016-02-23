@@ -31,6 +31,10 @@ class FakeStatus(st.AgentOperationStatus):
   def finished(self):
     return self.__finished
 
+  @property
+  def finished_ok(self):
+     return self.__finished
+
   def __init__(self, operation):
     super(FakeStatus, self).__init__(operation)
     self.__finished = False

@@ -44,12 +44,12 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       self.assertEqual('TestAddConstraint', verifier.title)
       self.assertEqual([aA, bB], verifier.constraints)
 
-  def test_verifier_builder_contains_group(self):
+  def test_verifier_builder_contains_pred_list(self):
       aA = jc.PathPredicate('a', jc.STR_EQ('A'))
       bB = jc.PathPredicate('b', jc.STR_EQ('B'))
       builder = jc.ValueObservationVerifierBuilder('TestContainsGroup')
-      builder.contains_pred('a', jc.STR_EQ('A'))
-      builder.contains_pred('b', jc.STR_EQ('B'))
+      builder.contains_path_pred('a', jc.STR_EQ('A'))
+      builder.contains_path_pred('b', jc.STR_EQ('B'))
       verifier = builder.build()
 
       count_aA = jc.CardinalityPredicate(aA, 1, None)
