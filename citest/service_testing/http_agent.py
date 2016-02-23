@@ -18,6 +18,7 @@
 import base64
 import collections
 import httplib
+import json
 import traceback
 import urllib2
 
@@ -190,6 +191,31 @@ class HttpAgent(testable_agent.TestableAgent):
   def http_scrubber(self, scrubber):
     """Binds HttpScrubber for removing private information when logging HTTP."""
     self.__http_scrubber = scrubber
+
+  @staticmethod
+  def make_json_payload_from_object(payload_obj):
+    """Make an HTTP payload as the JSON form of an object instance.
+
+    Args:
+      obj: An object representation of the entire payload.
+
+    Returns:
+       JSON encoded payload string.
+    """
+    return json.JSONEncoder().encode(payload_obj)
+
+  @staticmethod
+  def make_json_payload_from_kwargs(**kwargs):
+    """Make an HTTP operation JSON payload string from Python objects.
+
+    Args:
+       kwargs: [dict] The dictionary defining the payload to send.
+          The payload will be the dictionary encoded as json.
+    Returns:
+       JSON encoded payload string for Gate request.
+    """
+    payload_dict = kwargs
+    return json.JSONEncoder().encode(payload_dict)
 
   def __init__(self, base_url):
     """Constructs instance.
