@@ -69,40 +69,41 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
         map_predicate.MapPredicate(pred=constraint, min=min, max=max))
     return self
 
-  def contains(self, path, value, min=1, max=None):
-    return self.contains_pred(
+  def contains_path_value(self, path, value, min=1, max=None):
+    return self.contains_path_pred(
         path, binary_predicate.CONTAINS(value), min, max)
 
-  def contains_eq(self, path, value, min=1, max=None):
-    return self.contains_pred(
+  def contains_path_eq(self, path, value, min=1, max=None):
+    return self.contains_path_pred(
         path, binary_predicate.EQUIVALENT(value), min, max)
 
-  def contains_pred(self, path, pred, min=1, max=None):
+  def contains_path_pred(self, path, pred, min=1, max=None):
     self.add_constraint(
       cardinality_predicate.CardinalityPredicate(
           path_predicate.PathPredicate(path, pred), min=min, max=max))
     return self
 
-  def contains_group(self, pred_list, min=1, max=None):
+  def contains_pred_list(self, pred_list, min=1, max=None):
     conjunction = logic_predicate.AND(pred_list)
     self.add_constraint(
         cardinality_predicate.CardinalityPredicate(
             conjunction, min=min, max=max))
     return self
 
-  def excludes_pred(self, path, pred, max=0):
+  def excludes_path_pred(self, path, pred, max=0):
     self.add_constraint(
         cardinality_predicate.CardinalityPredicate(
             path_predicate.PathPredicate(path, pred), min=0, max=max))
     return self
 
-  def excludes(self, path, value, max=0):
-    return self.excludes_pred(path, binary_predicate.CONTAINS(value), max)
+  def excludes_path_value(self, path, value, max=0):
+    return self.excludes_path_pred(path, binary_predicate.CONTAINS(value), max)
 
-  def excludes_eq(self, path, value, max=0):
-    return self.excludes_pred(path, binary_predicate.EQUIVALENT(value), max)
+  def excludes_path_eq(self, path, value, max=0):
+    return self.excludes_path_pred(
+        path, binary_predicate.EQUIVALENT(value), max)
 
-  def excludes_group(self, pred_list, max=0):
+  def excludes_pred_list(self, pred_list, max=0):
     conjunction = logic_predicate.AND(pred_list)
     self.add_constraint(
         cardinality_predicate.CardinalityPredicate(

@@ -45,7 +45,7 @@ class GceContractTest(unittest.TestCase):
     c1 = contract_builder.new_clause_builder('TITLE')
     extra_args=['arg1', 'arg2', 'arg3']
     verifier = c1.list_resources('instances', extra_args=extra_args)
-    verifier.contains('field', 'value')
+    verifier.contains_path_value('field', 'value')
 
     self.assertTrue(isinstance(verifier, jc.ValueObservationVerifierBuilder))
 
@@ -79,7 +79,7 @@ class GceContractTest(unittest.TestCase):
     c1 = contract_builder.new_clause_builder('TITLE')
     verifier = c1.inspect_resource(
         'instances', 'test_name', extra_args=extra_args, no_resource_ok=True)
-    verifier.contains('field', 'value')
+    verifier.contains_path_value('field', 'value')
 
     self.assertTrue(isinstance(verifier, jc.ValueObservationVerifierBuilder))
 
