@@ -33,13 +33,11 @@ class DefaultHttpHeadersScrubber(object):
   REDACTED = '*' * 5
 
   def __call__(self, headers):
-    value = headers.get('Authorization', None)
-    if not value:
-      return headers
-
-    headers = dict(headers)
-    # Leave format type if any, then redact remainder.
-    headers['Authorization'] = value[:value.find(' ') + 1] + self.REDACTED
+    # Headers are case-insensitive
+    for key,value in headers.items():
+      if key.lower() == 'authorization':
+        # Leave format type if any, then redact remainder.
+        headers[key] = value[:value.find(' ') + 1] + self.REDACTED
 
     return headers
 
