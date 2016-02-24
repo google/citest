@@ -14,7 +14,7 @@
 
 """This package contains modules for testing services with citest.
 
-The testable_agent module provides an adapter for external system interactions
+The service_testing module provides an adapter for external system interactions
 as generic citest operations that can be controlled and reported using
 core citest components.
 
@@ -27,12 +27,12 @@ that interact with external systems using either HTTP messaging or
 invocation of command-line programs.
 """
 
-# The testable_agent module contains the base definitions.
-from testable_agent import(
+# The base_agent module contains the base definitions.
+from base_agent import(
     AgentError,
     AgentOperation,
     AgentOperationStatus,
-    TestableAgent)
+    BaseAgent)
 
 
 # The cli_agent module implements an agent that uses command-line programs.
@@ -70,7 +70,7 @@ from operation_contract import OperationContract
 # A NoOpOperation can be used to create a contract for an invariant.
 from nop_operation import NoOpOperation
 
-# The service_testing module adds support for writing tests with TestableAgent.
+# The service_testing module adds support for writing tests with BaseAgent.
 from agent_test_case import (
     AgentTestCase,
     AgentTestScenario)

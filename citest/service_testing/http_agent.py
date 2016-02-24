@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-"""Provides base support for TestableAgents based on HTTP interactions."""
+"""Provides base support for BaseAgents based on HTTP interactions."""
 
 import base64
 import collections
@@ -26,7 +26,7 @@ from ..base import JournalLogger
 from ..base import JsonSnapshotable
 from .http_scrubber import HttpScrubber
 
-from . import testable_agent
+from . import base_agent
 
 
 class HttpResponseType(collections.namedtuple('HttpResponseType',
@@ -85,7 +85,7 @@ class HttpResponseType(collections.namedtuple('HttpResponseType',
           code=self.retcode, body=self.error or self.output))
 
 
-class HttpOperationStatus(testable_agent.AgentOperationStatus):
+class HttpOperationStatus(base_agent.AgentOperationStatus):
   """Specialization of AgentOperationStatus for HttpAgent operations.
 
   This class assumes generic synchronous HTTP requests. Services may
@@ -166,8 +166,8 @@ class SynchronousHttpOperationStatus(HttpOperationStatus):
     return False
 
 
-class HttpAgent(testable_agent.TestableAgent):
-  """A specialization of TestableAgent for interacting with HTTP services."""
+class HttpAgent(base_agent.BaseAgent):
+  """A specialization of BaseAgent for interacting with HTTP services."""
 
   @property
   def headers(self):
@@ -374,7 +374,7 @@ class HttpAgent(testable_agent.TestableAgent):
     return self.__send_http_request(path, 'GET', trace=trace)
 
 
-class BaseHttpOperation(testable_agent.AgentOperation):
+class BaseHttpOperation(base_agent.AgentOperation):
   """Specialization of AgentOperation that performs HTTP POST."""
   @property
   def path(self):

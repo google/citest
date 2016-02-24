@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-"""Adapts citest TestableAgent to ineract with Amazon Web Services."""
+"""Adapts citest CliAgent to ineract with Amazon Web Services."""
 
 
 # Standard python modules.

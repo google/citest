@@ -13,15 +13,15 @@
 # limitations under the License.
 
 
-"""Specialization of base.BaseTestCase for testing with citest.TestableAgents.
+"""Specialization of base.BaseTestCase for testing with citest.BaseAgents.
 
-An AgentTestCase talks to both a TestableAgent and an external
+An AgentTestCase talks to both a BaseAgent and an external
 observer, it then uses data from the external observer to verify expectations
-made while talking to the TestableService.
+made while talking to the TestableSystem.
 
 The actual tests are written using operation_contract.OperationContract.
 Each OperationContract contains an AgentOperation, which is sent to the
-TestableAgent, and a Contract which specifies the expected system state
+BaseAgent, and a Contract which specifies the expected system state
 (resources it expects to find and/or resources it does not expect to find).
 
 A detailed log file is written as the test runs for more information.
@@ -242,7 +242,7 @@ class AgentTestScenario(object):
 
   @property
   def agent(self):
-    """The primary TestableAgent that is the focal point for the test."""
+    """The primary BaseAgent that is the focal point for the test."""
     return self.__agent
 
   @property
@@ -280,7 +280,7 @@ class AgentTestScenario(object):
           rather the scenarios may have a set of parameters that they use
           for their needs.
 
-      agent: [TestableAgent] Primary agent used in this scenario.
+      agent: [BaseAgent] Primary agent used in this scenario.
           If not prodided then construct a new one with the class new_agent
           factory method.
     """
@@ -333,8 +333,8 @@ class AgentTestCase(BaseTestCase):
     return ScenarioTestRunner.global_runner().scenario
 
   @property
-  def testable_agent(self):
-    """Return the primary TestableAgent for the current test scenario."""
+  def testing_agent(self):
+    """The BaseAgent for the current test scenario's testable system."""
     return self.scenario.agent
 
   def assertContract(self, contract):
@@ -494,7 +494,7 @@ class AgentTestCase(BaseTestCase):
       for i in range(max_tries):
         attempt_info = execution_trace.new_attempt()
         status = None
-        status = test_case.operation.execute(agent=self.testable_agent)
+        status = test_case.operation.execute(agent=self.testing_agent)
         status.wait(trace_every=full_trace)
 
         summary = status.error or ('Operation status OK' if status.finished_ok

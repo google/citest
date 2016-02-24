@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-"""Specifies test cases using TestableAgents."""
+"""Specifies test cases using BaseAgents."""
 
 from ..base import JsonSnapshotable
 
@@ -21,7 +21,7 @@ from ..base import JsonSnapshotable
 class OperationContract(JsonSnapshotable):
   """Specifies a testable operation and contract to verify it.
 
-  This is essentially a "test case" using  TestableAgents.
+  This is essentially a "test case" using  BaseAgents.
   """
   @property
   def title(self):

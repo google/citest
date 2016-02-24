@@ -35,7 +35,7 @@ from ..base import JournalLogger
 
 
 class AgentError(Exception, JsonSnapshotable):
-  """Denotes an error reported by a TestableAgent."""
+  """Denotes an error reported by a BaseAgent."""
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
@@ -52,11 +52,11 @@ class AgentError(Exception, JsonSnapshotable):
             and self.message == error.message)
 
 
-class TestableAgent(JsonSnapshotable):
+class BaseAgent(JsonSnapshotable):
   """Base class for adapting services and observers into the citest framework.
 
   The base class does not introduce any significant behavior, but the intent
-  of TestableAgent is to provide an adapter for interacting with the services
+  of BaseAgent is to provide an adapter for interacting with the services
   being tested, and (for convenience) the observers collecting observation
   data. The exact methods for doing this are introduced as the agents become
   specialized to the mechanism that will be needed and the particular APIs or
@@ -101,7 +101,7 @@ class TestableAgent(JsonSnapshotable):
 class AgentOperationStatus(JsonSnapshotable):
   """Base class for current Status on AgentOperation.
 
-  The operations performed by testable agents have disparate results depending
+  The operations performed by base agents have disparate results depending
   on the underlying service in question. Besides the data types being
   different, the protocols are as well. Often services are asynchronous,
   returning a handle used to query for current status information. This
@@ -166,7 +166,7 @@ class AgentOperationStatus(JsonSnapshotable):
 
   @property
   def agent(self):
-    """A reference to the TestableAgent that executed the |operation|."""
+    """A reference to the BaseAgent that executed the |operation|."""
     return self.__operation.agent
 
   def export_to_json_snapshot(self, snapshot, entity):
@@ -296,7 +296,7 @@ class AgentOperation(JsonSnapshotable):
   """
   @property
   def agent(self):
-    """The TestableAgent to execute the operation.
+    """The BaseAgent to execute the operation.
 
     This may be None if the binding is deferred. However, it must be bound
     before it is executed.
@@ -321,7 +321,7 @@ class AgentOperation(JsonSnapshotable):
     """Binds the agent to the operation.
 
     Args:
-      agent: [TestableAgent] If None then unbind.
+      agent: [BaseAgent] If None then unbind.
     """
     if self.__agent:
       logging.getLogger(__name__).warning('Rebinding agent on ' + str(self))
@@ -332,7 +332,7 @@ class AgentOperation(JsonSnapshotable):
 
     Args:
       title: [string] The name of the operation for reporting purposes only.
-      agent: [TestableAgent] The agent performing the operation can be bound
+      agent: [BaseAgent] The agent performing the operation can be bound
           later, but must eventually be bound.
     """
     self.__title = title
@@ -353,7 +353,7 @@ class AgentOperation(JsonSnapshotable):
     This method must be specialized.
 
     Args:
-      agent: [TestableAgent] If provided, use instead of the one bound.
+      agent: [BaseAgent] If provided, use instead of the one bound.
 
     Returns:
       OperationStatus for this invocation.
