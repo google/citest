@@ -18,7 +18,6 @@
 
 import json as json_module
 import logging
-import thread as thread_module
 
 from .global_journal import (get_global_journal, new_global_journal_with_path)
 
@@ -98,10 +97,7 @@ class JournalLogger(logging.Logger):
       logging.getLogger(_module or __name__).log(
           levelno, _msg, extra={'citest_journal': metadata})
     else:
-      journal.write_message(_msg,
-                            _level=levelno,
-                            _thread=thread_module.get_ident(),
-                            **metadata)
+      journal.write_message(_msg, _level=levelno, **metadata)
 
   @staticmethod
   def journal_or_log_detail(_msg, _detail, levelno=logging.DEBUG,
