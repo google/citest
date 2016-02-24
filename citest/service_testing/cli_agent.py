@@ -20,7 +20,7 @@ import subprocess
 from ..base import JournalLogger
 from ..base import JsonSnapshotable
 from .. import json_contract as jc
-from . import testable_agent
+from . import base_agent
 
 
 class CliResponseType(collections.namedtuple('CliResponseType',
@@ -47,11 +47,11 @@ class CliResponseType(collections.namedtuple('CliResponseType',
       builder.make_output(entity, 'stdout', self.output, format='json')
 
 
-class CliRunStatus(testable_agent.AgentOperationStatus):
+class CliRunStatus(base_agent.AgentOperationStatus):
   """Concrete specialization of AgentOperationStatus for CliAgent operations.
 
   Attributes:
-    See testable_agent.AgentOperationStatus.
+    See base_agent.AgentOperationStatus.
   """
   @property
   def finished(self):
@@ -87,7 +87,7 @@ class CliRunStatus(testable_agent.AgentOperationStatus):
     self.__cli_response = cli_response
 
 
-class CliAgentRunError(testable_agent.AgentError):
+class CliAgentRunError(base_agent.AgentError):
   """An error for reporting execution failures.
 
   Properties:
@@ -122,8 +122,8 @@ class CliAgentRunError(testable_agent.AgentError):
     return re.search(regex, self.__run_response.error, re.MULTILINE)
 
 
-class CliAgent(testable_agent.TestableAgent):
-  """A specialization of TestableAgent for invoking command-line programs."""
+class CliAgent(base_agent.BaseAgent):
+  """A specialization of BaseAgent for invoking command-line programs."""
 
   def __init__(self, program, output_scrubber=None):
     """Standard constructor.
@@ -206,7 +206,7 @@ class CliAgent(testable_agent.TestableAgent):
     return CliResponseType(code, stdout, stderr)
 
 
-class CliRunOperation(testable_agent.AgentOperation):
+class CliRunOperation(base_agent.AgentOperation):
   """Specialization of AgentOperation that invokes a program."""
   def __init__(self, title, args, cli_agent=None):
     super(CliRunOperation, self).__init__(title, cli_agent)

@@ -14,10 +14,10 @@
 
 """A no-op operation does nothing. It is intended for observing invariants."""
 
-import testable_agent
+import base_agent
 
 
-class ConstantOperationStatus(testable_agent.AgentOperationStatus):
+class ConstantOperationStatus(base_agent.AgentOperationStatus):
   """An operation status meant for a NoOp operation.
 
   By default this is simply success. It could be configured to be an error.
@@ -58,7 +58,7 @@ class ConstantOperationStatus(testable_agent.AgentOperationStatus):
     self.__error = error
 
 
-class NoOpOperation(testable_agent.AgentOperation):
+class NoOpOperation(base_agent.AgentOperation):
   """Implements an operation that succeeds without doing anything.
 
   This is intended to test invariants as a contract. The invariant is

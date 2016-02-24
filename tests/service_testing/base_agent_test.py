@@ -17,7 +17,7 @@ import unittest
 import citest.service_testing as st
 
 
-class FakeAgent(st.TestableAgent):
+class FakeAgent(st.BaseAgent):
    def __init__(self):
      super(FakeAgent, self).__init__()
 
@@ -60,7 +60,7 @@ class FakeStatus(st.AgentOperationStatus):
         self.__finished = True
 
 
-class TestableAgentTest(unittest.TestCase):
+class BaseAgentTest(unittest.TestCase):
   def test_operation_constructor(self):
     operation = st.AgentOperation('TestStatus')
     self.assertEqual('TestStatus', operation.title)
@@ -217,5 +217,5 @@ class TestableAgentTest(unittest.TestCase):
 
 if __name__ == '__main__':
   loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(TestableAgentTest)
+  suite = loader.loadTestsFromTestCase(BaseAgentTest)
   unittest.TextTestRunner(verbosity=2).run(suite)
