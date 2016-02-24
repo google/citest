@@ -20,6 +20,7 @@
 
 
 import json
+import threading
 import unittest
 
 from StringIO import StringIO
@@ -76,6 +77,7 @@ class JournalTest(unittest.TestCase):
     entry = {
         '_type': 'JournalMessage',
         '_value': _text,
+        '_thread': threading.current_thread().ident,
         '_timestamp': _clock.last_time
     }
     if metadata_dict:
@@ -163,6 +165,7 @@ class JournalTest(unittest.TestCase):
     got = decoder.decode(got_json_str)
     json_object = snapshot.to_json_object()
     json_object['_timestamp'] = time_function()
+    json_object['_thread'] = threading.current_thread().ident
     self.assertItemsEqual(json_object, got)
 
   def test_lifecycle(self):
@@ -187,12 +190,14 @@ class JournalTest(unittest.TestCase):
     snapshot.add_data(first)
     json_object = snapshot.to_json_object()
     json_object['_timestamp'] = journal.clock.last_time - 1
+    json_object['_thread'] = threading.current_thread().ident
     self.assertItemsEqual(json_object, got[1])
 
     snapshot = JsonSnapshot()
     snapshot.add_data(second)
     json_object = snapshot.to_json_object()
     json_object['_timestamp'] = journal.clock.last_time
+    json_object['_thread'] = threading.current_thread().ident
     self.assertItemsEqual(json_object, got[2])
 
 

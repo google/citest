@@ -170,6 +170,7 @@ class Journal(object):
 
     json_copy = dict(json_object)
     json_copy.setdefault('_timestamp', self.now())
+    json_copy.setdefault('_thread', threading.current_thread().ident)
 
     # protect both the encoder and the output stream.
     self.__lock.acquire(True)
