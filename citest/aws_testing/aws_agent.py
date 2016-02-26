@@ -105,7 +105,7 @@ class AwsAgent(st.CliAgent):
       List of objects from the command.
     """
     aws_response = self.run(command_args, trace)
-    if aws_response.retcode != 0:
+    if not aws_response.ok():
       raise ValueError(aws_response.error)
 
     decoder = json.JSONDecoder()

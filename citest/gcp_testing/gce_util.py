@@ -170,7 +170,7 @@ def _network_interfaces_for_instance(gcloud, instance):
   logger = logging.getLogger(__name__)
   logger.debug('Testing locating test project instance=%s', instance)
   gcloud_response = gcloud.describe_resource('instances', instance)
-  if gcloud_response.retcode != 0:
+  if not gcloud_response.ok():
     logger.error(
         'Could not find instance=%s in project=%s, zone=%s: %s',
         instance, gcloud.project, gcloud.zone, gcloud_response.error)

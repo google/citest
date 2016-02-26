@@ -40,7 +40,7 @@ class AwsObjectObserver(jc.ObjectObserver):
 
   def collect_observation(self, observation, trace=True):
     aws_response = self.__aws.run(self.__args, trace)
-    if aws_response.retcode != 0:
+    if not aws_response.ok():
       observation.add_error(
           cli_agent.CliAgentRunError(self.__aws, aws_response))
       return []
