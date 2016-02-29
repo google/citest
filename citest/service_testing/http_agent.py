@@ -29,19 +29,25 @@ from .http_scrubber import HttpScrubber
 from . import base_agent
 
 
-class HttpResponseType(collections.namedtuple('HttpResponseType',
-                                              ['retcode', 'output', 'error']),
-                       JsonSnapshotable):
+class HttpResponseType(
+    collections.namedtuple('HttpResponseType',
+                           ['http_code', 'output', 'exception']),
+    JsonSnapshotable):
   """Holds the results from an HTTP message.
 
   Attributes:
-    retcode: The HTTP response code (or -1 if failed to send).
-    output: The HTTP response if successful (2xx response)
-    error: The HTTP response or other error if request failed.
+    http_code: The HTTP response code (or None if exception attempting to send).
+    output: The HTTP response.
+    exception: The exception if http_code is None
   """
+  @property
+  def error_message(self):
+    return (None if self.ok()
+            else self.exception if self.exception else self.output)
+
   def __str__(self):
-    return 'retcode={0} output={1!r} error={2!r}'.format(
-        self.retcode, self.output, self.error)
+    return 'http_code={0} output={1!r} exception={2!r}'.format(
+        self.http_code, self.output, self.exception)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface.
@@ -61,14 +67,14 @@ class HttpResponseType(collections.namedtuple('HttpResponseType',
           for the payload value.
     """
     builder = snapshot.edge_builder
-    edge = builder.make(entity, 'HTTP Code', self.retcode)
+    edge = builder.make(entity, 'HTTP Code', self.http_code)
     if not self.ok():
       edge.add_metadata('relation', 'ERROR')
-    if self.error:
-      edge = builder.make_error(entity, 'Response Error', self.error)
+    if self.exception:
+      edge = builder.make_error(entity, 'Response Error', self.exception)
       if format:
         edge.add_metadata('format', format)
-    if self.output or not self.error:
+    if self.output or not self.exception:
       # If no output on success, explicitly show that.
       edge = builder.make_output(entity, 'Response Output', self.output)
       if format:
@@ -76,13 +82,16 @@ class HttpResponseType(collections.namedtuple('HttpResponseType',
 
   def ok(self):
     """Return true if the result code indicates an OK HTTP response."""
-    return self.retcode >= 200 and self.retcode < 300
+    return self.http_code >= 200 and self.http_code < 300
 
   def check_ok(self):
     """Raise ValueError if the result code does not indicate an OK response."""
     if not self.ok():
-      raise ValueError('Unexpected HTTP response {code}:\n{body}'.format(
-          code=self.retcode, body=self.error or self.output))
+      if self.exception:
+        raise ValueError('HTTP has no response: {ex}'.format(ex=self.exception))
+      else:
+        raise ValueError('Unexpected HTTP response {code}:\n{body}'.format(
+            code=self.http_code, body=self.output))
 
 
 class HttpOperationStatus(base_agent.AgentOperationStatus):
@@ -99,8 +108,8 @@ class HttpOperationStatus(base_agent.AgentOperationStatus):
 
   @property
   def timed_out(self):
-    return self.__http_response.retcode in [httplib.REQUEST_TIMEOUT,
-                                            httplib.GATEWAY_TIMEOUT]
+    return self.__http_response.http_code in [httplib.REQUEST_TIMEOUT,
+                                              httplib.GATEWAY_TIMEOUT]
 
   @property
   def finished_ok(self):
@@ -112,7 +121,7 @@ class HttpOperationStatus(base_agent.AgentOperationStatus):
 
   @property
   def error(self):
-    return self.__http_response.error
+    return self.__http_response.error_message
 
   @property
   def snapshot_format(self):
@@ -328,8 +337,9 @@ class HttpAgent(base_agent.BaseAgent):
           '{type} {url}'.format(type=http_type, url=scrubbed_url),
           _module=self.logger.name, _alwayslog=trace, _context='request')
 
+    code = None
     output = None
-    error = None
+    exception = None
     try:
       response = urllib2.urlopen(req)
       code = response.getcode()
@@ -343,8 +353,8 @@ class HttpAgent(base_agent.BaseAgent):
 
     except urllib2.HTTPError as ex:
       code = ex.getcode()
-      error = ex.read()
-      scrubbed_error = self.__http_scrubber.scrub_response(error)
+      output = ex.read()
+      scrubbed_error = self.__http_scrubber.scrub_response(output)
       JournalLogger.journal_or_log_detail(
           'HTTP {code}'.format(code=code), scrubbed_error,
           _module=self.logger.name, _alwayslog=trace, _context='response')
@@ -353,9 +363,8 @@ class HttpAgent(base_agent.BaseAgent):
       JournalLogger.journal_or_log(
           'Caught exception: {ex}\n{stack}'.format(
               ex=ex, stack=traceback.format_exc()))
-      code = -1
-      error = str(ex)
-    return HttpResponseType(code, output, error)
+      exception = ex
+    return HttpResponseType(code, output, exception)
 
   def post(self, path, data, content_type='application/json', trace=True):
     """Perform an HTTP POST."""

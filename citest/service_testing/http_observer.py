@@ -58,7 +58,7 @@ class HttpObjectObserver(jc.ObjectObserver):
     # collect some thing out of the results.
     result = self.agent.get(self.__path, trace=trace)
     if not result.ok():
-      error = 'Observation failed with HTTP %d.\n%s' % (result.retcode,
+      error = 'Observation failed with HTTP %s.\n%s' % (result.http_code,
                                                         result.error)
       logging.getLogger(__name__).error(error)
       observation.add_error(AgentError(error))

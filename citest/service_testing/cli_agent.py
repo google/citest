@@ -24,23 +24,27 @@ from . import base_agent
 
 
 class CliResponseType(collections.namedtuple('CliResponseType',
-                                             ['retcode', 'output', 'error']),
+                                             ['exit_code', 'output', 'error']),
                       JsonSnapshotable):
   """Holds the results from running the command-line program.
 
   Attributes:
-    retcode: The program exit code.
+    exit_code: The program exit code.
     output: The program stdout.
     error: The program stderr (or other error explaining failure to run).
   """
+  def ok(self):
+    """Returns True if the call succeeded, False otherwise."""
+    return self.exit_code == 0
+
   def __str__(self):
-    return 'retcode={0} output={1!r} error={2!r}'.format(
-        self.retcode, self.output, self.error)
+    return 'exit_code={0} output={1!r} error={2!r}'.format(
+        self.exit_code, self.output, self.error)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     builder = snapshot.edge_builder
-    builder.make(entity, 'Exit Code', self.retcode)
+    builder.make(entity, 'Exit Code', self.exit_code)
     if self.error:
       builder.make_error(entity, 'stderr', self.error, format='json')
     if self.output:
@@ -59,7 +63,7 @@ class CliRunStatus(base_agent.AgentOperationStatus):
 
   @property
   def finished_ok(self):
-    return self.__cli_response.retcode == 0
+    return self.__cli_response.ok()
 
   @property
   def timed_out(self):

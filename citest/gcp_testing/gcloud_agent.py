@@ -312,10 +312,10 @@ class GCloudAgent(cli_agent.CliAgent):
         instance, ['--command', '"%s"' % escaped_command], async=False)
     output = PassphraseInjector(
         fd=fd, ssh_passphrase_file=self.__ssh_passphrase_file)()
-    retcode = os.waitpid(pid, os.WNOHANG)[1]
-    if not retcode:
+    exit_code = os.waitpid(pid, os.WNOHANG)[1]
+    if not exit_code:
       return cli_agent.CliResponseType(0, output, '')
-    return cli_agent.CliResponseType(retcode, '', output)
+    return cli_agent.CliResponseType(exit_code, '', output)
 
   def list_resources(self, gce_type, format='json', extra_args=None):
     """Obtain a list of references to all the GCE resources of a given type.
