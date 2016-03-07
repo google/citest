@@ -132,6 +132,8 @@ class HtmlDocumentManager(object):
     self.__section_count = 0
     self.__title = title
     self.__parts = []
+    self.has_global_expand = True
+    self.has_key = True
 
   def new_section_id(self):
     """Allocates a new HTML name used to reference its CSS from javascript."""
@@ -323,14 +325,18 @@ class HtmlDocumentManager(object):
     with open(output_path, 'w') as f:
       f.write(self.build_begin_html_document(self.__title))
       f.write('<div class="title">{title}</div>\n'.format(title=self.__title))
-      f.write(
-          '<a href="#" onclick="expand_tree(document.body,true)">'
-          'Expand All</a>')
-      f.write('&nbsp;&nbsp;&nbsp;')
-      f.write(
-          '<a href="#" onclick="expand_tree(document.body,false)">'
-          'Collapse All</a>')
-      f.write('\n<p/>\n')
-      f.write(self.build_key_html())
+      if self.has_global_expand:
+        f.write(
+            '<a href="#" onclick="expand_tree(document.body,true)">'
+            'Expand All</a>')
+        f.write('&nbsp;&nbsp;&nbsp;')
+        f.write(
+            '<a href="#" onclick="expand_tree(document.body,false)">'
+            'Collapse All</a>')
+        f.write('\n<p/>\n')
+
+      if self.has_key:
+        f.write(self.build_key_html())
+
       f.write(''.join(self.__parts))
       f.write(self.build_end_html_document())
