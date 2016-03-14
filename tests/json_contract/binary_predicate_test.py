@@ -252,9 +252,28 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     operand = ['b', 'a'] # Out of order.
     eq_pred = bp.LIST_EQ(operand)
 
-    self.assertBadResult(operand + ['c'], eq_pred, eq_pred(operand + ['c']))
-    self.assertGoodResult(operand, eq_pred, eq_pred(operand))
+    # Order of actual operand matters.
+    self.assertGoodResult(['b', 'a'], eq_pred, eq_pred(['b', 'a']))
+    self.assertBadResult(['a', 'b'], eq_pred, eq_pred(['a', 'b']))
+
+    self.assertBadResult(['b', 'a', 'c'], eq_pred, eq_pred(['b', 'a', 'c']))
     self.assertBadResult(['b'], eq_pred,  eq_pred(['b']))
+
+  def test_list_similar(self):
+    operand = ['b', 'a']
+    similar_pred = bp.LIST_SIMILAR(operand)
+
+    # Order of actual operand does not matter for finding it.
+    self.assertGoodResult(['b', 'a'], similar_pred, similar_pred(['b', 'a']))
+    self.assertGoodResult(['a', 'b'], similar_pred, similar_pred(['a', 'b']))
+
+    self.assertBadResult(['a', 'b', 'c'],
+                         similar_pred,
+                         similar_pred(['a', 'b', 'c']))
+    self.assertBadResult(['b', 'a', 'c'],
+                         similar_pred,
+                         similar_pred(['b', 'a', 'c']))
+    self.assertBadResult(['b'], similar_pred,  similar_pred(['b']))
 
   def test_list_ne(self):
     operand = ['b', 'a'] # Out of order.

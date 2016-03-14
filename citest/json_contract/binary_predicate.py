@@ -428,6 +428,8 @@ LIST_EQ = StandardBinaryPredicateFactory(
     '==', lambda a, b: a == b, operand_type=list)
 LIST_NE = StandardBinaryPredicateFactory(
     '!=', lambda a, b: a != b, operand_type=list)
+LIST_SIMILAR = StandardBinaryPredicateFactory(
+    '~=', lambda a, b: set(a) == set(b), operand_type=list)
 LIST_MEMBER = (lambda operand, strict=False:
                ListMembershipPredicate(operand, strict=strict))
 LIST_SUBSET = (lambda operand, strict=False:
