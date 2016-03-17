@@ -247,10 +247,13 @@ class AgentOperationStatus(JsonSnapshotable):
       trace_every: [bool] Whether to log each attempt.
     """
     logger = logging.getLogger(__name__)
-    secs_remaining = max_secs
-    log_secs_remaining = 0
+    now = self._now()
+    end_time = now  + max_secs
+    next_log_secs = now + 60
     while not self.finished:
         # pylint: disable=bad-indentation
+        now = self._now()
+        secs_remaining = end_time - now
         if secs_remaining <= 0 and max_secs > 0:
           logger.debug('Timed out')
           return False
@@ -259,20 +262,21 @@ class AgentOperationStatus(JsonSnapshotable):
                       else min(secs_remaining, poll_every_secs))
 
         # Write something into the log file to indicate we are still here.
-        if log_secs_remaining < sleep_secs:
+        if now >= next_log_secs:
           logger.debug(
               'Still waiting (polling again in %d) with %d secs remaining',
               sleep_secs, secs_remaining)
           # Hardcoded once-a-minute confirmation that we're still waiting.
-          log_secs_remaining = 60
-        else:
-          log_secs_remaining -= sleep_secs
+          next_log_secs = now + 60
 
         self._do_sleep(sleep_secs)
-        secs_remaining -= sleep_secs
         self.refresh(trace=trace)
 
     return True
+
+  def _now(self):
+    """Hook so we can mock out time.time() calls in wait()'s polling loop."""
+    return time.time()
 
   def _do_sleep(self, secs):
     """Hook so we can mock out sleep calls in wait()'s polling loop.
