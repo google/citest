@@ -18,8 +18,22 @@ import citest.service_testing as st
 
 
 class FakeAgent(st.BaseAgent):
-   def __init__(self):
+   @property
+   def time_series(self):
+      return self._time_series
+
+   @time_series.setter
+   def time_series(self, time_series):
+      self._time_series = time_series
+
+   def next_time(self):
+     next_time = self._time_series[0]
+     self._time_series = self._time_series[1:]
+     return next_time
+      
+   def __init__(self, time_series=None):
      super(FakeAgent, self).__init__()
+     self._time_series = time_series or [0] * 100
 
 
 class FakeStatus(st.AgentOperationStatus):
@@ -47,6 +61,9 @@ class FakeStatus(st.AgentOperationStatus):
     self.calls_remaining = n
     self.got_refresh_count = 0
     self.got_sleep_count = 0
+
+  def _now(self):
+     return self.operation.agent.next_time()
 
   def _do_sleep(self, secs):
     self.got_sleep_secs = secs
@@ -143,7 +160,8 @@ class BaseAgentTest(unittest.TestCase):
       self.assertEqual(1, status.got_sleep_secs)
 
   def test_wait_timeout(self):
-    agent = FakeAgent()
+    time_series = [100] + [i + 100 for i in range(6)]
+    agent = FakeAgent(time_series=time_series)
     agent.default_max_wait_secs = 5
 
     operation = st.AgentOperation('TestStatus', agent=agent)
@@ -156,7 +174,9 @@ class BaseAgentTest(unittest.TestCase):
     self.assertEqual(5, status.got_sleep_count)
     self.assertEqual(1, status.got_sleep_secs)
 
+
     # Wait another 5 seconds to show we can continue waiting longer.
+    agent.time_series = [200] + [i + 200 for i in range(6)]
     status.got_sleep_count = 0
     status.got_sleep_secs = 0
     status.set_expected_iterations(15)
@@ -166,7 +186,8 @@ class BaseAgentTest(unittest.TestCase):
     self.assertEqual(1, status.got_sleep_secs)
 
   def test_wait_timeout_with_override(self):
-    agent = FakeAgent()
+    time_series = [100] + [i + 100 for i in range(10)]
+    agent = FakeAgent(time_series)
     agent.default_max_wait_secs = 5
     operation = st.AgentOperation('TestStatus', agent=agent)
     status = FakeStatus(operation)
@@ -182,6 +203,7 @@ class BaseAgentTest(unittest.TestCase):
     self.assertEqual(8 - 1, status.calls_remaining)
 
     # Show timeout doesnt prevent us from waiting until completion later.
+    agent.time_series = [200] + [i + 200 for i in range(9)]
     status.set_expected_iterations(9)
     status.wait(max_secs=10)
     self.assertEqual(9, status.got_sleep_count)
@@ -204,7 +226,7 @@ class BaseAgentTest(unittest.TestCase):
     self.assertEqual(60, status.got_sleep_secs)
 
   def test_wait_interval_truncated(self):
-    agent = FakeAgent()
+    agent = FakeAgent(time_series=[100] + [100 + i*5 for i in range(4)])
     operation = st.AgentOperation('TestStatus', agent=agent)
     status = FakeStatus(operation)
 
