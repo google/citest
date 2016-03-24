@@ -71,7 +71,7 @@ def lookup_path(source, path):
         result = _lookup_path_elements(value, path[path_offset:])
         if path_offset > 0:
           result = result.clone_in_context(
-              source=source, path=path[path_offset - 1:], path_trace=path_trace)
+              source=source, path=path[:path_offset - 1], path_trace=path_trace)
         else:
           result = result.clone_in_context(source=source)
 

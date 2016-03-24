@@ -90,6 +90,17 @@ class JsonPathPredicateTest(unittest.TestCase):
                     jc.PathValue('inner', d['outer']['inner'])])
     self.assertEqual(expect, pred(d))
 
+  def test_path_found_in_array(self):
+    pred = jc.PathPredicate('outer/inner/a')
+    d = {'outer': [{'middle': {'a': 'A', 'b':'B'}}, {'inner': {'a': 'A', 'b':'B'}}]}
+    expect = jc.JsonFoundValueResult(
+        valid=True, source=d, path='outer/inner/a', pred=None,
+        value='A',
+        path_trace=[jc.PathValue('outer', d['outer']),
+                    jc.PathValue('inner', d['outer'][1]['inner']),
+                    jc.PathValue('a', 'A')])
+    self.assertEqual(expect, pred(d))
+
   def test_path_predicate_wrappers(self):
     pred = jc.PathEqPredicate('parent/child', 'VALUE')
     self.assertEqual(pred, jc.PathEqPredicate('parent/child', 'VALUE'))

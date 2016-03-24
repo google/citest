@@ -50,6 +50,16 @@ class JsonLookupTest(unittest.TestCase):
                     jc.PathValue('a', 'A')])
     self.assertEqual(expect_result, result)
 
+    result = jc.lookup_path({'wrapped': _COMPOSITE_DICT}, 'wrapped/letters/a')
+    self.assertEqual('A', result.value)
+    expect_result = jc.JsonFoundValueResult(
+        valid=True, value='A', source={'wrapped' : _COMPOSITE_DICT},
+        path='wrapped/letters/a',
+        path_trace=[jc.PathValue('wrapped', _COMPOSITE_DICT),
+                    jc.PathValue('letters', _LETTER_DICT),
+                    jc.PathValue('a', 'A')])
+    self.assertEqual(expect_result, result)
+
   def test_lookup_path_root_not_found(self):
     result = jc.lookup_path(_COMPOSITE_DICT, 'a')
     self.assertFalse(result)
@@ -76,12 +86,22 @@ class JsonLookupTest(unittest.TestCase):
                     jc.PathValue('b', 'B')])
     self.assertEqual(expect_result, result)
 
-    source = [_LETTER_DICT, _COMPOSITE_DICT]
-    result = jc.lookup_path(source, 'numbers/b')
+    source_list = [_LETTER_DICT, _COMPOSITE_DICT]
+    result = jc.lookup_path(source_list, 'numbers/b')
     self.assertEqual(2, result.value)
     expect_result = jc.JsonFoundValueResult(
-        valid=True, value=2, source=source, path='numbers/b',
+        valid=True, value=2, source=source_list, path='numbers/b',
         path_trace=[jc.PathValue('numbers', _NUMBER_DICT),
+                    jc.PathValue('b', 2)])
+    self.assertEqual(expect_result, result)
+
+    result = jc.lookup_path({'wrapped': source_list}, 'wrapped/numbers/b')
+    self.assertEqual(2, result.value)
+    expect_result = jc.JsonFoundValueResult(
+        valid=True, value=2, source={'wrapped': source_list},
+        path='wrapped/numbers/b',
+        path_trace=[jc.PathValue('wrapped', source_list),
+                    jc.PathValue('numbers', _NUMBER_DICT),
                     jc.PathValue('b', 2)])
     self.assertEqual(expect_result, result)
 
@@ -91,6 +111,15 @@ class JsonLookupTest(unittest.TestCase):
     expect_result = jc.JsonMissingPathResult(
         _LETTER_DICT, 'x',
         path_trace=[jc.PathValue('letters', _LETTER_DICT)])
+    self.assertEqual(expect_result, result)
+
+    result = jc.lookup_path({'wrapped': _COMPOSITE_DICT}, 'wrapped/letters/x')
+    self.assertFalse(result)
+    expect_result = jc.JsonMissingPathResult(
+        _LETTER_DICT, 'x',
+        path_trace=[jc.PathValue('wrapped', _COMPOSITE_DICT),
+                    jc.PathValue('letters', _LETTER_DICT)])
+
     self.assertEqual(expect_result, result)
 
 
