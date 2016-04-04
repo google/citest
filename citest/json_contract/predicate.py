@@ -126,7 +126,35 @@ class PredicateResult(JsonSnapshotable):
     return not self.__eq__(result)
 
 
-class CompositePredicateResult(PredicateResult):
+class CloneableWithContext(object):
+  """Indicates that a PredicateResult can be cloned with a new context.
+
+  Some PredicateResult type contain context information about where the
+  internal values came from (e.g. the path to the value). When these are
+  constructed, they contain the local context information. Sometimes there
+  are higher level predicates that are using these, then propagating the
+  results back. These higher level predicates contain additional scope
+  that should be "injected" into the lower level result details. Since
+  results are immutable, we will clone them. This interface allows
+  results with context to clone a copy of themself and inject the additional
+  context into the newly cloned instance.
+  """
+  def clone_in_context(self, source, base_target_path, base_value_path):
+    """Clone the instance with a new context.
+
+    Args:
+      source: [obj] JSON object for the new context.
+      base_target_path: [string] The additional context path relative to
+         |source| to get at the desired result context.
+      base_value_path: [string] The additional context path relative to
+         |source| to get at the actual values found. This is similar to
+         the base_target_path but may have further refinements for path
+         elements (e.g. array indecies taken).
+    """
+    raise NotImplementedError()
+
+
+class CompositePredicateResult(PredicateResult, CloneableWithContext):
   """Aggregates a collection of predicate results into a single response.
 
   Attributes:
@@ -172,6 +200,24 @@ class CompositePredicateResult(PredicateResult):
     return (self.__class__ == result.__class__
             and self.__pred == result.pred
             and self.__results == result.results)
+
+  def clone_in_context(self, source, base_target_path, base_value_path):
+    """Implements CloneableWithContext interface.
+
+    A composite result has no context, but its components may.
+    """
+    results = []
+    for orig in self.__results:
+      if isinstance(orig, CloneableWithContext):
+        results.append(
+            orig.clone_in_context(source=source,
+                                  base_target_path=base_target_path,
+                                  base_value_path=base_value_path))
+      else:
+        results.append(orig)
+
+    return self.__class__(self.valid, self.__pred, results,
+                          comment=self.comment, cause=self.cause)
 
 
 class CompositePredicateResultBuilder(object):
