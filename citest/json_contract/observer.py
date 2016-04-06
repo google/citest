@@ -108,8 +108,7 @@ class Observation(JsonSnapshotable):
    """
     if len(list_a) != len(list_b):
       return False
-    for i in range(len(list_a)):
-      error_a = list_a[i]
+    for i, error_a in enumerate(list_a):
       error_b = list_b[i]
       if isinstance(error_a, Exception):
         if error_a.__class__ != error_b.__class__:

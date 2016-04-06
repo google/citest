@@ -21,7 +21,8 @@ import logging
 import traceback
 
 # citest modules.
-import citest.json_contract as jc
+from .. import json_contract as jc
+from ..json_predicate import JsonError
 from . import AgentError
 
 
@@ -86,7 +87,7 @@ class HttpObjectObserver(jc.ObjectObserver):
       error = 'Invalid JSON in response: %s' % content
       logging.getLogger(__name__).info('%s\n%s\n----------------\n',
                                        error, traceback.format_exc())
-      observation.add_error(jc.JsonError(error, ex))
+      observation.add_error(JsonError(error, ex))
       return []
 
     return observation.objects

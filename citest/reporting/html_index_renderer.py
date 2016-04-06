@@ -88,6 +88,8 @@ class HtmlIndexRenderer(JournalProcessor):
             self.__passed_count += 1
           elif relation == 'INVALID':
             self.__failed_count += 1
+          elif relation == 'ERROR':
+            self.__failed_count += 1
           else:
             raise ValueError('Unhandled relation {0}'.format(relation))
         return

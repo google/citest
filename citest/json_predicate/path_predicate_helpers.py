@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Specialized PathPredicate classes for convienence."""
+"""Additional helper utilities based on PathPredicate for common usage."""
 
+from .path_predicate import PathPredicate
 from . import binary_predicate
-from . import path_predicate
-from . import quantification_predicate2
 
 
-class PathEqPredicate(path_predicate.PathPredicate):
+class PathEqPredicate(PathPredicate):
   """Specialization of PathPredicate that forces '==' predicate."""
   def __init__(self, path, operand):
     super(PathEqPredicate, self).__init__(
         path, binary_predicate.EQUIVALENT(operand))
 
 
-class PathContainsPredicate(path_predicate.PathPredicate):
+class PathContainsPredicate(PathPredicate):
   """Specialization of PathPredicate that forces 'contains' predicate.
 
   The contains predicate depends on the values being compared:
@@ -42,10 +41,8 @@ class PathContainsPredicate(path_predicate.PathPredicate):
         path, binary_predicate.CONTAINS(operand))
 
 
-class PathElementsContainPredicate(path_predicate.PathPredicate):
+class PathElementsContainPredicate(PathPredicate):
   """Specialization of PathPredicate that forces EXISTS_CONTAINS predicate."""
   def __init__(self, path, operand):
     super(PathElementsContainPredicate, self).__init__(
-        path, quantification_predicate2.EXISTS_CONTAINS(operand))
-
-
+        path, binary_predicate.CONTAINS(operand))

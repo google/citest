@@ -19,8 +19,8 @@
 import logging
 
 from ..base import JsonSnapshotable
-from . import predicate
-
+from ..json_predicate import map_predicate
+from ..json_predicate import predicate
 
 class ObservationVerifyResultBuilder(object):
   @property
@@ -51,7 +51,6 @@ class ObservationVerifyResultBuilder(object):
     self.__valid_obj_set = []  # Cannot be a set because it is unhashable.
     self.__good_results = []
     self.__bad_results = []
-    self.__all_results = []
 
   def __add_valid_object_constraint(self, entry):
     obj = entry.obj
@@ -64,52 +63,97 @@ class ObservationVerifyResultBuilder(object):
     self.__valid_obj_set.append(obj)
     self.__valid_obj_map.append((obj, [result]))
 
+  def add_path_predicate_result(self, has_path_pred_result):
+    """Add the contents of a PathPredicateResult.
+
+    Args:
+      has_path_pred_result: [HasPathPredicateResult]  The PredicateResult
+          verified implements HasPathPredicateResult. It indicates which
+          particular values were good and bad. The constraint being verified
+          is the predicate bound to the result.
+    """
+    path_pred_result = has_path_pred_result.path_predicate_result
+    good = path_pred_result.valid_candidates
+    attempts = [map_predicate.ObjectResultMapAttempt(
+        elem.path_value.value, elem.result) for elem in good]
+    self.__good_results.extend(attempts)
+    for entry in attempts:
+      self.__add_valid_object_constraint(entry)
+
+    failures = path_pred_result.invalid_candidates
+    self.__bad_results.extend(
+        [map_predicate.ObjectResultMapAttempt(elem.path_value.value,
+                                              elem.result)
+         for elem in failures])
+
+    if not has_path_pred_result:
+      self.add_failed_constraint(has_path_pred_result.pred)
+    return self
+
   def add_map_result(self, map_result):
+    """Add the contents of a MapPredicateResult.
+
+    Args:
+      map_result: [MapPredicateResult]  Indicates which particular values
+      were good and bad. The constraint being verified is the predicate
+      bound to the result.
+    """
     good_results = map_result.good_object_result_mappings
     self.__good_results.extend(good_results)
     bad_results = map_result.bad_object_result_mappings
     self.__bad_results.extend(bad_results)
-    self.__all_results.extend(map_result.results)
 
     if not good_results:
-      self.add_failed_constraint_map_result(map_result)
+      self.add_failed_constraint(map_result.pred)
       return
     for entry in good_results:
       self.__add_valid_object_constraint(entry)
+    return self
 
-  def add_failed_constraint_map_result(self, map_result):
-    self.__failed_constraints.append(map_result.pred)
+  def add_failed_constraint(self, pred):
+    """Add a failed constraint.
+
+    Args:
+      pred: [ValuePredicate] A constraint that was not verified. This is either
+         because it had no matching objects, or was strict and had some non-
+         matching objects.
+    """
+    self.__failed_constraints.append(pred)
+    return self
 
   def add_observation_verify_result(self, result):
+    """Fuses results from another ObservationVerifyResult.
+
+    This is used by composite verifiers that might be a disjunction of
+    different clauses, each of which had done its own indepenent verification.
+
+    Args:
+      result: [ObservationVerifyResult] The result to fuse into this one.
+    """
     if self.__observation != result.observation:
       raise ValueError("Observations differ.")
 
-    self.__all_results.extend(result.all_results)
     self.__good_results.extend(result.good_results)
     self.__bad_results.extend(result.bad_results)
     self.__failed_constraints.extend(result.failed_constraints)
+    return self
 
   def build(self, valid):
+    """Create the specified ObservationVerifyResult."""
     return ObservationVerifyResult(
         valid=valid, observation=self.__observation,
-        all_results=self.__all_results,
         good_results=self.__good_results,
         bad_results=self.__bad_results,
         failed_constraints=self.__failed_constraints)
 
 
 class ObservationVerifyResult(predicate.PredicateResult):
-  """Tracks details from verifying a contract.
-  """
+  """Tracks details from verifying a contract."""
+
   @property
   def observation(self):
     """observer.Observation for the observer providing the objects."""
     return self.__observation
-
-  @property
-  def all_results(self):
-    """All the constraints on all the objects."""
-    return self.__all_results
 
   @property
   def good_results(self):
@@ -139,12 +183,11 @@ class ObservationVerifyResult(predicate.PredicateResult):
         '\n  * '.join([str(elem) for elem in results]))
 
   def __init__(self, valid, observation,
-               all_results, good_results, bad_results, failed_constraints,
+               good_results, bad_results, failed_constraints,
                comment=None):
     super(ObservationVerifyResult, self).__init__(valid, comment=comment)
 
     self.__observation = observation
-    self.__all_results = all_results
     self.__good_results = good_results
     self.__bad_results = bad_results
     self.__failed_constraints = failed_constraints
@@ -156,7 +199,6 @@ class ObservationVerifyResult(predicate.PredicateResult):
     builder = snapshot.edge_builder
     builder.make_input(entity, 'Observation', self.__observation)
     builder.make(entity, 'Failed Constraints', self.__failed_constraints)
-    builder.make_output(entity, 'All results', self.__all_results)
     edge = builder.make(entity, 'Good Results', self.__good_results)
     if self.__good_results:
       edge.add_metadata('relation', 'VALID')
@@ -165,17 +207,22 @@ class ObservationVerifyResult(predicate.PredicateResult):
       edge.add_metadata('relation', 'INVALID')
 
   def __str__(self):
-    return ('observation=<{0}>'
-            '  good_results=<{1}>'
-            '  bad_results=<{2}>'.format(
+    return '{0} Observed {1} good and {2} bad.'.format(
+        super(ObservationVerifyResult, self).__str__(),
+        len(self.__good_results), len(self.__bad_results))
+
+  def __repr__(self):
+    return ('{0} observation={1!r}'
+            '  good_results={2!r}'
+            '  bad_results={3!r}'.format(
+                super(ObservationVerifyResult, self).__str__(),
                 self.__observation,
-                ','.join([str(e.result) for e in self.__good_results]),
-                ','.join([str(e.result) for e in self.__bad_results])))
+                self.__good_results,
+                self.__bad_results))
 
   def __eq__(self, state):
     return (super(ObservationVerifyResult, self).__eq__(state)
             and self.__observation == state.observation
-            and self.__all_results == state.all_results
             and self.__good_results == state.good_results
             and self.__bad_results == state.bad_results
             and self.__failed_constraints == state.failed_constraints)
@@ -264,7 +311,7 @@ class ObservationVerifier(predicate.ValuePredicate):
 
     # Outer terms are or'd together.
     for term in self.__dnf_verifiers:
-      # pylint: disable=bad-indentation
+       # pylint: disable=bad-indentation
        term_valid = True
        # Inner terms are and'd together.
        for v in term:
@@ -296,9 +343,10 @@ class ObservationVerifierBuilder(JsonSnapshotable):
   def __eq__(self, builder):
     return (self.__class__ == builder.__class__
             and self.__title == builder.title
-            and self.__dnf_verifier_builders == builder.__adnf_verifier_builders
+            and self.__dnf_verifier_builders
+            == builder.__adnf_verifier_builders
             and self.__current_builder_conjunction
-                == builder.__current_builder_conjunction)
+            == builder.__current_builder_conjunction)
 
   def __init__(self, title):
     self.__title = title

@@ -12,13 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import binary_predicate as bp
-from . import quantification_predicate as qp
 
-ALL_CONTAINS = qp.UniversalOrExistentialPredicateFactory(True, bp.CONTAINS)
-ALL_EQ = qp.UniversalOrExistentialPredicateFactory(True, bp.EQUIVALENT)
-ALL_NE = qp.UniversalOrExistentialPredicateFactory(True, bp.DIFFERENT)
+from citest.base import run_all_tests_in_dir
 
-EXISTS_CONTAINS = qp.UniversalOrExistentialPredicateFactory(False, bp.CONTAINS)
-EXISTS_EQ = qp.UniversalOrExistentialPredicateFactory(False, bp.EQUIVALENT)
-EXISTS_NE = qp.UniversalOrExistentialPredicateFactory(False, bp.DIFFERENT)
+if __name__ == '__main__':
+  run_all_tests_in_dir()

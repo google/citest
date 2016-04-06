@@ -13,19 +13,22 @@
 # limitations under the License.
 
 
+# pylint: disable=missing-docstring
+# pylint: disable=invalid-name
+
 import unittest
 
 from citest.base import JsonSnapshotHelper
 import citest.json_contract as jc
-
+import citest.json_predicate as jp
 
 _LETTER_ARRAY = ['a', 'b', 'c']
 _NUMBER_ARRAY = [1, 2, 3]
 
-_LETTER_DICT = { 'a':'A', 'b':'B', 'z':'Z' }
-_NUMBER_DICT = { 'a':1, 'b':2, 'three':3 }
-_MIXED_DICT  = {'a':'A', 'b':2, 'x':'X'}
-_COMPOSITE_DICT = { 'letters': _LETTER_DICT, 'numbers': _NUMBER_DICT }
+_LETTER_DICT = {'a':'A', 'b':'B', 'z':'Z'}
+_NUMBER_DICT = {'a':1, 'b':2, 'three':3}
+_MIXED_DICT = {'a':'A', 'b':2, 'x':'X'}
+_COMPOSITE_DICT = {'letters': _LETTER_DICT, 'numbers': _NUMBER_DICT}
 
 
 class FakeObserver(jc.ObjectObserver):
@@ -41,6 +44,8 @@ class FakeObserver(jc.ObjectObserver):
 
 class JsonContractTest(unittest.TestCase):
   def assertEqual(self, expect, have, msg=''):
+    if not msg:
+      msg = 'EXPECTED\n{0!r}\nGOT\n{1!r}'.format(expect, have)
     JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
 
   def test_clause_success(self):
@@ -48,13 +53,13 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('A')
     fake_observer = FakeObserver(observation)
 
-    eq_A = jc.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', mapped_constraints=[eq_A])
+    eq_A = jp.STR_EQ('A')
+    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
 
     expect_result = jc.contract.ContractClauseVerifyResult(
-      True, clause, verifier(observation))
+        True, clause, verifier(observation))
     result = clause.verify()
     self.assertEqual(expect_result, result)
     self.assertTrue(result)
@@ -64,13 +69,13 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('B')
     fake_observer = FakeObserver(observation)
 
-    eq_A = jc.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', mapped_constraints=[eq_A])
+    eq_A = jp.STR_EQ('A')
+    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
 
     expect_result = jc.contract.ContractClauseVerifyResult(
-      False, clause, verifier(observation))
+        False, clause, verifier(observation))
     result = clause.verify()
     self.assertEqual(expect_result, result)
     self.assertFalse(result)
@@ -80,8 +85,8 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('A')
     fake_observer = FakeObserver(observation)
 
-    eq_A = jc.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', mapped_constraints=[eq_A])
+    eq_A = jp.STR_EQ('A')
+    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
@@ -98,8 +103,8 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('B')
     fake_observer = FakeObserver(observation)
 
-    eq_A = jc.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', mapped_constraints=[eq_A])
+    eq_A = jp.STR_EQ('A')
+    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
@@ -117,8 +122,8 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('B')
     fake_observer = FakeObserver(observation)
 
-    eq_A = jc.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', mapped_constraints=[eq_A])
+    eq_A = jp.STR_EQ('A')
+    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
@@ -135,10 +140,10 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('A')
     fake_observer = FakeObserver(observation)
 
-    eq_A = jc.STR_EQ('A')
-    eq_B = jc.STR_EQ('B')
+    eq_A = jp.STR_EQ('A')
+    eq_B = jp.STR_EQ('B')
     verifier = jc.ValueObservationVerifier(
-        'Has A and B', mapped_constraints=[eq_A, eq_B])
+        'Has A and B', constraints=[eq_A, eq_B])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
@@ -190,7 +195,7 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('C')
     fake_observer = FakeObserver(observation)
 
-    eq_A_or_B = jc.OR([jc.STR_EQ('A'), jc.STR_EQ('B')])
+    eq_A_or_B = jp.OR([jp.STR_EQ('A'), jp.STR_EQ('B')])
     builder = jc.ValueObservationVerifierBuilder('Test Multiple')
     builder.contains_path_pred(None, eq_A_or_B, min=2)
 
@@ -206,12 +211,11 @@ class JsonContractTest(unittest.TestCase):
   def test_contract_observation_failure(self):
     observation = jc.Observation()
     observation.add_error(
-        jc.PredicateResult(False, comment='Observer Failed'))
+        jp.PredicateResult(False, comment='Observer Failed'))
     fake_observer = FakeObserver(observation)
-    error = jc.ObservationFailedError(observation.errors)
 
-    eq_A = jc.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', mapped_constraints=[eq_A])
+    eq_A = jp.STR_EQ('A')
+    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()

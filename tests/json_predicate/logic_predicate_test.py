@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=missing-docstring
+# pylint: disable=invalid-name
 
 import unittest
 
 from citest.base import JsonSnapshotHelper
-import citest.json_contract as jc
+import citest.json_predicate as jc
+import citest.json_predicate.path_predicate_helpers as jp
 
 
-_LETTER_DICT = { 'a':'A', 'b':'B', 'z':'Z' }
+_LETTER_DICT = {'a':'A', 'b':'B', 'z':'Z'}
 
 
 class LogicPredicateTest(unittest.TestCase):
@@ -27,8 +30,8 @@ class LogicPredicateTest(unittest.TestCase):
     JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
 
   def test_conjunction_true(self):
-    aA = jc.PathEqPredicate('a', 'A')
-    bB = jc.PathEqPredicate('b', 'B')
+    aA = jp.PathEqPredicate('a', 'A')
+    bB = jp.PathEqPredicate('b', 'B')
     conjunction = jc.AND([aA, bB])
     expect = jc.CompositePredicateResult(
         valid=True, pred=conjunction,
@@ -39,9 +42,9 @@ class LogicPredicateTest(unittest.TestCase):
     self.assertEqual(expect, result)
 
   def test_conjunction_false_aborts_early(self):
-    aA = jc.PathEqPredicate('a', 'A')
-    b2 = jc.PathEqPredicate('b', 2)
-    bB = jc.PathEqPredicate('b', 'B')
+    aA = jp.PathEqPredicate('a', 'A')
+    b2 = jp.PathEqPredicate('b', 2)
+    bB = jp.PathEqPredicate('b', 'B')
     conjunction = jc.AND([aA, b2, bB])
     expect = jc.CompositePredicateResult(
         valid=False, pred=conjunction,
@@ -52,8 +55,8 @@ class LogicPredicateTest(unittest.TestCase):
     self.assertEqual(expect, result)
 
   def test_disjunction_true_aborts_early(self):
-    aA = jc.PathEqPredicate('a', 'A')
-    bB = jc.PathEqPredicate('b', 'B')
+    aA = jp.PathEqPredicate('a', 'A')
+    bB = jp.PathEqPredicate('b', 'B')
     disjunction = jc.OR([aA, bB])
     expect = jc.CompositePredicateResult(
         valid=True, pred=disjunction,
@@ -64,8 +67,8 @@ class LogicPredicateTest(unittest.TestCase):
     self.assertEqual(expect, result)
 
   def test_disjunction_false(self):
-    a1 = jc.PathEqPredicate('a', 1)
-    b2 = jc.PathEqPredicate('b', 2)
+    a1 = jp.PathEqPredicate('a', 1)
+    b2 = jp.PathEqPredicate('b', 2)
     disjunction = jc.OR([a1, b2])
     expect = jc.CompositePredicateResult(
         valid=False, pred=disjunction,
@@ -76,7 +79,7 @@ class LogicPredicateTest(unittest.TestCase):
     self.assertEqual(expect, result)
 
   def test_not_success(self):
-    a1 = jc.PathEqPredicate('a', '1')
+    a1 = jp.PathEqPredicate('a', '1')
     not_a1 = jc.NOT(a1)
 
     expect = jc.CompositePredicateResult(
@@ -85,7 +88,7 @@ class LogicPredicateTest(unittest.TestCase):
     self.assertTrue(result)
     self.assertEqual(expect, result)
 
-    b2 = jc.PathEqPredicate('b', '2')
+    b2 = jp.PathEqPredicate('b', '2')
     b2_or_a1 = jc.OR([b2, a1])
     not_b2_or_a1 = jc.NOT(b2_or_a1)
     expect = jc.CompositePredicateResult(
@@ -93,9 +96,9 @@ class LogicPredicateTest(unittest.TestCase):
     result = not_b2_or_a1(_LETTER_DICT)
     self.assertTrue(result)
     self.assertEqual(expect, result)
-    
+
   def test_not_fail(self):
-    aA = jc.PathEqPredicate('a', 'A')
+    aA = jp.PathEqPredicate('a', 'A')
     not_aA = jc.NOT(aA)
 
     expect = jc.CompositePredicateResult(
@@ -104,7 +107,7 @@ class LogicPredicateTest(unittest.TestCase):
     self.assertFalse(result)
     self.assertEqual(expect, result)
 
-    bB = jc.PathEqPredicate('b', 'B')
+    bB = jp.PathEqPredicate('b', 'B')
     bB_or_aA = jc.OR([bB, aA])
     not_bB_or_aA = jc.NOT(bB_or_aA)
     expect = jc.CompositePredicateResult(
@@ -112,10 +115,10 @@ class LogicPredicateTest(unittest.TestCase):
     result = not_bB_or_aA(_LETTER_DICT)
     self.assertFalse(result)
     self.assertEqual(expect, result)
-    
+
   def test_condition_success(self):
-    aA = jc.PathEqPredicate('a', 'A')
-    bB = jc.PathEqPredicate('b', 'B')
+    aA = jp.PathEqPredicate('a', 'A')
+    bB = jp.PathEqPredicate('b', 'B')
     ifAthenB = jc.IF(aA, bB)
     demorgan = jc.OR([jc.NOT(aA), bB])
 
@@ -125,10 +128,10 @@ class LogicPredicateTest(unittest.TestCase):
       result = ifAthenB(test)
       self.assertTrue(result)
       self.assertEqual(expect, result)
-    
+
   def test_condition_fail(self):
-    aA = jc.PathEqPredicate('a', 'A')
-    b2 = jc.PathEqPredicate('b', '2')
+    aA = jp.PathEqPredicate('a', 'A')
+    b2 = jp.PathEqPredicate('b', '2')
     ifAthen2 = jc.IF(aA, b2)
     demorgan = jc.OR([jc.NOT(aA), b2])
 
@@ -138,12 +141,11 @@ class LogicPredicateTest(unittest.TestCase):
     self.assertEqual(expect, result)
 
   def test_condition_else_success(self):
-    aA = jc.PathEqPredicate('a', 'A')
-    bB = jc.PathEqPredicate('b', 'B')
-    cC = jc.PathEqPredicate('c', 'C')
+    aA = jp.PathEqPredicate('a', 'A')
+    bB = jp.PathEqPredicate('b', 'B')
+    cC = jp.PathEqPredicate('c', 'C')
 
     aA_and_bB = jc.AND([aA, bB])
-    impl_pred = jc.OR([aA_and_bB, cC])
     ifAthenBelseC = jc.IF(aA, bB, cC)
 
     # True if all conditions are true.
@@ -165,15 +167,15 @@ class LogicPredicateTest(unittest.TestCase):
         tried.append(cC(test))
 
       expect = jc.CompositePredicateResult(
-        valid=True, pred=ifAthenBelseC, results=tried)
+          valid=True, pred=ifAthenBelseC, results=tried)
       result = ifAthenBelseC(test)
       self.assertTrue(result)
       self.assertEqual(expect, result)
 
   def test_condition_else_fail(self):
-    aA = jc.PathEqPredicate('a', 'A')
-    bB = jc.PathEqPredicate('b', 'B')
-    cC = jc.PathEqPredicate('c', 'C')
+    aA = jp.PathEqPredicate('a', 'A')
+    bB = jp.PathEqPredicate('b', 'B')
+    cC = jp.PathEqPredicate('c', 'C')
 
     ifAthenBelseC = jc.IF(aA, bB, cC)
 
@@ -192,13 +194,14 @@ class LogicPredicateTest(unittest.TestCase):
         tried.append(cC(test))
 
       expect = jc.CompositePredicateResult(
-        valid=False, pred=ifAthenBelseC, results=tried)
+          valid=False, pred=ifAthenBelseC, results=tried)
       result = ifAthenBelseC(test)
       self.assertFalse(result)
       self.assertEqual(expect, result)
-    
+
 
 if __name__ == '__main__':
+  # pylint: disable=invalid-name
   loader = unittest.TestLoader()
   suite = loader.loadTestsFromTestCase(LogicPredicateTest)
   unittest.TextTestRunner(verbosity=2).run(suite)

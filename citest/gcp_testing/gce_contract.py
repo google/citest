@@ -22,6 +22,7 @@ import traceback
 
 # Our modules.
 from .. import json_contract as jc
+from ..json_predicate import JsonError
 from ..service_testing import cli_agent
 
 class GCloudObjectObserver(jc.ObjectObserver):
@@ -63,7 +64,7 @@ class GCloudObjectObserver(jc.ObjectObserver):
       error = 'Invalid JSON in response: %s' % str(gcloud_response)
       logging.getLogger(__name__).info('%s\n%s\n----------------\n',
                                        error, traceback.format_exc())
-      observation.add_error(jc.JsonError(error, vex))
+      observation.add_error(JsonError(error, vex))
       return []
 
     return observation.objects
