@@ -28,7 +28,7 @@ import time
 
 from ..base import JournalLogger
 from ..base import JsonSnapshotable
-from . import predicate
+from ..json_predicate import predicate
 from . import observer as ob
 from . import observation_verifier as ov
 
@@ -82,6 +82,11 @@ class ContractClauseVerifyResult(predicate.PredicateResult):
         self.__clause.title,
         self.__verify_results.enumerated_summary_message)
 
+  def __repr__(self):
+    return '{0!r} clause={1!r} verify_results={2!r}'.format(
+        super(ContractClauseVerifyResult, self).__repr__(),
+        self.__clause, self.__verify_results)
+
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     builder = snapshot.edge_builder
@@ -113,7 +118,11 @@ class ContractClause(predicate.ValuePredicate):
     return self.__title
 
   def __str__(self):
-    return 'Clause {0}  verifier={1}'.format(self.__title, self._verifier)
+    return 'Clause {0}  verifier={1}'.format(self.__title, self.__verifier)
+
+  def __repr__(self):
+    return '{0}  title={1} verifier={2!r}'.format(
+        super(ContractClause, self).__repr__(), self.__title, self.__verifier)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
@@ -284,6 +293,9 @@ class ContractClauseBuilder(object):
     self.__verifier_builder = (verifier_builder
                                or ov.ObservationVerifierBuilder(title))
     self.__retryable_for_secs = retryable_for_secs
+    if strict:
+      logger = logging.getLogger(__name__)
+      logger.warning('Strict flag is DEPRECATED in {0}'.format(title))
 
   def build(self):
     """Build the clause from the builder specification."""
@@ -329,6 +341,10 @@ class ContractVerifyResult(predicate.PredicateResult):
         str_ok,
         '\n'.join(
             [c.enumerated_summary_message for c in self.__clause_results]))
+
+  def __repr__(self):
+    return '{0} clause_results={1!r}'.format(
+        super(ContractVerifyResult, self).__repr__(), self.__clause_results)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""

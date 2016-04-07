@@ -15,10 +15,10 @@
 
 """Support for notifying and detecting failures in observers."""
 
+from ..json_predicate import map_predicate
+from ..json_predicate import predicate
 from . import observation_verifier as ov
 from . import observer
-from . import map_predicate
-from . import predicate
 
 
 class ObservationFailedError(predicate.PredicateResult):
@@ -106,6 +106,5 @@ class ObservationFailureVerifier(ov.ObservationVerifier):
 
     return ov.ObservationVerifyResult(
         valid=valid, observation=observation,
-        all_results=[result],
         good_results=good_results, bad_results=bad_results,
         failed_constraints=[], comment=comment)

@@ -12,51 +12,69 @@ if appropriate.
 A test case might look something like this:
 
 ```
-  def create_load_balancer(self):
-    load_balancer_name = self._bindings['TEST_APP_COMPONENT_NAME']
+  def create_google_load_balancer(self):
+    bindings = self._bindings
+    load_balancer_name = bindings['TEST_APP_COMPONENT_NAME']
+
+    spec = {
+        'checkIntervalSec': 9,
+        'healthyThreshold': 3,
+        'unhealthyThreshold': 5,
+        'timeoutSec': 2,
+        'port': 80
+    }
+
     target_pool_name = '{0}/targetPools/{1}-tp'.format(
-      self._bindings['TEST_REGION'], load_balancer_name)
+        bindings['TEST_REGION'], load_balancer_name)
 
-    payload = self.substitute_variables(
-      '{"job":'
-      '[{'
-        '"provider":"gce",'
-        '"stack":"$TEST_STACK",'
-        '"detail":"$TEST_COMPONENT_DETAIL",'
-        '"credentials":"$TEST_ACCOUNT_NAME",'
-        '"region":"$TEST_REGION",'
-        '"healthCheckPort":80,'
-        '"healthTimeout":1,"healthInterval":1,'
-        '"healthyThreshold":1,"unhealthyThreshold":1,'
-        '"listeners":[{"protocol":"TCP","portRange":"80","healthCheck":true}],'
-        '"name":"' + load_balancer_name + '",'
-        '"providerType":"gce",'
-        '"healthCheck":"HTTP:80/",'
-        '"type":"upsertAmazonLoadBalancer",'
-        '"availabilityZones":{"$TEST_REGION":[]},'
-        '"user":"[anonymous]"'
-      '}],'
-      '"application":"$TEST_APP_NAME",'
-      '"description":"Create Load Balancer: ' + load_balancer_name + '"}'
-    )
+        job=[{
+            'cloudProvider': 'gce',
+            'provider': 'gce',
+            'stack': bindings['TEST_STACK'],
+            'detail': bindings['TEST_COMPONENT_DETAIL'],
+            'credentials': bindings['GCE_CREDENTIALS'],
+            'region': bindings['TEST_GCE_REGION'],
+            'ipProtocol': 'TCP',
+            'portRange': spec['port'],
+            'loadBalancerName': load_balancer_name,
+            'healthCheck': {
+                'port': spec['port'],
+                'timeoutSec': spec['timeoutSec'],
+                'checkIntervalSec': spec['checkIntervalSec'],
+                'healthyThreshold': spec['healthyThreshold'],
+                'unhealthyThreshold': spec['unhealthyThreshold'],
+            },
+            'type': 'upsertLoadBalancer',
+            'availabilityZones': {bindings['TEST_GCE_REGION']: []},
+            'user': '[anonymous]'
+        }],
+        description='Create Load Balancer: ' + load_balancer_name,
+        application=bindings['TEST_APP'])
 
-    contract = GceContract(self._gcloud)
-    (contract.new_clause('Health Check Added')
-       .list_resources('http-health-checks')
-       .contains('name', '%s-hc' % load_balancer_name))
-    (contract.new_clause('Target Pool Added')
-       .list_resources('target-pools')
-       .contains('name', '%s-tp' % load_balancer_name))
-    (contract.new_clause('Forwarding Rules Added', retryable_for_secs=30)
-       .list_resources('forwarding-rules')
-       .contains_group([PathContains('name', load_balancer_name),
-                        PathContains('target', target_pool_name)]))
+    builder = gcp_testing.GceContractBuilder(self.gce_observer)
+    (builder.new_clause_builder('Health Check Added',
+                                retryable_for_secs=30)
+     .list_resources('http-health-checks')
+     .contains_pred_list(
+         [json_predicate.PathContainsPredicate(
+              'name', '%s-hc' % load_balancer_name),
+          json_predicate.DICT_SUBSET(spec)]))
+    (builder.new_clause_builder('Target Pool Added',
+                                retryable_for_secs=30)
+     .list_resources('target-pools')
+     .contains_path_value('name', '%s-tp' % load_balancer_name))
+    (builder.new_clause_builder('Forwarding Rules Added',
+                                retryable_for_secs=30)
+     .list_resources('forwarding-rules')
+     .contains_pred_list([
+          json_predicate.PathContainsPredicate('name', load_balancer_name),
+          json_predicate.PathContainsPredicate('target', target_pool_name)]))
 
-    test_case = OperationTestCase(
-      self.newPostOperation(
-        title='create_load_balancer', data=payload,
-        path='applications/%s/tasks' % self.TEST_APP_NAME),
-      contract=contract)
+    return service_testing.OperationContract(
+        self.new_post_operation(
+            title='upsert_load_balancer', data=payload, path='tasks'),
+        contract=builder.build())
+
 ```
 
 
@@ -116,7 +134,8 @@ meets or does not meet expectations, ultimately passing or failing the test.
 SubPackage | Purpose
 -------|--------
 base | Introduces some classes and utilities that support other packages.
-json_contract | Introduces a means to specify contracts on JSON documents as a building block for testing.
+json_contract | Introduces a means to specify observers to collect JSON documents, and to define contracts specifying expectations of the collected JSON content.
+json_predicate | Introduces a means to locate and attributes within JSON objects, and compare their values. These are used as the basis of json_contract.
 service_testing | Introduces the core framework, base classes, and generic utilities.
 aws_testing | Specializations and extensions to support testing on Amazon Web Services (AWS)
 gcp_testing | Specializations and extensions to support testing on Google Cloud Platform (GCP)

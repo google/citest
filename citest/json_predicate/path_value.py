@@ -18,6 +18,11 @@
 import collections
 from ..base import JsonSnapshotable
 
+# Denotes the seperator used when specifying paths to JSON attributes
+# in an object hierarchy.
+PATH_SEP = '/'
+
+
 class PathValue(collections.namedtuple('PathValue', ['path', 'value']),
                 JsonSnapshotable):
   """A path, value pair.

@@ -18,6 +18,7 @@
 import json
 
 from .. import json_contract as jc
+from ..json_predicate import JsonError
 from ..service_testing import cli_agent
 
 class AwsObjectObserver(jc.ObjectObserver):
@@ -51,7 +52,7 @@ class AwsObjectObserver(jc.ObjectObserver):
     except (ValueError, UnicodeError) as e:
       error = 'Invalid JSON in response: %s' % str(aws_response)
       print 'ERROR:' + error
-      observation.add_error(jc.JsonError(error, e))
+      observation.add_error(JsonError(error, e))
       return []
 
     if not isinstance(doc, list):

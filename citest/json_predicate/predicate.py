@@ -28,6 +28,7 @@ class ValuePredicate(JsonSnapshotable):
    The intent of this class is to check if a JSON object contains fields
    with particular values, ranges or other properties.
   """
+  # pylint: disable=too-few-public-methods
 
   def __call__(self, value):
     """Apply this predicate against the provided value.
@@ -43,10 +44,11 @@ class ValuePredicate(JsonSnapshotable):
             self.__class__.__name__))
 
   def __repr__(self):
+    """Specializes interface."""
     return str(self)
 
-  def __ne__(self, op):
-    return not self.__eq__(op)
+  def __ne__(self, pred):
+    return not self.__eq__(pred)
 
 
 class PredicateResult(JsonSnapshotable):
@@ -62,23 +64,28 @@ class PredicateResult(JsonSnapshotable):
 
   @property
   def summary(self):
+    """An abstract summary of the result for reporting purposes."""
     return '{name} ({valid})'.format(
         name=self.__class__.__name__,
         valid='GOOD' if self.__valid else 'BAD')
 
   @property
   def comment(self):
+    """Optional informal commentary added to the result."""
     return self.__comment
 
   @property
   def cause(self):
+    """Optional cause triggering the result, intended for indirect errors."""
     return self.__cause
 
   @property
   def valid(self):
+    """Whether or not the result should be considered 'successful'."""
     return self.__valid
 
   def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
     builder = snapshot.edge_builder
     verified_relation = builder.determine_valid_relation(self.__valid)
     builder.make(entity, 'Valid', self.__valid, relation=verified_relation)
@@ -92,6 +99,13 @@ class PredicateResult(JsonSnapshotable):
     entity.add_metadata('_default_relation', verified_relation)
 
   def __init__(self, valid, comment="", cause=None):
+    """Constructor
+
+    Args:
+      valid: [bool] Whether the result is considered successful or not.
+      comment: [string] Optional informal commentary for reporting purposes.
+      cause: [Error or PredicateResult] Optional indirect cause [for errors].
+    """
     self.__valid = valid
     self.__comment = comment
     self.__cause = cause
@@ -139,6 +153,8 @@ class CloneableWithContext(object):
   results with context to clone a copy of themself and inject the additional
   context into the newly cloned instance.
   """
+  # pylint: disable=too-few-public-methods
+
   def clone_in_context(self, source, base_target_path, base_value_path):
     """Clone the instance with a new context.
 
@@ -164,24 +180,26 @@ class CompositePredicateResult(PredicateResult, CloneableWithContext):
 
   @property
   def pred(self):
+    """The predicate used to collect the composite results."""
     return self.__pred
 
   @property
   def results(self):
+    """The list of PredicateResult instances."""
     return self.__results
 
   def export_to_json_snapshot(self, snapshot, entity):
     builder = snapshot.edge_builder
     summary = builder.object_count_to_summary(
-        self.__results, subject='mapped result')
+        self.__results, subject='composite results')
     builder.make_mechanism(entity, 'Predicate', self.__pred)
     builder.make(entity, '#', len(self.__results))
 
-    result_entity = snapshot.new_entity(summary='Composite Results')
+    result_entity = snapshot.new_entity(summary=summary)
     for index, result in enumerate(self.__results):
-        builder.make(result_entity, '[{0}]'.format(index), result,
-                     relation=builder.determine_valid_relation(result),
-                     summary=result.summary)
+      builder.make(result_entity, '[{0}]'.format(index), result,
+                   relation=builder.determine_valid_relation(result),
+                   summary=result.summary)
     builder.make(entity, 'Results', result_entity,
                  relation=builder.determine_valid_relation(self))
     super(CompositePredicateResult, self).export_to_json_snapshot(
@@ -230,11 +248,28 @@ class CompositePredicateResultBuilder(object):
     self.__results = []
 
   def append_result(self, result):
+    """Adds a result to the composite list of results captured.
+
+    Args:
+      result: [PredicateResult] The result to add.
+    """
     self.__results.append(result)
+    return self
 
   def extend_results(self, results):
+    """Adds a list of results to the composite list of results captured.
+
+    Args:
+      results: [list of PredicateResult] The results to add.
+    """
     self.__results.extend(results)
+    return self
 
   def build(self, valid):
+    """Construct the specified CompositePredicateResult instance.
+
+    Args:
+      valid: [bool]  Whether the result is considered successful or not.
+    """
     return CompositePredicateResult(
         valid, self.__pred, self.__results, self.comment, self.cause)

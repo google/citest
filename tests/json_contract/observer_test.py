@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=missing-docstring
 
 import unittest
 import citest.json_contract as jc
+import citest.json_predicate as jp
 
 
-_LETTER_DICT = { 'a':'A', 'b':'B', 'z':'Z' }
-_NUMBER_DICT = { 'a':1, 'b':2, 'three':3 }
-_MIXED_DICT  = {'a':'A', 'b':2, 'x':'X'}
+_LETTER_DICT = {'a':'A', 'b':'B', 'z':'Z'}
+_NUMBER_DICT = {'a':1, 'b':2, 'three':3}
+_MIXED_DICT = {'a':'A', 'b':2, 'x':'X'}
 
 
 class JsonObserverTest(unittest.TestCase):
@@ -31,10 +33,10 @@ class JsonObserverTest(unittest.TestCase):
     expect = jc.Observation()
     self.assertEqual(expect, observation)
 
-    observation.add_error(jc.PredicateResult(False))
+    observation.add_error(jp.PredicateResult(False))
     self.assertNotEqual(expect, observation)
 
-    expect.add_error(jc.PredicateResult(False))
+    expect.add_error(jp.PredicateResult(False))
     self.assertEqual(expect, observation)
 
     observation = jc.Observation()
@@ -77,8 +79,8 @@ class JsonObserverTest(unittest.TestCase):
     self.assertEqual([_NUMBER_DICT], observation.objects)
     self.assertEqual(expected, observation)
 
-    pred_list = [jc.PathEqPredicate('a', 'A'), jc.PathEqPredicate('b', 'B')]
-    conjunction = jc.AND(pred_list)
+    pred_list = [jp.PathEqPredicate('a', 'A'), jp.PathEqPredicate('b', 'B')]
+    conjunction = jp.AND(pred_list)
     observer = jc.ObjectObserver(conjunction)
     observation = jc.Observation()
 
@@ -104,14 +106,14 @@ class JsonObserverTest(unittest.TestCase):
     self.assertEqual(expected, observation)
 
   def test_observation_strict_vs_nonstrict(self):
-    aA = jc.PathEqPredicate('a', 'A')
-    bB = jc.PathEqPredicate('b', 'B')
+    aA = jp.PathEqPredicate('a', 'A')
+    bB = jp.PathEqPredicate('b', 'B')
 
     unstrict_object_list = [_NUMBER_DICT, _LETTER_DICT, _MIXED_DICT]
     unstrict_observation = jc.Observation()
     unstrict_observation.add_all_objects(unstrict_object_list)
 
-    strict_object_list = [_LETTER_DICT, { 'a':'A', 'b':'B', 'x':'X' }]
+    strict_object_list = [_LETTER_DICT, {'a':'A', 'b':'B', 'x':'X'}]
     strict_observation = jc.Observation()
     strict_observation.add_all_objects(strict_object_list)
 
@@ -119,12 +121,13 @@ class JsonObserverTest(unittest.TestCase):
     none_observation = jc.Observation()
     none_observation.add_all_objects(none_object_list)
 
+    # pylint: disable=bad-whitespace
     test_cases = [
-      #  Name      jc.Observation        Strict,  Unstrict
-      #---------------------------------------------------
-      ('Strict',   strict_observation,   True,    True),
-      ('Unstrict', unstrict_observation, False,   True),
-      ('None',     none_observation,     False,   False)
+        #  Name      jc.Observation        Strict,  Unstrict
+        #---------------------------------------------------
+        ('Strict',   strict_observation,   True,    True),
+        ('Unstrict', unstrict_observation, False,   True),
+        ('None',     none_observation,     False,   False)
     ]
 
     # For each of the cases, test it with strict and non-strict verification.
@@ -137,7 +140,7 @@ class JsonObserverTest(unittest.TestCase):
         test_strict = index == 2
         expected = test[index]
         verifier = jc.ValueObservationVerifier(
-          title='Verifier', mapped_constraints=[aA, bB], strict=test_strict)
+            title='Verifier', constraints=[aA, bB], strict=test_strict)
 
         verify_result = verifier(observation)
         try:

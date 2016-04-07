@@ -16,16 +16,19 @@
 
 For example a comparator operation that compares a given value against a
 reference point. The reference point would be the fixed operand, and the given
-value would be the value that the base interface is given to apply the predicate
-to.
+value would be the value that the base interface is given to apply the
+predicate to.
 """
 
 
 import inspect
 
-from . import path_predicate_result as jc
 from . import predicate
-from . import quantification_predicate as qp
+from .path_value import PathValue
+from .path_result import (
+    MissingPathError,
+    PathValueResult,
+    TypeMismatchError)
 
 
 class BinaryPredicate(predicate.ValuePredicate):
@@ -68,6 +71,11 @@ class StandardBinaryPredicateFactory(object):
   """Create a StandardBinaryPredicate once we have an operand to bind to it."""
   # pylint: disable=too-few-public-methods
 
+  @property
+  def predicate_name(self):
+    """The name of the predicate for reporting purposes."""
+    return self.__name
+
   def __init__(self, name, comparison_op, operand_type=None):
     """Constructor.
 
@@ -105,20 +113,21 @@ class StandardBinaryPredicate(BinaryPredicate):
     self.__comparison_op = comparison_op
 
   def __str__(self):
-    if self.__type == None:
+    if self.__type is None:
       type_name = 'Any'
     if inspect.isclass(self.__type):
       type_name = self.__type.__name__
     else:
       type_name = str(self.__type)
-    return '{0}.{1}({2!r})'.format(type_name, self.name, self.operand)
+    return '{0}{1}({2!r})'.format(type_name, self.name, self.operand)
 
   def __call__(self, value):
     if self.__type and not isinstance(value, self.__type):
-      return jc.JsonTypeMismatchResult(self.__type, value.__class__, value)
+      return TypeMismatchError(self.__type, value.__class__, value)
 
     valid = self.__comparison_op(value, self.operand)
-    return jc.JsonFoundValueResult(value=value, valid=valid, pred=self)
+    return PathValueResult(pred=self, source=value, target_path='',
+                           path_value=PathValue('', value), valid=valid)
 
 
 class DictSubsetPredicate(BinaryPredicate):
@@ -132,11 +141,18 @@ class DictSubsetPredicate(BinaryPredicate):
 
   def __call__(self, value):
     if not isinstance(value, dict):
-      return jc.JsonTypeMismatchResult(dict, value.__class__, value)
-    return self._is_subset(value, None, self.operand, value)
+      return TypeMismatchError(dict, value.__class__, value)
+    return self._is_subset(value, '', self.operand, value)
 
   def _is_subset(self, source, path, a, b):
-    """Determine if |a| is a subset of |b|."""
+    """Determine if |a| is a subset of |b|.
+
+    Args:
+      source: [obj] The JSON object containing |a|.
+      path: [string] The path to |a| from |source|.
+      a: |obj| The JSON object that should be a subset of |b|.
+      b: |obj| The JSON object that shuld be a superset of |a|.
+    """
     # pylint: disable=invalid-name
 
     ## FOR EACH element of operand...
@@ -146,7 +162,8 @@ class DictSubsetPredicate(BinaryPredicate):
         b_value = b[name]
       except KeyError:
         ## IF element was not in |b| then it is not a subset.
-        return jc.JsonMissingPathResult(source, namepath)
+        return MissingPathError(source=source, target_path=namepath,
+                                path_value=PathValue(path, b))
 
       # IF the element is itself a dictionary
       # THEN recurse to ensure |a_item| is a subset of |b_item|.
@@ -159,13 +176,10 @@ class DictSubsetPredicate(BinaryPredicate):
       # IF the element is a list
       # THEN ensure that |a_item| is a subset of |b_item|.
       if isinstance(b_value, list):
-        elem_pred = (LIST_SUBSET
-                     if isinstance(a_value, list)
-                     else qp.UniversalOrExistentialPredicateFactory(
-                         False, CONTAINS))
+        elem_pred = LIST_SUBSET if isinstance(a_value, list) else CONTAINS
         result = elem_pred(a_value)(b_value)
         if not result:
-          return result.clone_with_new_context(source, namepath)
+          return result.clone_in_context(source, namepath)
         continue
 
       # Otherwise, we want an exact match.
@@ -174,19 +188,28 @@ class DictSubsetPredicate(BinaryPredicate):
       # then they can call themselves out into a different PathFinder
       # that specifies the individual fields rather than a container.
       if a_value != b_value:
+        # pylint: disable=redefined-variable-type
         if isinstance(b_value, basestring):
           pred_factory = STR_EQ
+          confirm_type = basestring
         elif isinstance(b_value, (int, long, float)):
           pred_factory = NUM_EQ
+          confirm_type = (int, long, float)
         else:
           pred_factory = EQUIVALENT
+          confirm_type = None
 
-        return jc.JsonFoundValueResult(
-            valid=False, pred=pred_factory(a_value),
-            source=source, path=namepath, value=b_value)
+        if confirm_type is not None and not isinstance(a_value, confirm_type):
+          return TypeMismatchError(confirm_type, a_value.__class__,
+                                   source=source, target_path=namepath,
+                                   path_value=PathValue(path, b))
+        return PathValueResult(
+            pred=pred_factory(a_value), source=source, target_path=namepath,
+            path_value=PathValue(namepath, b_value), valid=False)
 
-    return jc.JsonFoundValueResult(
-        valid=True, source=source, path=path, value=b, pred=self)
+    return PathValueResult(
+        pred=self, source=source, target_path=path,
+        path_value=PathValue(path, b), valid=True)
 
 
 class _BaseListMembershipPredicate(BinaryPredicate):
@@ -194,9 +217,11 @@ class _BaseListMembershipPredicate(BinaryPredicate):
 
   @property
   def strict(self):
+    """Strict membership means all members must satisfy the predicate."""
     return self.__strict
 
   def __init__(self, name, operand, strict=False):
+    """Constructor."""
     self.__strict = strict
     super(_BaseListMembershipPredicate, self).__init__(name, operand)
 
@@ -222,6 +247,7 @@ class _BaseListMembershipPredicate(BinaryPredicate):
     if isinstance(elem, list):
       pred = LIST_SUBSET(elem)
     elif isinstance(elem, dict):
+      # pylint: disable=redefined-variable-type
       pred = DICT_SUBSET(elem)
     else:
       raise TypeError('Unhandled type {0}'.format(elem.__class__))
@@ -246,14 +272,17 @@ class ListSubsetPredicate(_BaseListMembershipPredicate):
   def __call__(self, value):
     """Determine if |operand| is a subset of |value|."""
     if not isinstance(value, list):
-      return jc.JsonTypeMismatchResult(list, value.__class__, value)
+      return TypeMismatchError(list, value.__class__, value)
 
     for elem in self.operand:
       if not self._verify_elem(elem, the_list=value):
-        return jc.JsonFoundValueResult(value=value, valid=False, pred=self)
+        return PathValueResult(pred=self, valid=False,
+                               path_value=PathValue('', value),
+                               source=value, target_path='')
 
-    return jc.JsonFoundValueResult(
-        valid=True, source=None, path=None, value=value, pred=self)
+    return PathValueResult(
+        pred=self, valid=True, path_value=PathValue('', value),
+        source=value, target_path='')
 
 
 class ListMembershipPredicate(_BaseListMembershipPredicate):
@@ -266,8 +295,9 @@ class ListMembershipPredicate(_BaseListMembershipPredicate):
   def __call__(self, value):
     """Determine if |operand| is a member of |value|."""
     valid = self._verify_elem(self.operand, the_list=value)
-    return jc.JsonFoundValueResult(
-        valid=valid, source=None, path=None, value=value, pred=self)
+    return PathValueResult(
+        pred=self, valid=valid, source=value, target_path='',
+        path_value=PathValue('', value))
 
 
 class ContainsPredicate(BinaryPredicate):
@@ -310,8 +340,9 @@ class ContainsPredicate(BinaryPredicate):
         return result
       bad_values.append(elem)
 
-    return jc.JsonFoundValueResult(valid=False, pred=self,
-                                   source=value, value=bad_values)
+    return PathValueResult(valid=False, pred=self,
+                           source=value, target_path='',
+                           path_value=PathValue('', bad_values))
 
 
 class EquivalentPredicate(BinaryPredicate):
@@ -340,8 +371,7 @@ class EquivalentPredicate(BinaryPredicate):
       PredicateResult might be JsonTypeMismatchResult if operand_type is wrong.
     """
     if not isinstance(self.operand, operand_type):
-      return jc.JsonTypeMismatchResult(
-          operand_type, self.operand.__class__, value)
+      return TypeMismatchError(operand_type, self.operand.__class__, value)
     return pred_factory(self.operand)(value)
 
   def __call__(self, value):
@@ -351,7 +381,7 @@ class EquivalentPredicate(BinaryPredicate):
     if isinstance(value, dict):
       return self.__check_operand_and_call(dict, value, DICT_EQ)
     if isinstance(value, list):
-      return self.__check_operand_and_call(list, value, LIST_EQ)
+      return self.__check_operand_and_call(list, value, LIST_SIMILAR)
     if isinstance(value, int or long or float):
       return self.__check_operand_and_call((int, long, float), value, NUM_EQ)
     raise NotImplementedError(
@@ -384,7 +414,7 @@ class DifferentPredicate(BinaryPredicate):
       PredicateResult might be JsonTypeMismatchResult if operand_type is wrong.
     """
     if not isinstance(self.operand, operand_type):
-      return jc.JsonTypeMismatchResult(
+      return TypeMismatchError(
           operand_type, self.operand.__class__, value)
     return pred_factory(self.operand)(value)
 
@@ -428,8 +458,19 @@ LIST_EQ = StandardBinaryPredicateFactory(
     '==', lambda a, b: a == b, operand_type=list)
 LIST_NE = StandardBinaryPredicateFactory(
     '!=', lambda a, b: a != b, operand_type=list)
+
+def lists_equivalent(a, b):
+  if len(a) != len(b):
+    return False
+  sorted_a = sorted(a)
+  sorted_b = sorted(b)
+  for index, value in enumerate(sorted_a):
+    if sorted_b[index] != value:
+      return False
+  return True
+
 LIST_SIMILAR = StandardBinaryPredicateFactory(
-    '~=', lambda a, b: set(a) == set(b), operand_type=list)
+    '~=', lambda a, b: lists_equivalent(a, b), operand_type=list)
 LIST_MEMBER = (lambda operand, strict=False:
                ListMembershipPredicate(operand, strict=strict))
 LIST_SUBSET = (lambda operand, strict=False:

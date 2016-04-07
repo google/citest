@@ -36,6 +36,9 @@ class ConjunctivePredicate(predicate.ValuePredicate):
   def __str__(self):
     return ' AND '.join([str(c) for c in self.__conjunction])
 
+  def __repr__(self):
+    return ' AND '.join([repr(c) for c in self.__conjunction])
+
   def __eq__(self, pred):
     return (self.__class__ == pred.__class__
             and self.predicates == pred.predicates)
@@ -71,6 +74,9 @@ class DisjunctivePredicate(predicate.ValuePredicate):
 
   def __str__(self):
     return ' OR '.join([str(c) for c in self.__disjunction])
+
+  def __repr__(self):
+    return ' OR '.join([repr(c) for c in self.__disjunction])
 
   def __eq__(self, pred):
     return (self.__class__ == pred.__class__
@@ -111,6 +117,9 @@ class NegationPredicate(predicate.ValuePredicate):
 
   def __str__(self):
     return 'NOT ({0})'.format(self.__pred)
+
+  def __repr__(self):
+    return 'NOT ({0!r})'.format(self.__pred)
 
   def __eq__(self, other):
     return (self.__class__ == other.__class__
@@ -173,6 +182,9 @@ class ConditionalPredicate(predicate.ValuePredicate):
 
   def __str__(self):
     return 'IF ({0}) THEN ({1})'.format(self.__if_pred, self.__then_pred)
+
+  def __repr__(self):
+    return 'IF ({0!r}) THEN ({1!r})'.format(self.__if_pred, self.__then_pred)
 
   def __eq__(self, other):
     return (self.__class__ == other.__class__

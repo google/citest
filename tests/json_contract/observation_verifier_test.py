@@ -12,25 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=missing-docstring
+# pylint: disable=invalid-name
+
 
 import unittest
 
 from citest.base import JsonSnapshotHelper
 import citest.json_contract as jc
+import citest.json_predicate as jp
+
 
 _called_verifiers = []
 
 def _makeObservationVerifyResult(
-      valid, all_results=None,
-      good_results=None, bad_results=None, failed_constraints=None):
-  all_results = all_results or []
+    valid, good_results=None, bad_results=None, failed_constraints=None):
   good_results = good_results or []
   bad_results = bad_results or []
   failed_constraints = failed_constraints or []
 
   return jc.ObservationVerifyResult(
       valid=valid, observation=jc.Observation(),
-      all_results=[], good_results=[], bad_results=[], failed_constraints=[])
+      good_results=[], bad_results=[], failed_constraints=[])
 
 
 class FakeObservationVerifier(jc.ObservationVerifier):
@@ -40,77 +43,75 @@ class FakeObservationVerifier(jc.ObservationVerifier):
     self.__result = result
 
   def __call__(self, observation):
-    global _called_verifiers
     _called_verifiers.append(self)
     return self.__result
 
 
 class ObservationVerifierTest(unittest.TestCase):
   def assertEqual(self, expect, have, msg=''):
+    if not msg:
+      msg = 'EXPECTED\n{0!r}\nGOT\n{1!r}'.format(expect, have)
     JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
 
   def test_result_builder_add_good_result(self):
-      observation = jc.Observation()
-      observation.add_object('A')
+    observation = jc.Observation()
+    observation.add_object('A')
 
-      pred = jc.PathPredicate(None, jc.STR_EQ('A'))
-      builder = jc.ObservationVerifyResultBuilder(observation)
+    pred = jp.PathPredicate(None, jp.STR_EQ('A'))
+    builder = jc.ObservationVerifyResultBuilder(observation)
 
-      map_pred = jc.MapPredicate(pred)
-      map_result = map_pred(observation.objects)
-      builder.add_map_result(map_result)
-      verify_results = builder.build(True)
+    map_pred = jp.MapPredicate(pred)
+    map_result = map_pred(observation.objects)
+    builder.add_map_result(map_result)
+    verify_results = builder.build(True)
 
-      self.assertTrue(verify_results)
-      self.assertEqual(observation, verify_results.observation)
-      self.assertEqual([], verify_results.bad_results)
-      self.assertEqual([], verify_results.failed_constraints)
-      self.assertEqual(map_result.results, verify_results.all_results)
-      self.assertEqual(map_result.good_object_result_mappings,
-                       verify_results.good_results)
+    self.assertTrue(verify_results)
+    self.assertEqual(observation, verify_results.observation)
+    self.assertEqual([], verify_results.bad_results)
+    self.assertEqual([], verify_results.failed_constraints)
+    self.assertEqual(map_result.good_object_result_mappings,
+                     verify_results.good_results)
 
 
   def test_result_builder_add_bad_result(self):
-      observation = jc.Observation()
-      observation.add_object('A')
+    observation = jc.Observation()
+    observation.add_object('A')
 
-      pred = jc.PathPredicate(None, jc.STR_EQ('B'))
-      builder = jc.ObservationVerifyResultBuilder(observation)
+    pred = jp.PathPredicate(None, jp.STR_EQ('B'))
+    builder = jc.ObservationVerifyResultBuilder(observation)
 
-      map_pred = jc.MapPredicate(pred)
-      map_result = map_pred(observation.objects)
-      builder.add_map_result(map_result)
-      verify_results = builder.build(False)
+    map_pred = jp.MapPredicate(pred)
+    map_result = map_pred(observation.objects)
+    builder.add_map_result(map_result)
+    verify_results = builder.build(False)
 
-      self.assertFalse(verify_results)
-      self.assertEqual(observation, verify_results.observation)
-      self.assertEqual([], verify_results.good_results)
-      self.assertEqual([pred], verify_results.failed_constraints)
-      self.assertEqual(map_result.results, verify_results.all_results)
-      self.assertEqual(map_result.bad_object_result_mappings,
-                       verify_results.bad_results)
+    self.assertFalse(verify_results)
+    self.assertEqual(observation, verify_results.observation)
+    self.assertEqual([], verify_results.good_results)
+    self.assertEqual([pred], verify_results.failed_constraints)
+    self.assertEqual(map_result.bad_object_result_mappings,
+                     verify_results.bad_results)
 
   def test_result_builder_add_mixed_results(self):
-      observation = jc.Observation()
-      observation.add_object('GOOD')
-      observation.add_object('BAD')
+    observation = jc.Observation()
+    observation.add_object('GOOD')
+    observation.add_object('BAD')
 
-      pred = jc.PathPredicate(None, jc.STR_EQ('GOOD'))
-      builder = jc.ObservationVerifyResultBuilder(observation)
+    pred = jp.PathPredicate(None, jp.STR_EQ('GOOD'))
+    builder = jc.ObservationVerifyResultBuilder(observation)
 
-      map_pred = jc.MapPredicate(pred)
-      map_result = map_pred(observation.objects)
-      builder.add_map_result(map_result)
-      verify_results = builder.build(False)
+    map_pred = jp.MapPredicate(pred)
+    map_result = map_pred(observation.objects)
+    builder.add_map_result(map_result)
+    verify_results = builder.build(False)
 
-      self.assertFalse(verify_results)
-      self.assertEqual(observation, verify_results.observation)
-      self.assertEqual(map_result.good_object_result_mappings,
-                       verify_results.good_results)
-      self.assertEqual([], verify_results.failed_constraints)
-      self.assertEqual(map_result.results, verify_results.all_results)
-      self.assertEqual(map_result.bad_object_result_mappings,
-                       verify_results.bad_results)
+    self.assertFalse(verify_results)
+    self.assertEqual(observation, verify_results.observation)
+    self.assertEqual(map_result.good_object_result_mappings,
+                     verify_results.good_results)
+    self.assertEqual([], verify_results.failed_constraints)
+    self.assertEqual(map_result.bad_object_result_mappings,
+                     verify_results.bad_results)
 
   def test_result_observation_verifier_conjunction_ok(self):
     builder = jc.ObservationVerifierBuilder(title='Test')
@@ -118,19 +119,18 @@ class ObservationVerifierTest(unittest.TestCase):
     results = []
     for i in range(3):
       result = _makeObservationVerifyResult(valid=True)
-      verifier = FakeObservationVerifier(
-         title=i, dnf_verifier=[], result=result)
-      verifiers.append(verifier)
+      fake_verifier = FakeObservationVerifier(
+          title=i, dnf_verifier=[], result=result)
+      verifiers.append(fake_verifier)
       results.append(result)
-      builder.append_verifier(verifier)
+      builder.append_verifier(fake_verifier)
 
     # verify build can work multiple times
     self.assertEqual(builder.build(), builder.build())
     verifier = builder.build()
     self.assertEqual([verifiers], verifier.dnf_verifiers)
 
-    expect = _makeObservationVerifyResult(
-        True, all_results=results, good_results=results)
+    expect = _makeObservationVerifyResult(True, good_results=results)
 
     global _called_verifiers
     _called_verifiers = []
@@ -145,19 +145,18 @@ class ObservationVerifierTest(unittest.TestCase):
     results = []
     for i in range(3):
       result = _makeObservationVerifyResult(valid=False)
-      verifier = FakeObservationVerifier(
-         title=i, dnf_verifier=[], result=result)
-      verifiers.append(verifier)
+      fake_verifier = FakeObservationVerifier(
+          title=i, dnf_verifier=[], result=result)
+      verifiers.append(fake_verifier)
       results.append(result)
-      builder.append_verifier(verifier)
+      builder.append_verifier(fake_verifier)
 
     # verify build can work multiple times
     self.assertEqual(builder.build(), builder.build())
     verifier = builder.build()
     self.assertEqual([verifiers], verifier.dnf_verifiers)
 
-    expect = _makeObservationVerifyResult(
-        False, all_results=[results[0]], bad_results=[results[0]])
+    expect = _makeObservationVerifyResult(False, bad_results=[results[0]])
 
     global _called_verifiers
     _called_verifiers = []
@@ -172,17 +171,16 @@ class ObservationVerifierTest(unittest.TestCase):
     results = []
     for i in range(2):
       result = _makeObservationVerifyResult(valid=True)
-      verifier = FakeObservationVerifier(
-         title=i, dnf_verifier=[], result=result)
-      verifiers.append(verifier)
+      fake_verifier = FakeObservationVerifier(
+          title=i, dnf_verifier=[], result=result)
+      verifiers.append(fake_verifier)
       results.append(result)
-      builder.append_verifier(verifier, new_term=True)
+      builder.append_verifier(fake_verifier, new_term=True)
 
     verifier = builder.build()
     self.assertEqual([verifiers[0:1], verifiers[1:2]], verifier.dnf_verifiers)
 
-    expect = _makeObservationVerifyResult(
-        True, all_results=[results[0]], bad_results=[results[0]])
+    expect = _makeObservationVerifyResult(True, bad_results=[results[0]])
 
     global _called_verifiers
     _called_verifiers = []
@@ -197,17 +195,16 @@ class ObservationVerifierTest(unittest.TestCase):
     results = []
     for i in range(2):
       result = _makeObservationVerifyResult(valid=False)
-      verifier = FakeObservationVerifier(
-         title=i, dnf_verifier=[], result=result)
-      verifiers.append(verifier)
+      fake_verifier = FakeObservationVerifier(
+          title=i, dnf_verifier=[], result=result)
+      verifiers.append(fake_verifier)
       results.append(result)
-      builder.append_verifier(verifier, new_term=True)
+      builder.append_verifier(fake_verifier, new_term=True)
 
     verifier = builder.build()
     self.assertEqual([verifiers[0:1], verifiers[1:2]], verifier.dnf_verifiers)
 
-    expect = _makeObservationVerifyResult(
-        False, all_results=[results], bad_results=[results])
+    expect = _makeObservationVerifyResult(False, bad_results=[results])
 
     global _called_verifiers
     _called_verifiers = []
@@ -218,6 +215,7 @@ class ObservationVerifierTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
+  # pylint: disable=invalid-name
   loader = unittest.TestLoader()
   suite = loader.loadTestsFromTestCase(ObservationVerifierTest)
   unittest.TextTestRunner(verbosity=2).run(suite)
