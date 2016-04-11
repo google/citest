@@ -24,7 +24,7 @@ class JsonError(ValueError, JsonSnapshotable):
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.new(entity, 'Message', self.message)
+    snapshot.edge_builder.make(entity, 'Message', self.message)
     if self.__cause:
       snapshot.edge_builder.make(entity, 'CausedBy', str(self.__cause))
 
