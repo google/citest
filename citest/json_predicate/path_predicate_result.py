@@ -228,14 +228,25 @@ class PathPredicateResult(predicate.PredicateResult, HasPathPredicateResult):
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.__pred)
+    # Separate out just the path values from the full justification (below)
+    # to make it easy to get at the list of values found, which is often
+    # of particular interest.
     snapshot.edge_builder.make_output(
         entity, 'Path Values', self.__path_values)
-    snapshot.edge_builder.make_output(
-        entity, 'Pruned Paths', self.__path_failures)
-    snapshot.edge_builder.make_output(
-        entity, 'Rejected Values', self.__invalid_candidates)
-    snapshot.edge_builder.make_output(
-        entity, 'Value Justification', self.__valid_candidates)
+
+    if self.__path_failures:
+      snapshot.edge_builder.make_output(
+          entity, 'Pruned Paths', self.__path_failures)
+    if self.__invalid_candidates:
+      snapshot.edge_builder.make_output(
+          entity, 'Rejected Values', self.__invalid_candidates)
+
+    # The full justification for the values found in the Path Value list.
+    # This is the full PredicateResult that validated the value, so
+    # contains another copy of each value (adding full traceability).
+    if self.__valid_candidates:
+      snapshot.edge_builder.make_output(
+          entity, 'Value Justifications', self.__valid_candidates)
 
   def __str__(self):
     """Specializes interface."""
