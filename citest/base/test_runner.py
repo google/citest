@@ -28,15 +28,15 @@ import argparse
 import ast
 import logging
 import logging.config
+import os
 import os.path
 import sys
 import unittest
 
 # Our modules.
-from .global_journal import get_global_journal, new_global_journal_with_path
-from .snapshot import JsonSnapshotable
+from . import global_journal
 from . import args_util
-
+from .snapshot import JsonSnapshotable
 
 # If a -log_config is not provided, then use this.
 _DEFAULT_LOG_CONFIG = """{
@@ -183,6 +183,31 @@ class TestRunner(object):
                 + ' ' * (8 + 1)  # for leading timestamp prefix
                 + '---------------------------\n')
     result = self.run(suite)
+
+    if self.__journal:
+      # Terminate the journal to close and flush the file.
+      # Unbind the global journal so it is no longer referencing here.
+      if global_journal.get_global_journal() == self.__journal:
+        global_journal.unset_global_journal()
+      self.__journal.terminate()
+
+      journal_path = os.path.join(
+          self.bindings['LOG_DIR'],
+          self.bindings['LOG_FILEBASE'] + '.journal')
+      # Ideally we just call generate_html_report.main here directly.
+      # However, this leads to a circular dependency. So, we'll fork a
+      # process for it to decouple the modules when parsing.
+      generate_command = ['python',
+                          '-m', 'citest.reporting.generate_html_report',
+                          '--noindex', journal_path]
+      logger.info('Running %s', generate_command)
+      retcode = os.system(' '.join(generate_command))
+      if not retcode:
+        sys.stdout.write('Wrote {0}.html\n'.format(
+            os.path.splitext(journal_path)[0]))
+      else:
+        logger.error('Could not write %s.html\n', journal_path)
+
     return len(result.failures) + len(result.errors)
 
   def __init__(self, runner=None):
@@ -258,13 +283,13 @@ class TestRunner(object):
         self.bindings['LOG_DIR'], self.bindings['LOG_FILEBASE'] + '.log')
     os.chmod(log_path, 0600)
 
-    self.__journal = get_global_journal()
+    self.__journal = global_journal.get_global_journal()
     if self.__journal is None:
       # force start
       journal_path = os.path.join(
           self.bindings['LOG_DIR'],
           self.bindings['LOG_FILEBASE'] + '.journal')
-      self.__journal = new_global_journal_with_path(journal_path)
+      self.__journal = global_journal.new_global_journal_with_path(journal_path)
 
   def report(self, obj):
     """Add object to report.

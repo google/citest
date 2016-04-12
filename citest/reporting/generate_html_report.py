@@ -106,7 +106,7 @@ def main(argv):
   parser.add_argument('--nohtml', dest='html', action='store_false',
                       help='Do not genreate an HTML report for the journals.')
 
-  options = parser.parse_args()
+  options = parser.parse_args(argv[1:])
 
   if options.html:
     for path in options.journals:
