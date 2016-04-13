@@ -27,6 +27,7 @@ Verification is performed independently using json.Contract.
 
 
 import logging
+import sys
 import time
 
 from ..base import JsonScrubber
@@ -73,20 +74,24 @@ class BaseAgent(JsonSnapshotable):
   def default_max_wait_secs(self):
     """Number of seconds the agent should wait() on status by default.
 
-    A value of -1 is indefinite.
+    A value of None is indefinite.
     """
     return self.__default_max_wait_secs
 
   @default_max_wait_secs.setter
   def default_max_wait_secs(self, secs):
-    """Sets the default wait() timeout period."""
+    """Sets the default wait() timeout period.
+
+    Args:
+      secs: [float] Upper bound seconds when no explicit value was provided.
+    """
     self.__default_max_wait_secs = secs
 
   def __init__(self):
     self.logger = logging.getLogger(__name__)
     self.nojournal_logger = logging.LoggerAdapter(
         self.logger, {'citest_journal': {'nojournal':True}})
-    self.__default_max_wait_secs = -1
+    self.__default_max_wait_secs = None
     self.__config_dict = {}
 
   def export_to_json_snapshot(self, snapshot, entity):
@@ -211,22 +216,24 @@ class AgentOperationStatus(JsonSnapshotable):
     raise NotImplementedError(
         self.__class__.__name__ + '.refresh() needs to be specialized.')
 
-  def wait(self, poll_every_secs=1, max_secs=-1,
+  def wait(self, poll_every_secs=1, max_secs=None,
            trace_every=False, trace_first=True):
     """Wait until the status reaches a final state.
 
     Args:
-      poll_every_secs: [int] Interval to refresh() from the proxy.
-      max_secs: [int] Most seconds to wait before giving up.
-          0 is a poll, -1 is unbounded, otherwise number of seconds.
+      poll_every_secs: [float] Interval to refresh() from the proxy.
+      max_secs: [float] Most seconds to wait before giving up.
+          0 is a poll, None is unbounded. Otherwise, number of seconds.
       trace_every: [bool] Whether or not to log every poll request.
       trace_first: [bool] Whether to log the first poll request.
     """
     if self.finished:
       return
 
-    if max_secs < 0:
+    if max_secs is None:
       max_secs = self.operation.max_wait_secs
+    if max_secs < 0 and max_secs is not None:
+      raise ValueError()
 
     message = 'Wait on id={0}, max_secs={1}'.format(self.id, max_secs)
     JournalLogger.begin_context(message)
@@ -242,30 +249,34 @@ class AgentOperationStatus(JsonSnapshotable):
     """Helper function for wait to keep its try/finally block simple.
 
     Args:
-      poll_every_secs: [int] Frequency to poll.
-      max_secs: [int] How long to poll before giving up.
+      poll_every_secs: [float] Frequency to poll.
+      max_secs: [float] How long to poll before giving up. None is indefinite.
       trace_every: [bool] Whether to log each attempt.
     """
     logger = logging.getLogger(__name__)
     now = self._now()
-    end_time = now  + max_secs
+    end_time = sys.float_info.max if max_secs is None else now + max_secs
     next_log_secs = now + 60
     while not self.finished:
         # pylint: disable=bad-indentation
         now = self._now()
         secs_remaining = end_time - now
-        if secs_remaining <= 0 and max_secs > 0:
+        if secs_remaining <= 0:
           logger.debug('Timed out')
           return False
 
-        sleep_secs = (poll_every_secs if max_secs < 0
+        sleep_secs = (poll_every_secs if max_secs is None
                       else min(secs_remaining, poll_every_secs))
 
         # Write something into the log file to indicate we are still here.
         if now >= next_log_secs:
-          logger.debug(
-              'Still waiting (polling again in %d) with %d secs remaining',
-              sleep_secs, secs_remaining)
+          if max_secs is None:
+            logger.debug(
+                'Still waiting (no timeout). Check in %r secs', sleep_secs)
+          else:
+            logger.debug(
+                'Still waiting (approx %d left). Check in %r secs',
+                sleep_secs, secs_remaining)
           # Hardcoded once-a-minute confirmation that we're still waiting.
           next_log_secs = now + 60
 
@@ -282,7 +293,7 @@ class AgentOperationStatus(JsonSnapshotable):
     """Hook so we can mock out sleep calls in wait()'s polling loop.
 
     Args:
-      secs: [int] Number of seconds to sleep
+      secs: [float] Number of seconds to sleep
     """
     time.sleep(secs)
 
@@ -331,17 +342,19 @@ class AgentOperation(JsonSnapshotable):
       logging.getLogger(__name__).warning('Rebinding agent on ' + str(self))
     self.__agent = agent
 
-  def __init__(self, title, agent=None):
+  def __init__(self, title, agent=None, max_wait_secs=None):
     """Construct operation instance.
 
     Args:
       title: [string] The name of the operation for reporting purposes only.
       agent: [BaseAgent] The agent performing the operation can be bound
           later, but must eventually be bound.
+      max_wait_secs: [float] Max number of seconds to wait for status
+          completion. None indicates unlimited.
     """
     self.__title = title
     self.__agent = agent
-    self.__max_wait_secs = None
+    self.__max_wait_secs = max_wait_secs
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
