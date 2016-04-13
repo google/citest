@@ -88,7 +88,7 @@ class BaseAgentTest(unittest.TestCase):
     self.assertEqual(agent, operation.agent)
 
     # Test operation's max_wait_secs is derived from agent value.
-    self.assertEqual(-1, operation.max_wait_secs)
+    self.assertEqual(None, operation.max_wait_secs)
     agent.default_max_wait_secs = 10
     self.assertEqual(10, operation.max_wait_secs)
 

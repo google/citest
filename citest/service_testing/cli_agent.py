@@ -144,8 +144,8 @@ class CliAgent(base_agent.BaseAgent):
     snapshot.edge_builder.make_mechanism(entity, 'Program', self.__program)
     super(CliAgent, self).export_to_json_snapshot(snapshot, entity)
 
-  def _new_run_operation(self, title, args):
-    return CliRunOperation(title, args, self)
+  def _new_run_operation(self, title, args, max_wait_secs=None):
+    return CliRunOperation(title, args, self, max_wait_secs=max_wait_secs)
 
   def _new_status(self, operation, cli_response):
     return CliRunStatus(operation, cli_response)
@@ -212,8 +212,9 @@ class CliAgent(base_agent.BaseAgent):
 
 class CliRunOperation(base_agent.AgentOperation):
   """Specialization of AgentOperation that invokes a program."""
-  def __init__(self, title, args, cli_agent=None):
-    super(CliRunOperation, self).__init__(title, cli_agent)
+  def __init__(self, title, args, cli_agent=None, max_wait_secs=None):
+    super(CliRunOperation, self).__init__(title, cli_agent,
+                                          max_wait_secs=max_wait_secs)
     if cli_agent and not isinstance(cli_agent, CliAgent):
       raise TypeError(
           'cli_agent is not CliAgent: {0}'.format(cli_agent.__class__))

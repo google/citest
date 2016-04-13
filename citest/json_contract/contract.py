@@ -195,14 +195,14 @@ class ContractClause(predicate.ValuePredicate):
       if end_time <= now:
         if end_time > start_time:
           self.logger.debug(
-              'Giving up verifying %s after %d of %d secs.',
+              'Giving up verifying %s after %r of %r secs.',
               self.__title, end_time - start_time, self.__retryable_for_secs)
         break
 
       secs_remaining = end_time - now
       sleep = min(secs_remaining, min(5, self.__retryable_for_secs / 10))
       self.logger.debug(
-          '%s not yet satisfied with secs_remaining=%d. Retry in %d secs\n%s',
+          '%s not yet satisfied with secs_remaining=%r. Retry in %r\n%s',
           self.__title, secs_remaining, sleep, clause_result)
       time.sleep(sleep)
 
@@ -295,7 +295,7 @@ class ContractClauseBuilder(object):
     self.__retryable_for_secs = retryable_for_secs
     if strict:
       logger = logging.getLogger(__name__)
-      logger.warning('Strict flag is DEPRECATED in {0}'.format(title))
+      logger.warning('Strict flag is DEPRECATED in %s', title)
 
   def build(self):
     """Build the clause from the builder specification."""

@@ -258,31 +258,39 @@ class HttpAgent(base_agent.BaseAgent):
     snapshot.edge_builder.make_control(entity, 'Base URL', self.__base_url)
     super(HttpAgent, self).export_to_json_snapshot(snapshot, entity)
 
-  def new_post_operation(self, title, path, data, status_class=None):
+  def new_post_operation(self, title, path, data, status_class=None,
+                         max_wait_secs=None):
     """Acts as an AgentOperation factory.
 
     Args:
       title: See AgentOperation title
       path: The URL path to POST to. The Agent provides the network location.
       data: The HTTP payload to post to the server.
+      max_wait_secs: [float] Max number of seconds to wait for status
+          completion. None indicates unlimited.
 
       TODO(ewiseblatt): Will need to add headers.
     """
     return HttpPostOperation(title, path, data, self,
-                             status_class=status_class)
+                             status_class=status_class,
+                             max_wait_secs=max_wait_secs)
 
-  def new_delete_operation(self, title, path, data, status_class=None):
+  def new_delete_operation(self, title, path, data, status_class=None,
+                           max_wait_secs=None):
     """Acts as an AgentOperation factory.
 
     Args:
       title: See AgentOperation title
       path: The URL path to DELETE to. The Agent provides the network location.
       data: The HTTP payload to send to the server with the DELETE.
+      max_wait_secs: [float] Max number of seconds to wait for status
+          completion. None indicates unlimited.
 
       TODO(ewiseblatt): Will need to add headers.
     """
     return HttpDeleteOperation(title, path, data, self,
-                               status_class=status_class)
+                               status_class=status_class,
+                               max_wait_secs=max_wait_secs)
 
   def _new_messaging_status(self, operation, http_response):
     """Acts as an OperationStatus factory for HTTP messaging requests.
@@ -401,7 +409,8 @@ class BaseHttpOperation(base_agent.AgentOperation):
     return self.__status_class
 
   def __init__(self, title, path, data,
-               http_agent=None, status_class=HttpOperationStatus):
+               http_agent=None, status_class=HttpOperationStatus,
+               max_wait_secs=None):
     """Construct a new operation.
 
     Args:
@@ -411,8 +420,11 @@ class BaseHttpOperation(base_agent.AgentOperation):
       http_agent [HttpAgent]: If provided, invoke with this agent.
       status_class [HttpOperationStatus]: If provided, use this for the
          result status returned by the operation.
+      max_wait_secs: [float] Max number of seconds to wait for status
+          completion. None indicates unlimited.
     """
-    super(BaseHttpOperation, self).__init__(title, http_agent)
+    super(BaseHttpOperation, self).__init__(title, http_agent,
+                                            max_wait_secs=max_wait_secs)
     if http_agent and not isinstance(http_agent, HttpAgent):
       raise TypeError('agent no HttpAgent: ' + http_agent.__class__.__name__)
 

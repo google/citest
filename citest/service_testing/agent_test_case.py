@@ -392,7 +392,7 @@ class AgentTestCase(BaseTestCase):
         final_attempt.set_exception(warning)
         execution_trace.set_exception(warning)
         self.logger.warning(
-            'WARNING: request never completed [%s], but that is ok.',
+            'Request never completed [%s], but that is ok.',
             status.current_state)
         return True
 
@@ -506,7 +506,7 @@ class AgentTestCase(BaseTestCase):
           break
         if max_tries - i > 1:
           self.logger.warning(
-              'Got an exception: %s.\nTrying again in %d secs...',
+              'Got an exception: %s.\nTrying again in %r secs...',
               status.exception_details, retry_interval_secs)
           time.sleep(retry_interval_secs)
         elif max_tries > 1:
