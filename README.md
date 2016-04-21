@@ -93,7 +93,7 @@ Integration tests are written against services by sending an operation to
 the service then observing the effects of that operation and verifying them
 against expectations.
 
-`citest` introduces a `TestableAgent` class for adapting external services
+`citest` introduces a `BaseAgent` class for adapting external services
 to the framework where the agent is responsible for understanding the
 transport and protocol for exchanging messages with the service. It introduces
 some basic concrete types such as `HttpAgent` and `CliAgent` where the primary
@@ -101,20 +101,20 @@ means is HTTP messaging or running a command-line program. Specific systems
 may need to further specialize these to understand any additional application
 protocols added, such as status responses for asynchronous HTTP messaging.
 
-`TestableAgent` also acts as an `AgentOperation` factory where the operations
-provide a means to wrap these serivce calls as first-class objects understood
-by the core `clitest` framework. This allows `clitest` to invoke (or reinvoke)
+`BaseAgent` also acts as an `AgentOperation` factory where the operations
+provide a means to wrap these service calls as first-class objects understood
+by the core `citest` framework. This allows `citest` to invoke (or reinvoke)
 the operation when it is appropriate to do so, rather than when the static code
 is specifying what the test will be. When executed, the `AgentOperation` will
-create an `OperationStatus` allowing `clitest` to track its progress and
+create an `OperationStatus` allowing `citest` to track its progress and
 eventual result.
 
-In order to verify the operation, `clitest` uses `Contract` objects. A contract
+In order to verify the operation, `citest` uses `Contract` objects. A contract
 is a collection of `ContractClause` where each clause can look for different
 effects. A `ContractClause` is typically composed of an observation on the
 effects and an assertion about what is expected to be observed. The observation
 is made by an `Observer` that collects data in an `Observation` by working with
-a `TestableAgent` to collect the data (e.g. an HTTP GET on some
+a `BaseAgent` to collect the data (e.g. an HTTP GET on some
 JSON resource). The assertion is made by looking for expected values and
 patterns in the collected resources. Each clause can collect different
 resources.
@@ -140,6 +140,12 @@ service_testing | Introduces the core framework, base classes, and generic utili
 aws_testing | Specializations and extensions to support testing on Amazon Web Services (AWS)
 gcp_testing | Specializations and extensions to support testing on Google Cloud Platform (GCP)
 tests | Tests for this package
+
+
+# Documentation
+
+The [Usage Overview Document](overview.md) provides some instructions and examples
+to guide basic usage.
 
 
 # Contributing
