@@ -298,7 +298,11 @@ def establish_network_connectivity(gcloud, instance, target_port):
       response = urllib2.urlopen(url, None, 5)
       logger.debug('Confirmed availability (%d)', response.getcode())
       return 'localhost:%d' % local_port
-    except urllib2.URLError:
+    except urllib2.HTTPError as e:
+      # HTTPError means that the server is responding to HTTP calls.
+      logger.debug('Confirmed availability (%d)', e.code)
+      return 'localhost:%d' % local_port
+    except urllib2.URLError as e:
       time.sleep(1)
 
   logger.error('Could not connect to our own tunnel at %s', url)
