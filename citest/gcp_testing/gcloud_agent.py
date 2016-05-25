@@ -180,7 +180,6 @@ class GCloudAgent(cli_agent.CliAgent):
   def _args_to_full_commandline(self, args):
     if self.__service_account:
       args = ['--account', self.__service_account] + args
-      print 'ARGS={0}'.format(args)
 
     return super(GCloudAgent, self)._args_to_full_commandline(args)
 
