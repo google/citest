@@ -18,12 +18,34 @@
 # Standard python modules.
 import json
 import logging
+import re
 import traceback
 
 # citest modules.
 from .. import json_contract as jc
 from ..json_predicate import JsonError
 from . import AgentError
+
+
+class HttpAgentError(AgentError):
+  """A specialization of AgentError that contain an HTTP error response."""
+
+  @property
+  def http_result(self):
+    """The HttpResponseType instance"""
+    return self.__http_result
+
+  def __init__(self, http_result):
+    """Constructor.
+
+    Args:
+      http_result: [HttpResponseType] The HTTP error response.
+    """
+    error = 'Observation failed with HTTP %s.\n%s' % (http_result.http_code,
+                                                      http_result.output)
+    super(HttpAgentError, self).__init__(error)
+    self.__http_result = http_result
+
 
 
 class HttpObjectObserver(jc.ObjectObserver):
@@ -59,10 +81,9 @@ class HttpObjectObserver(jc.ObjectObserver):
     # collect some thing out of the results.
     result = self.agent.get(self.__path, trace=trace)
     if not result.ok():
-      error = 'Observation failed with HTTP %s.\n%s' % (result.http_code,
-                                                        result.error)
-      logging.getLogger(__name__).error(error)
-      observation.add_error(AgentError(error))
+      http_agent_error = HttpAgentError(result)
+      logging.getLogger(__name__).info(http_agent_error)
+      observation.add_error(http_agent_error)
       return []
 
     return self._do_decode_objects(result.output, observation)
@@ -137,3 +158,48 @@ class HttpContractClauseBuilder(jc.ContractClauseBuilder):
         'Get ' + path, strict=self.__strict)
     self.verifier_builder.append_verifier_builder(observation_builder)
     return observation_builder
+
+
+class HttpObservationFailureVerifier(jc.ObservationFailureVerifier):
+  """An ObservationVerifier that expects specific errors from HTTP."""
+
+  def __init__(self, title, http_code, error_regex=None):
+    """Constructs the clause with the acceptable error code.
+
+    Args:
+      title: [string] Verifier name for reporting purposes only.
+      http_code: [int] http code expected.
+      error_regex: Regex pattern for errors we're looking for,
+                   or None for code only.
+    """
+    super(HttpObservationFailureVerifier, self).__init__(title)
+    self.__http_code = http_code
+    self.__error_regex = error_regex
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotable interface."""
+    snapshot.edge_builder.make_control(entity, 'HTTP Code', self.__http_code)
+    if self.__error_regex:
+      snapshot.edge_builder.make_control(entity, 'Regex', self.__error_regex)
+    super(HttpObservationFailureVerifier, self).export_to_json_snapshot(
+        snapshot, entity)
+
+  def _error_comment_or_none(self, error):
+    if not isinstance(error, HttpAgentError):
+      raise TypeError('Expected an HttpAgentError. Got "{0}"'.format(error))
+
+    http_result = error.http_result
+    if self.__http_code and self.__http_code != http_result.http_code:
+      return None
+
+    if (self.__error_regex
+        and not re.search(self.__error_regex, http_result.output)):
+      return None
+
+    # Return summary of finding the expected error.
+    if self.__http_code:
+      return 'Observed expected HTTP {0}'.format(self.__http_code)
+    if self.__error_regex:
+      return 'Observed expected error matching {0}'.format(self.__error_regex)
+    return error
+
