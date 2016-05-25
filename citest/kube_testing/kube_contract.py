@@ -21,6 +21,7 @@ import logging
 import traceback
 
 # Our modules.
+from .. import json_predicate as jp
 from .. import json_contract as jc
 from ..service_testing import cli_agent
 
@@ -63,7 +64,7 @@ class KubeObjectObserver(jc.ObjectObserver):
       error = 'Invalid JSON in response: %s' % str(kube_response)
       logging.getLogger(__name__).info('%s\n%s\n----------------\n',
                                        error, traceback.format_exc())
-      observation.add_error(jc.JsonError(error, vex))
+      observation.add_error(jp.JsonError(error, vex))
       return []
 
     return observation.objects

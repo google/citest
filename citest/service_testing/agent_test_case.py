@@ -59,6 +59,7 @@ class OperationContractExecutionAttempt(JsonSnapshotable):
 
   @property
   def completed(self):
+    """The time the attempt completed, or None if it is still running."""
     return self.__stop is not None
 
   @property
@@ -95,6 +96,7 @@ class OperationContractExecutionAttempt(JsonSnapshotable):
     self.__traceback = None
 
   def set_exception(self, exception, traceback=None):
+    """Sets the exception that terminated this attempt execution."""
     self.__stop = time.time()
     self.__exception = exception
     self.__traceback = traceback
@@ -540,7 +542,7 @@ class AgentTestCase(BaseTestCase):
         self.logger.debug('Exception was at:\n%s', traceback.format_exc())
       except BaseException as unexpected:
         self.logger.error(
-            'Unexpected error {0}\nHandling original exception {1}',
+            'Unexpected error %s\nHandling original exception %s',
             unexpected, ex)
         self.logger.debug('Unexpected exception was at:\n%s',
                           traceback.format_exc())
