@@ -58,6 +58,7 @@ from http_observer import (
     HttpObjectObserver,
     HttpContractBuilder,
     HttpContractClauseBuilder,
+    HttpObservationFailureVerifier,
     )
 
 from http_scrubber import (
