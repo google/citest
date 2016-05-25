@@ -40,8 +40,10 @@ class HttpResponseType(
     output: The HTTP response.
     exception: The exception if http_code is None
   """
+
   @property
   def error_message(self):
+    """A string denoting the error this response represents, if any."""
     return (None if self.ok()
             else self.exception if self.exception else self.output)
 
@@ -110,6 +112,10 @@ class HttpOperationStatus(base_agent.AgentOperationStatus):
   def timed_out(self):
     return self.__http_response.http_code in [httplib.REQUEST_TIMEOUT,
                                               httplib.GATEWAY_TIMEOUT]
+
+  @property
+  def id(self):
+    return str(id(self))
 
   @property
   def finished_ok(self):
@@ -318,7 +324,7 @@ class HttpAgent(base_agent.BaseAgent):
     Returns:
       HttpResponseType
     """
-    if headers == None:
+    if headers is None:
       all_headers = self.__headers
     else:
       all_headers = self.__headers.copy()
@@ -378,6 +384,12 @@ class HttpAgent(base_agent.BaseAgent):
     """Perform an HTTP POST."""
     return self.__send_http_request(
         path, 'POST', data=data,
+        headers={'Content-Type': content_type}, trace=trace)
+
+  def put(self, path, data, content_type='application/json', trace=True):
+    """Perform an HTTP PUT."""
+    return self.__send_http_request(
+        path, 'PUT', data=data,
         headers={'Content-Type': content_type}, trace=trace)
 
   def delete(self, path, data, content_type='application/json', trace=True):
@@ -445,15 +457,13 @@ class BaseHttpOperation(base_agent.AgentOperation):
       edge.add_metadata('format', self.__snapshot_format)
     super(BaseHttpOperation, self).export_to_json_snapshot(snapshot, entity)
 
-  def execute(self, agent=None, trace=True):
+  def execute(self, agent=None):
     if not self.agent:
       if not isinstance(agent, HttpAgent):
         raise TypeError('agent no HttpAgent: ' + agent.__class__.__name__)
       self.bind_agent(agent)
 
-    status = self._send_message(agent, trace)
-    if trace:
-      agent.nojournal_logger.debug('Returning status %s', status)
+    status = self._send_message(agent, trace=True)
     return status
 
   def _send_message(self, agent, trace):
@@ -477,5 +487,15 @@ class HttpDeleteOperation(BaseHttpOperation):
     """Implements BaseHttpOperation interface."""
     # pylint: disable=protected-access
     http_response = agent.delete(self.path, self.data, trace=trace)
+    status = agent._new_messaging_status(self, http_response)
+    return status
+
+
+class HttpPutOperation(BaseHttpOperation):
+  """Specialization of AgentOperation that performs HTTP PUT."""
+  def _send_message(self, agent, trace):
+    """Implements BaseHttpOperation interface."""
+    # pylint: disable=protected-access
+    http_response = agent.put(self.path, self.data, trace=trace)
     status = agent._new_messaging_status(self, http_response)
     return status
