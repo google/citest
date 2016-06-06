@@ -139,7 +139,7 @@ for us if it turns out that we cannot otherwise reach the server directly.
 [NOTE: there is also a port binding, but it is not interesting to discuss here.]
 
 
-```
+```python
 class SpinnakerTestScenario(sk.AgentTestScenario):
   @classmethod
   def initArgumentParser(cls, parser, defaults=None):
@@ -198,7 +198,7 @@ method. The base `citest.service_testing.TestScenario` will call this method at
 some point to construct the agent it needs.
 
 
-```
+```python
 import spinnaker_testing.gate as gate
 class AwsSmokeTestScenario(sk.SpinnakerTestScenario):
   @classmethod
@@ -216,7 +216,7 @@ including `self.TEST_APP`, are specific to Spinnaker. The gist is that we're
 creating a payload with some data, some of which happens to be parameterized
 by bindings.
 
-```
+```python
 class AwsSmokeTestScenario(sk.SpinnakerTestScenario):
   def create_server_group(self):
     bindings = self.bindings
@@ -289,7 +289,7 @@ To execute the test, we use the standard python unittest classes. Although these
 arent unit tests, the classes provide a convienent basis and standard hooks for
 citest to leverage.
 
-```
+```python
 class AwsSmokeTest(st.AgentTestCase):
   ...
   def test_c_create_server_group(self):
@@ -309,7 +309,7 @@ The following test creates a Spinnaker load balancer on GCE. A spinnaker
 load balancer consists of 3 different components, requiring us to make
 multiple observations of different components in order to verify it is correct.
 
-```
+```python
 import citest.json_predicate as jp
 
 class GoogleSmokeTestScenario(sk.SpinnakerTestScenario):
@@ -422,7 +422,7 @@ JSON data we expect in the response, and pulling out the attributes we need to
 satisfy the interface needs. The actual method to parse the JSON is left to the
 specialized class for each of the different subsystems since this varies.
 
-```
+```python
 class SpinnakerStatus(service_testing.HttpOperationStatus):
   @property
   def current_state(self):

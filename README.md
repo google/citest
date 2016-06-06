@@ -11,7 +11,7 @@ if appropriate.
 # Example
 A test case might look something like this:
 
-```
+```python
   def create_google_load_balancer(self):
     bindings = self._bindings
     load_balancer_name = bindings['TEST_APP_COMPONENT_NAME']
@@ -80,7 +80,7 @@ A test case might look something like this:
 
 Where the test can be executed like this:
 
-```
+```python
   self.run_test_case(test_case)
 ```
 
