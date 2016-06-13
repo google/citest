@@ -32,6 +32,7 @@ class GoogleSession(object):
     req = urllib2.Request(url=login_url)
     cookie_jar.add_cookie_header(req)
     resp = urllib2.urlopen(req)
+    session.logout()
   """
 
   def __init__(
@@ -73,7 +74,8 @@ class GoogleSession(object):
   def logout(self):
     """Log out of the current authenticated Google session.
     """
-    raise NotImplementedError()
+    self.__session.get("https://www.google.com/accounts/Logout")
+    self.__session.cookies.clear()
 
 
   @property
