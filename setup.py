@@ -8,7 +8,9 @@ setup(
   packages = ['citest'],
   license = 'APL2',
   install_requires = [
-    "pyyaml"
+    "pyyaml",
+    "bs4",
+    "requests"
   ],
   long_description = open('README.md').read()
 )
