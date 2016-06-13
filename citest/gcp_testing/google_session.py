@@ -27,7 +27,11 @@ class GoogleSession(object):
     # login_url should forward to 'accounts.google.com/ServiceLogin' page
     # via an OAuth2 or SAML redirect.
     login_url = "http://<gate_host>/credentials"
-    session = GoogleSession(login_url, "user@domain.net", "secret_pass_word")
+    logout_url = "http://<gate_host>/auth/logout"
+    session = GoogleSession(login_url,
+                           "user@domain.net",
+                           "secret_pass_word",
+                           logout_url=logout_url)
     cookie_jar = session.cookies
     req = urllib2.Request(url=login_url)
     cookie_jar.add_cookie_header(req)
@@ -35,9 +39,11 @@ class GoogleSession(object):
     session.logout()
   """
 
+
   def __init__(
       self, login_url, login, password,
-      user_approval_url ='https://accounts.google.com/ServiceLoginAuth'):
+      user_approval_url ='https://accounts.google.com/ServiceLoginAuth',
+      logout_url=None):
     """Construct an instance.
 
     Args:
@@ -45,8 +51,10 @@ class GoogleSession(object):
         'https://accounts.google.com/ServiceLogin'.
       login: [String] Username/email to login as.
       password: [String] Password for the provided login.
-      user_approval_url: [String] The URL for a Google user to grant approval
+      user_approval_url: [String] (Optional) The URL for a Google user to grant approval
         to an application. Can override if necessary.
+      logout_url: [String] (Optional) The logout url of the application we are
+        authenticating to.
     """
     self.__session = requests.session()
     login_html = self.__session.get(login_url)
@@ -69,13 +77,17 @@ class GoogleSession(object):
         approval_dict[input['name']] = input['value']
     approval_dict['submit_access'] = 'true'
     self.__session.post(approval_form['action'], data=approval_dict)
+    self.__logout_url = logout_url
 
 
   def logout(self):
-    """Log out of the current authenticated Google session.
+    """Log out of the current authenticated Google session and the target
+    service's session if applicable.
     """
-    self.__session.get("https://www.google.com/accounts/Logout")
-    self.__session.cookies.clear()
+    if self.__logout_url:
+      self.__session.post(self.__logout_url)
+    self.__session.post("https://www.google.com/accounts/Logout")
+    self.__session.cookies = None
 
 
   @property
@@ -87,4 +99,6 @@ class GoogleSession(object):
       session as a CookieJar object.
       CookieJar documentation: https://docs.python.org/2.7/library/cookielib.html#cookiejar-and-filecookiejar-objects
     """
+    if self.__session.cookies is None:
+      raise AttributeError()
     return self.__session.cookies
