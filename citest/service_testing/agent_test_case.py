@@ -320,11 +320,6 @@ class AgentTestScenario(object):
 class AgentTestCase(BaseTestCase):
   """Base class for agent integration tests."""
 
-  @property
-  def report_journal(self):
-    """The Journal used for producing the test report."""
-    return ScenarioTestRunner.global_runner().report_journal
-
   def report(self, obj):
     """Write the object state into the test report."""
     ScenarioTestRunner.global_runner().report(obj)
@@ -413,7 +408,15 @@ class AgentTestCase(BaseTestCase):
 
     return True
 
-  def raiseFinalStatusNotOk(self, status, final_attempt):
+  def raise_final_status_not_ok(self, status, final_attempt):
+    """Raises error indicating that the OperationStatus was a failure.
+
+    Args:
+      status: [OperationStatus] A failed OperationStatus.
+      final_attempt: [OperationContractExecutionAttempt]
+          The most recent invocation attempt.
+    """
+    # pylint: disable=unused-argument
     raise AssertionError('{0}\n{1}'.format(
         status.exception_details, str(status)))
 
@@ -502,6 +505,8 @@ class AgentTestCase(BaseTestCase):
         summary = status.error or ('Operation status OK' if status.finished_ok
                                    else 'Operation status Unknown')
         attempt_info.set_status(status, summary)
+        if test_case.status_collector:
+          test_case.status_collector(status)
 
         if not status.exception_details:
           execution_trace.set_operation_summary('Completed test.')
@@ -550,10 +555,19 @@ class AgentTestCase(BaseTestCase):
     finally:
       self.log_end_test(test_case.title)
       self.report(execution_trace)
-      JournalLogger.end_context(relation=context_relation)
+      try:
+        if test_case.cleanup:
+          if status is None:
+            self.logger.info('Skipping operation cleanup because'
+                             ' operation could not be performed at all.')
+          else:
+            self.logger.info('Invoking injected operation cleanup.')
+            test_case.cleanup(status, verify_results)
+      finally:
+        JournalLogger.end_context(relation=context_relation)
 
     if not final_status_ok:
-      self.raiseFinalStatusNotOk(status, attempt_info)
+      self.raise_final_status_not_ok(status, attempt_info)
 
     if verify_results is not None:
       self.assertVerifyResults(verify_results)
