@@ -8,6 +8,10 @@ where the core framework accomodates for asynchronous calls and even retries
 if appropriate.
 
 
+# Setup
+pip install -r requirements.txt
+
+
 # Example
 A test case might look something like this:
 
