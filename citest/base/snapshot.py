@@ -60,6 +60,7 @@ the following names and concepts:
 """
 
 import json
+import types
 
 
 def _normalize_metadata_value(value):
@@ -354,6 +355,9 @@ class JsonSnapshotHelper(object):
 
     if isinstance(value, BaseException):
       return '{0}: {1}'.format(value.__class__.__name__, value)
+
+    if isinstance(value, types.MethodType):
+      return 'Method "{0}"'.format(value.__name__)
 
     raise TypeError(
         '{0} is not implicitly JsonSnapshotable.'.format(value.__class__))

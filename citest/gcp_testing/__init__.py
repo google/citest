@@ -16,7 +16,13 @@
 """Citest support modules for testing against Google Cloud Platform (GCP)."""
 
 
-from gce_contract import GceContractBuilder
 from gcloud_agent import GCloudAgent
-from gsutil_agent import GsutilAgent
-from gcs_contract import GoogleCloudStorageContractBuilder
+from gce_contract import GceContractBuilder
+from google_cloud_storage_agent import GoogleCloudStorageAgent
+from google_cloud_storage_contract import GoogleCloudStorageContractBuilder
+
+from gcp_api import (
+    build_authenticated_service,
+    GoogleAgentObservationFailureVerifier
+    )
+

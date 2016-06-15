@@ -8,7 +8,9 @@ setup(
   packages = ['citest'],
   license = 'APL2',
   install_requires = [
-    "pyyaml",
+    "google-api-python-client",
+    "oauth2client",
+    "pyyaml"
   ],
   long_description = open('README.md').read()
 )
