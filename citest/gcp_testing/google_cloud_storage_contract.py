@@ -16,15 +16,15 @@
 """Provides a means for specifying and verifying expectations of GCE state."""
 
 # Standard python modules.
-import json
 import logging
-import os
 import traceback
+
+from googleapiclient.errors import HttpError
 
 # Our modules.
 from .. import json_contract as jc
-from ..json_predicate import JsonError
 from ..service_testing import cli_agent
+
 
 class GoogleCloudStorageObserver(jc.ObjectObserver):
   """Observe Google Cloud Storage resources."""
@@ -50,24 +50,18 @@ class GoogleCloudStorageObserver(jc.ObjectObserver):
     return 'GoogleCloudStorageObserver({0})'.format(self.__args)
 
   def collect_observation(self, observation, trace=True):
-    gsutil_response = self.__method(**self.__args)
-    if not gsutil_response.ok():
-      observation.add_error(
-          cli_agent.CliAgentRunError(self.__method.im_self, gsutil_response))
+    try:
+      response = self.__method(**self.__args)
+    except HttpError as e:
+      logging.getLogger(__name__).error('%s\n%s\n----------------\n',
+                                        e, traceback.format_exc())
+      observation.add_error(e)
       return []
 
-    decoder = json.JSONDecoder()
-    try:
-      doc = decoder.decode(gsutil_response.output)
-      if not isinstance(doc, list):
-        doc = [doc]
-      observation.add_all_objects(doc)
-    except ValueError as vex:
-      error = 'Invalid JSON in response: %s' % str(gsutil_response)
-      logging.getLogger(__name__).info('%s\n%s\n----------------\n',
-                                       error, traceback.format_exc())
-      observation.add_error(JsonError(error, vex))
-      return []
+    if isinstance(response, list):
+      observation.add_all_objects(response)
+    else:
+      observation.add_object(response)
 
     return observation.objects
 
@@ -75,15 +69,15 @@ class GoogleCloudStorageObserver(jc.ObjectObserver):
 class GoogleCloudStorageObjectFactory(object):
   """Creates GoogleCloudStorageObserver instances."""
 
-  def __init__(self, gsutil):
-    self.__gsutil = gsutil
+  def __init__(self, gcs_agent):
+    self.__gcs_agent = gcs_agent
 
-  def new_list(self, bucket, path, with_versions=False):
-    """Create an observer to list the bucket contents at a given path.
+  def new_list(self, bucket, path_prefix, with_versions=False):
+    """Create an observer to list bucket contents having a given path prefix.
 
     Args:
       bucket: [string] The name of the bucket to list.
-      path: [string] The path within the bucket.
+      path_prefix: [string] The object name prefix within the bucket.
       with_versions: [boolean] If False then just latest version,
           otherwise return all versions of all files.
 
@@ -91,10 +85,11 @@ class GoogleCloudStorageObjectFactory(object):
       An observer that will retrieve the specified objects.
     """
     return GoogleCloudStorageObserver(
-        self.__gsutil.list,
-        {'bucket':bucket, 'path':path, 'with_versions':with_versions})
+        self.__gcs_agent.list,
+        {'bucket':bucket, 'path_prefix':path_prefix,
+         'with_versions':with_versions})
 
-  def new_retrieve(self, bucket, path):
+  def new_retrieve(self, bucket, path, transform=None):
     """Create an observer to retrieve the contents from a given path.
 
     Args:
@@ -105,45 +100,47 @@ class GoogleCloudStorageObjectFactory(object):
       An observer that will retrieve the specified content.
     """
     return GoogleCloudStorageObserver(
-        self.__gsutil.retrieve, args={'bucket':bucket, 'path':path})
+        self.__gcs_agent.retrieve,
+        args={'bucket':bucket, 'path':path, 'transform': transform})
 
 
 class GoogleCloudStorageClauseBuilder(jc.ContractClauseBuilder):
   """A ContractClause that facilitates observing GCE state."""
 
-  def __init__(self, title, gsutil, retryable_for_secs=0, strict=False):
+  def __init__(self, title, gcs_agent, retryable_for_secs=0, strict=False):
     """Construct new clause.
 
     Args:
       title: The string title for the clause is only for reporting purposes.
-      gsutil: The GsutilAgent to make the observation for the clause to verify.
+      gcs_agent: The GoogleCloudStorageAgent to make the observation for
+          the clause to verify.
       retryable_for_secs: Number of seconds that observations can be retried
-         if their verification initially fails.
+          if their verification initially fails.
     """
     super(GoogleCloudStorageClauseBuilder, self).__init__(
         title=title, retryable_for_secs=retryable_for_secs)
-    self.__factory = GoogleCloudStorageObjectFactory(gsutil)
+    self.__factory = GoogleCloudStorageObjectFactory(gcs_agent)
     self.__strict = strict
 
-  def list(self, bucket, path, with_versions=False):
+  def list(self, bucket, path_prefix, with_versions=False):
     """List the bucket contents at a given path.
 
     Args:
       bucket: [string] The name of the bucket to list.
-      path: [string] The path within the bucket.
+      path_prefix: [string] The object path prefix within the bucket.
       with_versions: [boolean] If False then just latest version,
           otherwise return all versions of all files.
     """
-    self.observer = self.__factory.new_list(bucket, path, with_versions)
+    self.observer = self.__factory.new_list(bucket, path_prefix, with_versions)
     title = ('List ' + ('Versioned ' if with_versions else '')
-             + os.path.join(bucket, path))
+             + '/'.join([bucket, path_prefix]))
     observation_builder = jc.ValueObservationVerifierBuilder(
         title, strict=self.__strict)
     self.verifier_builder.append_verifier_builder(observation_builder)
 
     return observation_builder
 
-  def retrieve(self, bucket, path, no_resource_ok=False):
+  def retrieve(self, bucket, path, no_resource_ok=False, transform=None):
     """Retrieve actual contents of file at path.
 
     Args:
@@ -151,7 +148,7 @@ class GoogleCloudStorageClauseBuilder(jc.ContractClauseBuilder):
       path: [string] The path within the gcs bucket to retreive.
       no_resource_ok: [bool] True if a 404/resource not found is ok.
     """
-    self.observer = self.__factory.new_retrieve(bucket, path)
+    self.observer = self.__factory.new_retrieve(bucket, path, transform)
 
     if no_resource_ok:
       # Construct rule "error_verifier OR <user supplied specification>"
@@ -190,14 +187,14 @@ class GoogleCloudStorageClauseBuilder(jc.ContractClauseBuilder):
 class GoogleCloudStorageContractBuilder(jc.ContractBuilder):
   """Specialized contract that facilitates observing Google Cloud Storage."""
 
-  def __init__(self, gsutil):
+  def __init__(self, gcs_agent):
     """Constructs a new contract.
 
     Args:
-      gsutil: The GsutilAgent to use for communicating with GCS
+      gcs_agent: The GoogleCloudStorageAgent to use for communicating with GCS
     """
     super(GoogleCloudStorageContractBuilder, self).__init__(
         lambda title, retryable_for_secs=0, strict=False:
         GoogleCloudStorageClauseBuilder(
-            title, gsutil=gsutil,
+            title, gcs_agent=gcs_agent,
             retryable_for_secs=retryable_for_secs, strict=strict))
