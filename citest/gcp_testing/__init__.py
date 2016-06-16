@@ -20,4 +20,3 @@ from gce_contract import GceContractBuilder
 from gcloud_agent import GCloudAgent
 from gsutil_agent import GsutilAgent
 from gcs_contract import GoogleCloudStorageContractBuilder
-from google_session import GoogleSession
