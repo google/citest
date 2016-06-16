@@ -9,8 +9,6 @@ setup(
   license = 'APL2',
   install_requires = [
     "pyyaml",
-    "bs4",
-    "requests"
   ],
   long_description = open('README.md').read()
 )
