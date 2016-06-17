@@ -23,6 +23,8 @@ from google_cloud_storage_contract import GoogleCloudStorageContractBuilder
 
 from gcp_api import (
     build_authenticated_service,
-    GoogleAgentObservationFailureVerifier
+    GoogleAgentObservationFailureVerifier,
+    HttpErrorPredicate,
+    HttpErrorPredicateResult,
     )
 

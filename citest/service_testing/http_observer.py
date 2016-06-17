@@ -147,16 +147,37 @@ class HttpContractClauseBuilder(jc.ContractClauseBuilder):
     self.__agent = agent
     self.__strict = strict
 
-  def get_url_path(self, path):
+  def get_url_path(self, path, allow_http_error_status=None):
     """Perform the observation using HTTP GET on a path.
 
     Args:
       path [string]: The path relative to the agent's baseUrl.
+      allow_http_error_status: [int] If not None then we allow this HTTP error
+         status as a valid response without further constraints. For example
+         404 would mean that we permit a 404 error, otherwise we may expect
+         other constraints on the observed path as a normal clause would
+         specify.
     """
     self.observer = HttpObjectObserver(self.__agent, path)
-    observation_builder = jc.ValueObservationVerifierBuilder(
-        'Get ' + path, strict=self.__strict)
-    self.verifier_builder.append_verifier_builder(observation_builder)
+    if allow_http_error_status:
+      error_verifier = HttpObservationFailureVerifier(
+          'Got HTTP {0} Error'.format(allow_http_error_status),
+          allow_http_error_status)
+      disjunction_builder = jc.ObservationVerifierBuilder(
+          'Get url {0} or {1}'.format(path, allow_http_error_status))
+      disjunction_builder.append_verifier(error_verifier)
+
+      observation_builder = jc.ValueObservationVerifierBuilder(
+          'Get url {0}'.format(path))
+      disjunction_builder.append_verifier_builder(
+          observation_builder, new_term=True)
+      self.verifier_builder.append_verifier_builder(
+          disjunction_builder, new_term=True)
+    else:
+      observation_builder = jc.ValueObservationVerifierBuilder(
+          'Get ' + path, strict=self.__strict)
+      self.verifier_builder.append_verifier_builder(observation_builder)
+
     return observation_builder
 
 
