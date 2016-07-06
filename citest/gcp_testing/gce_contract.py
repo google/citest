@@ -122,8 +122,12 @@ class GCloudObjectFactory(object):
       except ValueError:
         pass
 
+    describe_cmd = ['describe']
+    if name:
+      describe_cmd.append(name)
+
     cmd = self.__gcloud.build_gcloud_command_args(
-        type, ['describe', name] + extra_args,
+        type, describe_cmd + extra_args,
         project=self.__gcloud.project, zone=zone)
     return GCloudObjectObserver(self.__gcloud, cmd)
 

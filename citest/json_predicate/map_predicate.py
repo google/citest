@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Maps a predicate over each member of a collectio of value objects."""
+"""Maps a predicate over each member of a collection of value objects."""
 
 
 import collections

@@ -185,7 +185,7 @@ class CliAgent(base_agent.BaseAgent):
       JournalLogger.journal_or_log(log_msg,
                                    _module=self.logger.name, _alwayslog=trace)
       stdout = scrubber(stdout)
-                       
+
     # Strip leading/trailing eolns that program may add to errors and output.
     stderr = stderr.strip()
     stdout = stdout.strip()
