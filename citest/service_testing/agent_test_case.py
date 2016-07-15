@@ -33,13 +33,14 @@ but can be changed with --log_filename and --log_dir.
 # Standard python modules.
 from multiprocessing.pool import ThreadPool
 import time
-import traceback
+import traceback as traceback_module
 
 # Our modules.
 from ..base import args_util
 from ..base import BaseTestCase
 from ..base import JournalLogger
 from ..base import JsonSnapshotable
+from ..base import TestRunner
 from .scenario_test_runner import ScenarioTestRunner
 
 
@@ -57,6 +58,7 @@ class OperationContractExecutionAttempt(JsonSnapshotable):
   a snapshot.
   """
 
+  # pylint: disable=too-many-instance-attributes
   @property
   def completed(self):
     """The time the attempt completed, or None if it is still running."""
@@ -151,6 +153,7 @@ class OperationContractExecutionTrace(JsonSnapshotable):
   """Represents the execution and evaluation of an OperationContract test case.
   """
 
+  # pylint: disable=too-many-instance-attributes
   def __init__(self, test_case):
     """Constructor."""
     self.__test_case = test_case
@@ -259,11 +262,6 @@ class AgentTestScenario(object):
     """
     return self.__bindings
 
-  @staticmethod
-  def make_scenario(scenario_class, bindings):
-    """Factory method for instantiating this class with bindings."""
-    return scenario_class(bindings)
-
   @property
   def test_id(self):
     """Returns a unique id string for identifying this test execution instance.
@@ -322,7 +320,7 @@ class AgentTestCase(BaseTestCase):
 
   def report(self, obj):
     """Write the object state into the test report."""
-    ScenarioTestRunner.global_runner().report(obj)
+    TestRunner.global_runner().report(obj)
 
   @property
   def scenario(self):
@@ -332,7 +330,18 @@ class AgentTestCase(BaseTestCase):
   @property
   def testing_agent(self):
     """The BaseAgent for the current test scenario's testable system."""
-    return self.scenario.agent
+    return (self.__testing_agent
+            if self.__testing_agent is not None
+            else self.scenario.agent)
+
+  @testing_agent.setter
+  def testing_agent(self, agent):
+    self.__testing_agent = agent
+
+  def __init__(self, methodName='runTest'):
+    """Constructor."""
+    super(AgentTestCase, self).__init__(methodName=methodName)
+    self.__testing_agent = None
 
   def assertContract(self, contract):
     """Verify the specified contract holds, raise and exception if not."""
@@ -535,22 +544,23 @@ class AgentTestCase(BaseTestCase):
       context_relation = 'ERROR'
       execution_trace.set_exception(ex)
       if attempt_info is None:
-        execution_trace.set_exception(ex, traceback.format_exc())
+        execution_trace.set_exception(ex, traceback_module.format_exc())
       elif not attempt_info.completed:
         # Exception happened during the attempt as opposed to during our
         # verification afterwards.
-        attempt_info.set_exception(ex, traceback.format_exc())
+        attempt_info.set_exception(ex, traceback_module.format_exc())
 
       try:
         self.logger.error('Test failed with exception: %s', ex)
         self.logger.error('Last status was:\n%s', str(status))
-        self.logger.debug('Exception was at:\n%s', traceback.format_exc())
+        self.logger.debug('Exception was at:\n%s',
+                          traceback_module.format_exc())
       except BaseException as unexpected:
         self.logger.error(
             'Unexpected error %s\nHandling original exception %s',
             unexpected, ex)
         self.logger.debug('Unexpected exception was at:\n%s',
-                          traceback.format_exc())
+                          traceback_module.format_exc())
       raise
     finally:
       self.log_end_test(test_case.title)
@@ -571,4 +581,3 @@ class AgentTestCase(BaseTestCase):
 
     if verify_results is not None:
       self.assertVerifyResults(verify_results)
-
