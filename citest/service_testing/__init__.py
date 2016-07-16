@@ -76,4 +76,3 @@ from agent_test_case import (
     AgentTestCase,
     AgentTestScenario)
 
-from scenario_test_runner import ScenarioTestRunner
