@@ -99,6 +99,7 @@ class TestRunner(object):
   """
 
   __global_runner = None
+  __singleton_scenario_instances = {}
 
   @property
   def options(self):
@@ -142,8 +143,28 @@ class TestRunner(object):
       raise BaseException('TestRunner not yet instantiated')
     return TestRunner.__global_runner
 
+  @staticmethod
+  def get_shared_data(klass):
+    """Get the shared instance of a given class.
+
+    This assumes klass has a constructor that takes a bindings dictionary
+    with configuration default overrides. It will create the instance
+    on the first call, and return the shared instance thereafter.
+
+    This is intended to allow different tests to share common data where
+    each test is run by an independent TestCase instance but share the
+    underlying data object returned by this method.
+    """
+    if not klass in TestRunner.__singleton_scenario_instances:
+      bindings = TestRunner.global_runner().bindings
+      instance = klass(bindings)
+      TestRunner.__singleton_scenario_instances[klass] = instance
+      return instance
+    return TestRunner.__singleton_scenario_instances[klass]
+
   @classmethod
   def main(cls, runner=None,
+           parser_inits=None,
            default_binding_overrides=None,
            test_case_list=None):
     """Implements a main method for running tests.
@@ -153,21 +174,35 @@ class TestRunner(object):
 
     Args:
       runner: If provided, then delegate to this runner to run the tests.
+      parser_inits: A list of functions (argumentParser, defaults=defaultDict)
+          for initializing the argumentParser with custom arguments using
+          optional default values for each argument.
       default_binding_overrides: Provides a means to inject default values
           to use for bindings.
       test_case_list: If provided, a list of test cases to run.
     """
     runner = cls(runner=runner)
     runner.set_default_binding_overrides(default_binding_overrides)
+    runner.set_parser_inits(parser_inits)
+
+    # pylint: disable=protected-access
     return runner._do_main(test_case_list=test_case_list)
 
   def set_default_binding_overrides(self, overrides):
     """Provides a means for setting the default_binding_overrides attribute.
 
-    This is intentionall not an assignment because it is not intended to be
+    This is intentionally not an assignment because it is not intended to be
     called, but is here in case it is no possible to use the "main()" method.
     """
     self.__default_binding_overrides = overrides or {}
+
+  def set_parser_inits(self, inits):
+    """Provides a means for setting the parser_inits attribute.
+
+    This is intentionally not an assignment because it is not intended to be
+    called, but is here in case it is no possible to use the "main()" method.
+    """
+    self.__parser_inits = inits or []
 
   def _do_main(self, default_binding_overrides=None, test_case_list=None):
     """Helper function used by main() once a TestRunner instance exists."""
@@ -216,6 +251,7 @@ class TestRunner(object):
     self.__options = None
     self.__bindings = {}
     self.__default_binding_overrides = {}
+    self.__parser_inits = []
     self.__journal = None
 
   def run(self, obj_or_suite):
@@ -337,6 +373,8 @@ class TestRunner(object):
     # Customize commandline arguments
     parser = argparse.ArgumentParser()
     self.initArgumentParser(parser, defaults=self.default_binding_overrides)
+    for init in self.__parser_inits:
+      init(parser, defaults=self.default_binding_overrides)
     self.__options = parser.parse_args()
     self.__bindings.update(args_util.parser_args_to_bindings(self.__options))
 
