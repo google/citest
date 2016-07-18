@@ -41,7 +41,6 @@ from ..base import BaseTestCase
 from ..base import JournalLogger
 from ..base import JsonSnapshotable
 from ..base import TestRunner
-from .scenario_test_runner import ScenarioTestRunner
 
 
 _DEFAULT_TEST_ID = time.strftime('%H%M%S')
@@ -325,7 +324,8 @@ class AgentTestCase(BaseTestCase):
   @property
   def scenario(self):
     """Return the current test scenario instance."""
-    return ScenarioTestRunner.global_runner().scenario
+    raise NotImplementedError(
+        '{0} does not specialize scenario()'.format(self.__class__))
 
   @property
   def testing_agent(self):
@@ -363,8 +363,8 @@ class AgentTestCase(BaseTestCase):
             summary=verify_results.enumerated_summary_message,
             detail=str(verify_results)))
 
-  def verifyFinalStatusOk(self, status, timeout_ok=False,
-                          final_attempt=None, execution_trace=None):
+  def verify_final_status_ok(self, status, timeout_ok=False,
+                             final_attempt=None, execution_trace=None):
     """Verify that an agent request completed successfully.
 
     This is used to verify the messaging with the agent completed as expected
@@ -534,7 +534,7 @@ class AgentTestCase(BaseTestCase):
       # anything. We'll assert below outside this try/catch handler.
       verify_results = test_case.contract.verify()
       execution_trace.set_verify_results(verify_results)
-      final_status_ok = self.verifyFinalStatusOk(
+      final_status_ok = self.verify_final_status_ok(
           status, timeout_ok=timeout_ok,
           final_attempt=attempt_info,
           execution_trace=execution_trace)
