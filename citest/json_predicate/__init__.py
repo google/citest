@@ -57,6 +57,9 @@ from .path_predicate import (
     DONT_ENUMERATE_TERMINAL,
     PathPredicate)
 
+from .path_transforms import (
+    FieldDifference)
+
 from .binary_predicate import (
     BinaryPredicate,
     ContainsPredicate,

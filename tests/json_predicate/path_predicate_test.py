@@ -86,6 +86,19 @@ class JsonPathPredicateTest(unittest.TestCase):
     self.assertEqual([PathValue('', source)], values.path_values)
     self.assertEqual([], values.path_failures)
 
+  def test_collect_from_dict_transform(self):
+    source = {'a': 7, 'b': 4}
+    pred = PathPredicate('', transform=lambda x: x['a'] - x['b'])
+    expect = 7 - 4
+    values = pred(source)
+
+    builder = PathPredicateResultBuilder(source, pred)
+    builder.add_result_candidate(
+        PathValue('', source),
+        PathValueResult(source=source, target_path='',
+                        path_value=PathValue('', expect), valid=True))
+    self.assertEqual(builder.build(True), values)
+
   def test_collect_from_list_identity(self):
     letters = ['A', 'B', 'C']
     pred = PathPredicate('')

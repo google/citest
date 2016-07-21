@@ -242,28 +242,41 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
     """A delegate ValuePredicate used to find acceptable values."""
     return self.__pred
 
+  @property
+  def transform(self):
+    """An optional function transforming the source value into a final value."""
+    return self.__transform
+
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     snapshot.edge_builder.make_control(entity, 'Path', self.__path)
     snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.__pred)
+    if self.__transform:
+      snapshot.edge_builder.make_mechanism(
+          entity, 'Transform', self.__transform)
 
-  def __init__(self, path, pred=None):
+  def __init__(self, path, pred=None, transform=None):
     """Construct finder instance.
     Args:
       path: The path to the field that we would like to find.
       pred: The ValuePredicate to apply to the field we find.
          This can be None indicating to just find the value at the field.
+      transform: An optional transformation function to apply to the path value.
     """
     self.__pred = pred
     self.__path = path or ''
+    self.__transform = transform
 
   def __eq__(self, finder):
     return (self.__class__ == finder.__class__
             and self.__path == finder.path
-            and self.__pred == finder.pred)
+            and self.__pred == finder.pred
+            and self.__transform == finder.transform)
 
   def __str__(self):
-    return '"{path}" {pred}'.format(path=self.__path, pred=self.__pred)
+    xform = '{0} '.format(self.__transform) if self.__transform else ''
+    return '"{path}" {xform}{pred}'.format(
+        path=self.__path, xform=xform, pred=self.__pred)
 
   def __call__(self, source):
     """Attempt to lookup the field in a JSON object.
@@ -329,11 +342,17 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
 
       if self.__pred is None:
         for trial in candidates:
+          if self.__transform:
+            xformed = self.__transform(trial.path_value.value)
+            transformed_path_value = PathValue(trial.path_value.path, xformed)
+          else:
+            transformed_path_value = trial.path_value
+
           builder.add_result_candidate(
               trial.path_value,
               PathValueResult(source=builder.source,
-                              target_path=trial.path_value.path,
-                              path_value=trial.path_value,
+                              target_path=transformed_path_value.path,
+                              path_value=transformed_path_value,
                               valid=True,
                               pred=None))
 
