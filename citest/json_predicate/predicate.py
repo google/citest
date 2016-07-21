@@ -65,9 +65,9 @@ class PredicateResult(JsonSnapshotable):
   @property
   def summary(self):
     """An abstract summary of the result for reporting purposes."""
-    return '{name} ({valid})'.format(
-        name=self.__class__.__name__,
-        valid='GOOD' if self.__valid else 'BAD')
+    valid_str = 'GOOD' if self.__valid else 'BAD'
+    message = self.comment if self.comment else self.__class__.__name__
+    return '{message} ({valid})'.format(message=message, valid=valid_str)
 
   @property
   def comment(self):
@@ -191,7 +191,7 @@ class CompositePredicateResult(PredicateResult, CloneableWithContext):
   def export_to_json_snapshot(self, snapshot, entity):
     builder = snapshot.edge_builder
     summary = builder.object_count_to_summary(
-        self.__results, subject='composite results')
+        self.__results, subject='composite result')
     builder.make_mechanism(entity, 'Predicate', self.__pred)
     builder.make(entity, '#', len(self.__results))
 
@@ -215,7 +215,7 @@ class CompositePredicateResult(PredicateResult, CloneableWithContext):
     self.__results = results
 
   def __eq__(self, result):
-    return (self.__class__ == result.__class__
+    return (super(CompositePredicateResult, self).__eq__(result)
             and self.__pred == result.pred
             and self.__results == result.results)
 
