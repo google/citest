@@ -180,7 +180,10 @@ class ObservationVerifyResult(predicate.PredicateResult):
       return ''
 
     return '  * {0}'.format(
-        '\n  * '.join([str(elem) for elem in results]))
+        '\n  * '.join([elem.summary
+                       if hasattr(elem, 'summary') and elem.summary
+                       else str(elem)
+                       for elem in results]))
 
   def __init__(self, valid, observation,
                good_results, bad_results, failed_constraints,

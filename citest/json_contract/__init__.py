@@ -48,5 +48,7 @@ from observation_failure import (
 from contract import (
     Contract,
     ContractBuilder,
+    ContractVerifyResult,
     ContractClause,
-    ContractClauseBuilder)
+    ContractClauseBuilder,
+    ContractClauseVerifyResult)

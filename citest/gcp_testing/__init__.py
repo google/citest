@@ -20,6 +20,10 @@ from gcloud_agent import GCloudAgent
 from gce_contract import GceContractBuilder
 from google_cloud_storage_agent import GoogleCloudStorageAgent
 from google_cloud_storage_contract import GoogleCloudStorageContractBuilder
+from quota_predicate import (
+    QuotaPredicate,
+    make_quota_contract,
+    verify_quota)
 
 from gcp_api import (
     build_authenticated_service,

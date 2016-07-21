@@ -325,8 +325,8 @@ class ContractVerifyResult(predicate.PredicateResult):
 
     Args:
       valid: [bool] Whether the contract validated or not.
-      clause_results: {PredicateResult] The aggregated results of validating
-         eacho of the clauses is usually a CompositePredicateResult.
+      clause_results: [PredicateResult] The aggregated results of validating
+         each of the clauses is usually a CompositePredicateResult.
     """
     super(ContractVerifyResult, self).__init__(valid)
     self.__clause_results = clause_results

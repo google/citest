@@ -359,7 +359,12 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
       else:
         for trial in candidates:
           path_value = trial.path_value
-          pred_result = self.__pred(path_value.value)
+          if self.__transform:
+            xformed = self.__transform(path_value.value)
+          else:
+            xformed = path_value.value
+
+          pred_result = self.__pred(xformed)
           if isinstance(pred_result, CloneableWithContext):
             base_path = path_value.path
             pred_result = pred_result.clone_in_context(

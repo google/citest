@@ -451,7 +451,7 @@ STR_NE = StandardBinaryPredicateFactory(
 DICT_EQ = StandardBinaryPredicateFactory(
     '==', lambda a, b: a == b, operand_type=dict)
 DICT_NE = StandardBinaryPredicateFactory(
-    '==', lambda a, b: a != b, operand_type=dict)
+    '!=', lambda a, b: a != b, operand_type=dict)
 DICT_SUBSET = lambda operand: DictSubsetPredicate(operand)
 
 LIST_EQ = StandardBinaryPredicateFactory(
