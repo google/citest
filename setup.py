@@ -9,6 +9,7 @@ setup(
   license = 'APL2',
   install_requires = [
     "google-api-python-client",
+    "mock",
     "oauth2client",
     "pyyaml"
   ],

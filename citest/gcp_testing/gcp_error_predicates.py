@@ -12,47 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Helper functions for creating authenticated GCP service clients."""
+"""Helper functions for verifying errors against Google API Clients."""
 
 
-import logging
 import re
 
-import httplib2
-
-from apiclient import discovery
 from googleapiclient.errors import HttpError
-from oauth2client.service_account import ServiceAccountCredentials
 
 from .. import json_contract as jc
 from .. import json_predicate as jp
-
-
-PLATFORM_READ_ONLY_SCOPE = (
-    'https://www.googleapis.com/auth/cloud-platform.read-only'
-    )
-PLATFORM_FULL_SCOPE = 'https://www.googleapis.com/auth/cloud-platform'
-
-
-def build_authenticated_service(name, version, scopes, credentials_path):
-  """Create an authenticated service client instance.
-
-  Args:
-    name: [String] The name of the service.
-    version: [String] The service API version.
-    scopes: [String] The credentials OAuth2 scopes.
-    credentials_path: [String] Path to JSON file containing GCP secrets.
-  Returns:
-    A Resource object with methods for interacting with the service.
-  """
-  logger = logging.getLogger(__name__)
-  logger.info('Authenticating %s %s', name, version)
-  credentials = ServiceAccountCredentials.from_json_keyfile_name(
-      credentials_path, scopes=scopes)
-
-  logger.info('Constructing %s service...', name)
-  http = credentials.authorize(httplib2.Http())
-  return discovery.build(name, version, http=http)
 
 
 class HttpErrorPredicateResult(jp.PredicateResult):
@@ -74,7 +42,7 @@ class HttpErrorPredicateResult(jp.PredicateResult):
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotable interface."""
     builder = snapshot.edge_builder
-    builder.make_output('Error Value', self.__value)
+    builder.make_output(entity, 'Error Value', self.__value)
     super(HttpErrorPredicateResult, self).export_to_json_snapshot(snapshot,
                                                                   entity)
 

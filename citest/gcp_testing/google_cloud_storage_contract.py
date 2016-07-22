@@ -15,96 +15,17 @@
 
 """Provides a means for specifying and verifying expectations of GCE state."""
 
-# Standard python modules.
-import logging
-import traceback
-
-from googleapiclient.errors import HttpError
 
 # Our modules.
 from .. import json_contract as jc
-from ..service_testing import cli_agent
+from .gcp_contract import (
+    GcpObjectObserver,
+    GcpClauseBuilder,
+    GcpContractBuilder)
+from .gcp_error_predicates import GoogleAgentObservationFailureVerifier
 
 
-class GoogleCloudStorageObserver(jc.ObjectObserver):
-  """Observe Google Cloud Storage resources."""
-
-  def __init__(self, method, args):
-    """Construct observer.
-
-    Args:
-      method: The method to invoke.
-      args: Command-line argument list to execute.
-    """
-    super(GoogleCloudStorageObserver, self).__init__()
-    self.__method = method
-    self.__args = args
-
-  def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
-    snapshot.edge_builder.make_control(entity, 'Args', self.__args)
-    super(GoogleCloudStorageObserver, self).export_to_json_snapshot(
-        snapshot, entity)
-
-  def __str__(self):
-    return 'GoogleCloudStorageObserver({0})'.format(self.__args)
-
-  def collect_observation(self, observation, trace=True):
-    try:
-      response = self.__method(**self.__args)
-    except HttpError as e:
-      logging.getLogger(__name__).error('%s\n%s\n----------------\n',
-                                        e, traceback.format_exc())
-      observation.add_error(e)
-      return []
-
-    if isinstance(response, list):
-      observation.add_all_objects(response)
-    else:
-      observation.add_object(response)
-
-    return observation.objects
-
-
-class GoogleCloudStorageObjectFactory(object):
-  """Creates GoogleCloudStorageObserver instances."""
-
-  def __init__(self, gcs_agent):
-    self.__gcs_agent = gcs_agent
-
-  def new_list(self, bucket, path_prefix, with_versions=False):
-    """Create an observer to list bucket contents having a given path prefix.
-
-    Args:
-      bucket: [string] The name of the bucket to list.
-      path_prefix: [string] The object name prefix within the bucket.
-      with_versions: [boolean] If False then just latest version,
-          otherwise return all versions of all files.
-
-    Returns:
-      An observer that will retrieve the specified objects.
-    """
-    return GoogleCloudStorageObserver(
-        self.__gcs_agent.list,
-        {'bucket':bucket, 'path_prefix':path_prefix,
-         'with_versions':with_versions})
-
-  def new_retrieve(self, bucket, path, transform=None):
-    """Create an observer to retrieve the contents from a given path.
-
-    Args:
-      bucket: [string] The name of the bucket to list.
-      path: [string] The path within the bucket.
-
-    Returns:
-      An observer that will retrieve the specified content.
-    """
-    return GoogleCloudStorageObserver(
-        self.__gcs_agent.retrieve,
-        args={'bucket':bucket, 'path':path, 'transform': transform})
-
-
-class GoogleCloudStorageClauseBuilder(jc.ContractClauseBuilder):
+class GcpStorageClauseBuilder(GcpClauseBuilder):
   """A ContractClause that facilitates observing GCE state."""
 
   def __init__(self, title, gcs_agent, retryable_for_secs=0, strict=False):
@@ -112,17 +33,17 @@ class GoogleCloudStorageClauseBuilder(jc.ContractClauseBuilder):
 
     Args:
       title: The string title for the clause is only for reporting purposes.
-      gcs_agent: The GoogleCloudStorageAgent to make the observation for
-          the clause to verify.
+      gcs_agent: The GcpStorageAgent to make the observation for the clause
+          to verify.
       retryable_for_secs: Number of seconds that observations can be retried
           if their verification initially fails.
     """
-    super(GoogleCloudStorageClauseBuilder, self).__init__(
-        title=title, retryable_for_secs=retryable_for_secs)
-    self.__factory = GoogleCloudStorageObjectFactory(gcs_agent)
+    super(GcpStorageClauseBuilder, self).__init__(
+        title=title, gcp_agent=gcs_agent,
+        retryable_for_secs=retryable_for_secs)
     self.__strict = strict
 
-  def list(self, bucket, path_prefix, with_versions=False):
+  def list_bucket(self, bucket, path_prefix, with_versions=False, **kwargs):
     """List the bucket contents at a given path.
 
     Args:
@@ -131,16 +52,20 @@ class GoogleCloudStorageClauseBuilder(jc.ContractClauseBuilder):
       with_versions: [boolean] If False then just latest version,
           otherwise return all versions of all files.
     """
-    self.observer = self.__factory.new_list(bucket, path_prefix, with_versions)
-    title = ('List ' + ('Versioned ' if with_versions else '')
-             + '/'.join([bucket, path_prefix]))
+    self.observer = GcpObjectObserver(
+        self.gcp_agent.list_bucket,
+        bucket=bucket, path_prefix=path_prefix, with_versions=with_versions,
+        **kwargs)
+    title = ('List {0} (with_versions={1}, {2})'
+             .format('/'.join([bucket, path_prefix]), with_versions, kwargs))
     observation_builder = jc.ValueObservationVerifierBuilder(
         title, strict=self.__strict)
     self.verifier_builder.append_verifier_builder(observation_builder)
 
     return observation_builder
 
-  def retrieve(self, bucket, path, no_resource_ok=False, transform=None):
+  def retrieve_content(self, bucket, path, no_resource_ok=False,
+                       transform=None):
     """Retrieve actual contents of file at path.
 
     Args:
@@ -148,7 +73,9 @@ class GoogleCloudStorageClauseBuilder(jc.ContractClauseBuilder):
       path: [string] The path within the gcs bucket to retreive.
       no_resource_ok: [bool] True if a 404/resource not found is ok.
     """
-    self.observer = self.__factory.new_retrieve(bucket, path, transform)
+    self.observer = GcpObjectObserver(self.gcp_agent.retrieve_content,
+                                      bucket=bucket, path=path,
+                                      transform=transform)
 
     if no_resource_ok:
       # Construct rule "error_verifier OR <user supplied specification>"
@@ -157,9 +84,8 @@ class GoogleCloudStorageClauseBuilder(jc.ContractClauseBuilder):
       # We'll append the outer disjunction (disjunction builder) to our
       # verifiers and return the user clause (retrieve_builder) within
       # that disjunction so that the caller can finish specifying it.
-      error_verifier = cli_agent.CliAgentObservationFailureVerifier(
-          title='404 Permitted',
-          error_regex='.*(?:does not exist)|(?:matched no objects).*')
+      error_verifier = GoogleAgentObservationFailureVerifier(
+          title='404 Permitted', http_code=404)
       disjunction_builder = jc.ObservationVerifierBuilder(
           'Retrieve {0} bucket={1} path={2} or 404'.format(type, bucket, path))
       disjunction_builder.append_verifier(error_verifier)
@@ -184,17 +110,21 @@ class GoogleCloudStorageClauseBuilder(jc.ContractClauseBuilder):
     return retrieve_builder
 
 
-class GoogleCloudStorageContractBuilder(jc.ContractBuilder):
+class GcpStorageContractBuilder(GcpContractBuilder):
   """Specialized contract that facilitates observing Google Cloud Storage."""
 
-  def __init__(self, gcs_agent):
+  def __init__(self, gcs_agent, clause_factory=None):
     """Constructs a new contract.
 
     Args:
-      gcs_agent: The GoogleCloudStorageAgent to use for communicating with GCS
+      gcs_agent: The GcpStorageAgent to use for communicating with GCS
+      clause_factory: [factory creating a ContractClauseBuilder]
     """
-    super(GoogleCloudStorageContractBuilder, self).__init__(
-        lambda title, retryable_for_secs=0, strict=False:
-        GoogleCloudStorageClauseBuilder(
-            title, gcs_agent=gcs_agent,
-            retryable_for_secs=retryable_for_secs, strict=strict))
+    if clause_factory is None:
+      clause_factory = (
+          lambda title, retryable_for_secs=0, strict=False:
+              GcpStorageClauseBuilder(title, gcs_agent=gcs_agent,
+                                      retryable_for_secs=retryable_for_secs,
+                                      strict=strict))
+
+    super(GcpStorageContractBuilder, self).__init__(gcs_agent, clause_factory)
