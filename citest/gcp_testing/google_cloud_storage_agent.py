@@ -17,8 +17,7 @@
 import io
 
 from apiclient.http import MediaIoBaseDownload
-from .gcp_api import build_authenticated_service
-from ..service_testing import base_agent
+from .gcp_agent import GcpAgent
 
 
 READ_ONLY_SCOPE = 'https://www.googleapis.com/auth/devstorage.read_only'
@@ -26,50 +25,30 @@ READ_WRITE_SCOPE = 'https://www.googleapis.com/auth/devstorage.read_write'
 FULL_SCOPE = 'https://www.googleapis.com/auth/devstorage.full_control'
 
 
-class GoogleCloudStorageAgent(base_agent.BaseAgent):
+class GcpStorageAgent(GcpAgent):
   """Agent that interacts with Google Cloud Storage service."""
 
-  def __init__(self, json_credential_path, scope):
-    """Constructs agent.
+  @classmethod
+  def default_discovery_name_and_version(cls):
+    return 'storage', 'v1'
 
-    Args:
-      json_credential_path: [string] path to JSON credentials for
-          service account.
-      scope: [string] The OAuth scope specifier for the agent when requesting
-          credentials
-    """
-    super(GoogleCloudStorageAgent, self).__init__()
-    self.__service = build_authenticated_service(
-        'storage', 'v1', scope, json_credential_path)
-
-  def inspect(self, bucket, path=None, generation=None):
+  def inspect_bucket(self, bucket, path=None, **kwargs):
     """Get metadata for a bucket or object in the bucket.
 
     Args:
       bucket: [string] The bucket to inspect.
       path: [string] The name of the object in the bucket.
          If None then inspect the bucket itself.
-      generation: [long] The Google Cloud Storage generation, or None for
-         the current generation.
 
     Returns:
       Metadata for specified resource.
     """
     if not path:
-      self.logger.info('Inspecting bucket=%s', bucket)
-      request = self.__service.buckets().get(bucket=bucket)
+      return self.get_resource('buckets', bucket=bucket, **kwargs)
     else:
-      maybe_gen = ' generation={0}'.format(generation) if generation else ''
-      self.logger.info('Inspecting bucket=%s, path=%s%s',
-                       bucket, path, maybe_gen)
-      request = self.__service.objects().get(bucket=bucket, object=path,
-                                             generation=generation)
-    response = request.execute()
-    self.logger.info('%s', response)
-    return response
+      return self.get_resource('objects', bucket=bucket, object=path, **kwargs)
 
-  def list(self, bucket, path_prefix, with_versions, maxResults=1000,
-           fields=None):
+  def list_bucket(self, bucket, path_prefix, with_versions, **kwargs):
     """List the contents of the path in the specified bucket.
 
     Args:
@@ -79,28 +58,16 @@ class GoogleCloudStorageAgent(base_agent.BaseAgent):
       with_versions: [boolean] Whether or not to list all the versions.
          If path is a directory, this will list all the versions of all the
          files. Otherwise just all the versions of the given file.
-      maxResults: [int] Max results to get. This will be passed through to
-         Google Cloud Storage (which defaults to 1000).
-      fields: [string] A comma-delimited selector indicating the subset of
-         fields to include as partial responses, or None for everything.
 
     Returns:
       A list of resources.
     """
-    self.logger.info('Listing bucket=%s prefix=%s versions=%s',
-                     bucket, path_prefix, with_versions)
-    request = self.__service.objects().list(
-        bucket=bucket, prefix=path_prefix, versions=with_versions,
-        maxResults=maxResults, fields=fields)
+    return super(GcpStorageAgent, self).list_resource(
+        'objects', bucket=bucket, prefix=path_prefix, versions=with_versions,
+        **kwargs)
 
-    all_objects = []
-    while request:
-      response = request.execute()
-      all_objects.extend(response.get('items', []))
-      request = self.__service.objects().list_next(request, response)
-    return all_objects
-
-  def retrieve(self, bucket, path, generation=None, transform=None):
+  def retrieve_content(
+      self, bucket, path, transform=None, generation=None, **kwargs):
     """Retrieves the content at the specified path.
 
     Args:
@@ -117,10 +84,11 @@ class GoogleCloudStorageAgent(base_agent.BaseAgent):
                      path, bucket, generation)
 
     # Get Payload Data
-    request = self.__service.objects().get_media(
+    request = self.service.objects().get_media(
         bucket=bucket,
         object=path,
-        generation=generation)
+        generation=generation,
+        **kwargs)
 
     data = io.BytesIO()
     downloader = MediaIoBaseDownload(data, request, chunksize=1024*1024)

@@ -16,7 +16,7 @@
 
 import logging
 
-from . import GceContractBuilder
+from .gce_contract import GceContractBuilder
 
 from ..base import (
     JournalLogger,
@@ -26,7 +26,6 @@ from ..json_predicate import (
     CompositePredicateResultBuilder,
     DONT_ENUMERATE_TERMINAL,
     NUM_GE,
-    NUM_LE,
     EQUIVALENT,
     FieldDifference,
     PathPredicate,
