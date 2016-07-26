@@ -20,13 +20,22 @@ from apiclient.http import MediaIoBaseDownload
 from .gcp_agent import GcpAgent
 
 
-READ_ONLY_SCOPE = 'https://www.googleapis.com/auth/devstorage.read_only'
-READ_WRITE_SCOPE = 'https://www.googleapis.com/auth/devstorage.read_write'
-FULL_SCOPE = 'https://www.googleapis.com/auth/devstorage.full_control'
+STORAGE_READ_ONLY_SCOPE = 'https://www.googleapis.com/auth/devstorage.read_only'
+STORAGE_READ_WRITE_SCOPE = 'https://www.googleapis.com/auth/devstorage.read_write'
+STORAGE_FULL_SCOPE = 'https://www.googleapis.com/auth/devstorage.full_control'
 
 
 class GcpStorageAgent(GcpAgent):
   """Agent that interacts with Google Cloud Storage service."""
+
+  @classmethod
+  def scope_aliases(cls):
+    """Implements GcpAgent interface."""
+    return {
+        'read-only': STORAGE_READ_ONLY_SCOPE,
+        'read-write': STORAGE_READ_WRITE_SCOPE,
+        'full': STORAGE_FULL_SCOPE
+    }
 
   @classmethod
   def default_discovery_name_and_version(cls):
