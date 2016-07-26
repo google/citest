@@ -210,7 +210,7 @@ class GCloudClauseBuilder(jc.ContractClauseBuilder):
     return inspect_builder
 
 
-class GceContractBuilder(jc.ContractBuilder):
+class GCloudContractBuilder(jc.ContractBuilder):
   """Specialized contract that facilitates observing GCE."""
 
   def __init__(self, gcloud):
@@ -219,7 +219,7 @@ class GceContractBuilder(jc.ContractBuilder):
     Args:
       gcloud: The GCloudAgent to use for communicating with GCE.
     """
-    super(GceContractBuilder, self).__init__(
+    super(GCloudContractBuilder, self).__init__(
         lambda title, retryable_for_secs=0, strict=False:
         GCloudClauseBuilder(
             title, gcloud=gcloud,

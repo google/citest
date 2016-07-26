@@ -18,7 +18,8 @@
 
 from gcloud_agent import GCloudAgent
 
-from gce_contract import GceContractBuilder # DEPRECATED
+from gcloud_contract import GceContractBuilder # DEPRECATED
+
 from gcp_storage_agent import (
     GcpStorageAgent,
     STORAGE_FULL_SCOPE,
@@ -26,6 +27,7 @@ from gcp_storage_agent import (
     STORAGE_READ_WRITE_SCOPE)
     
 from gcp_storage_contract import GcpStorageContractBuilder
+
 from quota_predicate import (
     QuotaPredicate,
     make_quota_contract,
