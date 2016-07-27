@@ -254,6 +254,10 @@ class ProcessToRenderInfo(object):
       num_lines = text.count('\n')
       if num_lines > self.max_uncollapsable_json_lines:
         summary = 'Json details'
+      elif len(text) > 2 * self.max_message_summary_length:
+        # If json is more than 2x normal log message, then truncate it.
+        summary = '<ff>{0}...</ff>'.format(
+            escaped_text[0:self.max_message_summary_length - 2*len('expand')])
       else:
         summary = None
     except (ValueError, UnicodeEncodeError):
@@ -261,6 +265,7 @@ class ProcessToRenderInfo(object):
         escaped_text = '"{0}"'.format(cgi.escape(value, quote=True))
       else:
         escaped_text = cgi.escape(repr(value))
+
     return HtmlInfo(escaped_text, summary)
 
   def process_edge_value(self, edge, value):
@@ -416,7 +421,10 @@ class ProcessToRenderInfo(object):
         target_id = None
         value_info = None
         value = edge.get('_value', None)
-        if isinstance(value, list):
+        if value and edge.get('format', None) in ['json', 'pre']:
+          formatter.push_level()
+          formatter.pop_level()
+        elif isinstance(value, list):
           formatter.push_level()
           value_info = self.process_list(value, snapshot, edge)
           formatter.pop_level()
@@ -431,9 +439,9 @@ class ProcessToRenderInfo(object):
           target_id = edge.get('_to', None)
 
         if target_id is not None:
-            formatter.push_level()
-            value_info = self.process_entity_id(target_id, snapshot)
-            formatter.pop_level()
+          formatter.push_level()
+          value_info = self.process_entity_id(target_id, snapshot)
+          formatter.pop_level()
         elif value_info is None:
           value_info = HtmlInfo('<i>empty<i>')
 
@@ -650,13 +658,16 @@ class HtmlRenderer(JournalProcessor):
     document_manager = self.__document_manager
     processor = ProcessToRenderInfo(document_manager, self.__entity_manager)
 
-    html = ""
-    if text is not None:
-      html = cgi.escape(text) if text is not None else '<i>Empty Message</i>'
-
+    html_info = HtmlInfo()
     html_format = message.get('format', None)
-    summary = None
-    if html_format == 'pre':
+    if html_format == 'json':
+      html_info = processor.process_json_html_if_possible(text)
+    else:
+      summary = None
+      if text is not None:
+        html = cgi.escape(text) if text is not None else '<i>Empty Message</i>'
+
+      if html_format == 'pre':
         # pylint: disable=bad-indentation
         # The ff tag here is a custom tag for "Fixed Format"
         # It is like 'pre' but inline rather than block to be more compact.
@@ -668,7 +679,10 @@ class HtmlRenderer(JournalProcessor):
               html[0:processor.max_message_summary_length - 2*len('expand')])
         html = '<ff>{0}</ff>'.format(html)
 
-    self.render_log_tr(message.get('_timestamp'), summary, html)
+      html_info = HtmlInfo(html=html, summary_html=summary)
+
+    self.render_log_tr(message.get('_timestamp'),
+                       html_info.summary_html, html_info.detail_html)
 
   def _do_render(self, html):
     """Helper function that renders html fragment into the HTML document."""

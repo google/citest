@@ -225,20 +225,25 @@ class GcpAgent(BaseAgent):
       raise KeyError('Unknown {api} Resource type={type}'
                      .format(api=self.__api_title, type=resource_type))
 
-    JournalLogger.journal_or_log(
-        'Requesting {type} {method} {vars}'.format(
-            type=resource_type, method=method, vars=variables),
-        _module=self.logger.name,
-        _context='request')
+    JournalLogger.begin_context('Invoke "{method}" {type}'
+                                .format(method=method, type=resource_type))
+    try:
+      JournalLogger.journal_or_log(
+          'Requesting {type} {method} {vars}'.format(
+              type=resource_type, method=method, vars=variables),
+          _module=self.logger.name,
+          _context='request')
 
-    request = getattr(resource_obj(), method)(**variables)
-    response = request.execute()
-    JournalLogger.journal_or_log(
-        json.JSONEncoder(
-            encoding='utf-8', separators=(',', ': ')).encode(response),
-        _module=self.logger.name, _context='response',
-        format='json')
-
+      request = getattr(resource_obj(), method)(**variables)
+      response = request.execute()
+      JournalLogger.journal_or_log(
+          json.JSONEncoder(
+              encoding='utf-8', separators=(',', ': ')).encode(response),
+          _module=self.logger.name, _context='response',
+          format='json')
+    finally:
+      JournalLogger.end_context()
+      
     return response
 
   def list_resource(self, resource_type, method_variant='list',
@@ -266,26 +271,31 @@ class GcpAgent(BaseAgent):
         method_variant, resource_type, **kwargs)
     request = getattr(method_container, method_variant)(**variables)
 
-    all_objects = []
-    more = ''
-    while request:
-      JournalLogger.journal_or_log('Listing {0}{1}'.format(more, resource_type),
-                                   _module=self.logger.name,
-                                   _context='request')
-      response = request.execute()
-      JournalLogger.journal_or_log(
-          json.JSONEncoder(
-              encoding='utf-8', separators=(',', ': ')).encode(response),
-          _module=self.logger.name, _context='response',
-          format='json')
+    JournalLogger.begin_context('List {0}'.format(resource_type))
+    try:
+      all_objects = []
+      more = ''
+      while request:
+        JournalLogger.journal_or_log('Listing {0}{1}'.format(more, resource_type),
+                                     _module=self.logger.name,
+                                     _context='request')
+        response = request.execute()
+        JournalLogger.journal_or_log(
+            json.JSONEncoder(
+                encoding='utf-8', separators=(',', ': ')).encode(response),
+            _module=self.logger.name, _context='response',
+            format='json')
 
-      response_items = response.get('items', [])
-      all_items = (item_list_transform(response_items)
-                   if item_list_transform
-                   else response_items)
-      all_objects.extend(all_items)
-      request = method_container.list_next(request, response)
-      more = ' more '
+        response_items = response.get('items', [])
+        all_items = (item_list_transform(response_items)
+                     if item_list_transform
+                     else response_items)
+        all_objects.extend(all_items)
+        request = method_container.list_next(request, response)
+        more = ' more '
 
-    self.logger.info('Found total=%d %s', len(all_objects), resource_type)
+      self.logger.info('Found total=%d %s', len(all_objects), resource_type)
+    finally:
+      JournalLogger.end_context()
+
     return all_objects

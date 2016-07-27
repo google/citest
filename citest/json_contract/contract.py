@@ -78,9 +78,10 @@ class ContractClauseVerifyResult(predicate.PredicateResult):
              and self.__verify_results == result.verify_results)
 
   def __str__(self):
-    return 'Clause {0}:\n  {1}'.format(
-        self.__clause.title,
-        self.__verify_results.enumerated_summary_message)
+    str_ok = 'OK' if self else 'FAILED'
+    return 'Clause {title} {ok}'.format(
+        title=self.__clause.title,
+        ok=str_ok)
 
   def __repr__(self):
     return '{0!r} clause={1!r} verify_results={2!r}'.format(
@@ -312,8 +313,12 @@ class ContractVerifyResult(predicate.PredicateResult):
   @property
   def enumerated_summary_message(self):
     """Human readable summary of the verification results."""
-    return '\n'.join(
-        [c.enumerated_summary_message for c in self.__clause_results])
+    str_ok = 'OK' if self else 'FAILED'
+    clauses = '\n'.join(['  * Clause {title} is {ok}'
+                         .format(title=c.clause.title,
+                                 ok='OK' if c.valid else 'BAD')
+                         for c in self.__clause_results])
+    return 'Contract {ok}\n{clauses}'.format(ok=str_ok, clauses=clauses)
 
   @property
   def clause_results(self):
@@ -336,11 +341,7 @@ class ContractVerifyResult(predicate.PredicateResult):
             and self.__clause_results == result.clause_results)
 
   def __str__(self):
-    str_ok = 'OK' if self else 'FAILED'
-    return 'Contract {0}\n{1}'.format(
-        str_ok,
-        '\n'.join(
-            [c.enumerated_summary_message for c in self.__clause_results]))
+    return self.enumerated_summary_message
 
   def __repr__(self):
     return '{0} clause_results={1!r}'.format(

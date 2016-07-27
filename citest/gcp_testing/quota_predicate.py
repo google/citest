@@ -16,7 +16,7 @@
 
 import logging
 
-from .gce_contract import GceContractBuilder
+from .gcp_contract import GcpContractBuilder
 
 from ..base import (
     JournalLogger,
@@ -149,11 +149,11 @@ class QuotaPredicate(ValuePredicate):
             and self.__minimum_quota == pred.minimum_quota)
 
 
-def make_quota_contract(gcloud_agent, project_quota, regions):
+def make_quota_contract(gcp_agent, project_quota, regions):
   """Create a json_contract.Contract that checks GCP quota.
 
   Args:
-    gcloud_agent: [GCloudAgent] Observation agent on the desired project.
+    gcp_agent: [GcpAgent] Observation agent on the desired project.
     project_quota: [dict] Minimum desired values keyed by quota metric for
        the observed project.
     regions: [array of (name, dict) tuple]: A list of regions and their
@@ -163,24 +163,25 @@ def make_quota_contract(gcloud_agent, project_quota, regions):
     json_contract.Contract that will test the project quota.
   """
   quotas_field = 'quotas' + DONT_ENUMERATE_TERMINAL
-  builder = GceContractBuilder(gcloud_agent)
+  builder = GcpContractBuilder(gcp_agent)
   (builder.new_clause_builder('Has Project Quota')
-   .inspect_resource('project-info', None)
+   .inspect_resource('projects',
+                     resource_id=gcp_agent.default_variables['project'])
    .add_constraint(PathPredicate(quotas_field, QuotaPredicate(project_quota))))
   for region, quota in regions:
     (builder.new_clause_builder('Has Regional Quota for {0}'.format(region))
-     .inspect_resource('regions', None, extra_args=[region])
+     .inspect_resource('regions', region)
      .add_constraint(PathPredicate(quotas_field, QuotaPredicate(quota))))
 
   return builder.build()
 
 
-def verify_quota(title, gcloud_agent, project_quota, regions):
+def verify_quota(title, gcp_agent, project_quota, regions):
   """Verify that the observed GCP project has sufficient quota.
 
   Args:
     title: [string] What the quota is for, for logging purposes only.
-    gcloud_agent: [GCloudAgent] Observation agent on the desired project.
+    gcp_agent: [GcpAgent] Observation agent on the desired project.
     project_quota: [dict] Minimum desired values keyed by quota metric for
        the observed project.
     regions: [array of (name, dict) tuple]: A list of regions and their
@@ -189,7 +190,7 @@ def verify_quota(title, gcloud_agent, project_quota, regions):
   Returns:
     json_contract.ContractVerifyResult against the quota check.
   """
-  contract = make_quota_contract(gcloud_agent, project_quota, regions)
+  contract = make_quota_contract(gcp_agent, project_quota, regions)
   verify_results = None
   context_relation = 'ERROR'
 

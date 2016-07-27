@@ -16,14 +16,9 @@
 
 import json
 import unittest
-
-from fake_gcloud_agent import FakeGCloudAgent
+from mock import Mock
 
 from citest.base import JsonSnapshotHelper
-from citest.service_testing import CliResponseType
-from citest.gcp_testing import (
-    QuotaPredicate,
-    make_quota_contract)
 
 from citest.json_predicate import (
     CompositePredicateResultBuilder,
@@ -32,6 +27,25 @@ from citest.json_predicate import (
     PathPredicate,
     PathValue,
     PathValueResult)
+
+from citest.gcp_testing import (
+    GcpAgent,
+    QuotaPredicate,
+    make_quota_contract)
+
+
+REQ = {'required': True}
+MOCK_DISCOVERY = {
+  'title': 'MockCompute',
+  'name': 'mock-compute',
+  'resources' : {
+      'projects': {
+          'methods': {'get': {'parameters': {'project': REQ},
+                              'parameterOrder': ['project']}}},
+      'regions': {
+          'methods': {'get': {'parameters': {'project': REQ, 'region': REQ},
+                              'parameterOrder': ['project', 'region']}}}
+      }}
 
 
 def make_quota_result(valid, source, require, metric):
@@ -86,14 +100,30 @@ class GcpQuotaPredicateTest(unittest.TestCase):
     result = pred(source)
     self.assertFalse(result)
 
+  def make_mock_service(self, project_quota, region_quota):
+    mock_project_method = Mock()
+    mock_project_method.execute = Mock(return_value={'quotas': project_quota})
+    mock_projects = Mock()
+    mock_projects.get = Mock(return_value=mock_project_method)
+
+    mock_region_method = Mock()
+    mock_region_method.execute = Mock(return_value={'quotas': region_quota})
+    mock_regions = Mock()
+    mock_regions.get = Mock(return_value=mock_region_method)
+
+    mock_service = Mock()
+    mock_service.projects = Mock(return_value=mock_projects)
+    mock_service.regions = Mock(return_value=mock_regions)
+    return mock_service
+
   def test_contract_ok(self):
     source = [{'metric': 'A', 'limit': 100.0, 'usage': 0.0},
               {'metric': 'B', 'limit': 100.0, 'usage': 90.0},
               {'metric': 'C', 'limit': 100.0, 'usage': 100.0}]
-    response = CliResponseType(
-        0, json.JSONEncoder().encode({'quotas': source}), None)
-    observer = FakeGCloudAgent('PROJECT', 'ZONE', default_response=response)
 
+    mock_service = self.make_mock_service(source, source)
+    observer = GcpAgent(service=mock_service, discovery_doc=MOCK_DISCOVERY,
+                        default_variables={'project': 'PROJECT'})
     project_quota = {'A': 95.0, 'B': 10.0}
     regions = [('region1', project_quota)]
 
@@ -106,9 +136,9 @@ class GcpQuotaPredicateTest(unittest.TestCase):
     source = [{'metric': 'A', 'limit': 100.0, 'usage': 0.0},
               {'metric': 'B', 'limit': 100.0, 'usage': 90.0},
               {'metric': 'C', 'limit': 100.0, 'usage': 100.0}]
-    response = CliResponseType(
-        0, json.JSONEncoder().encode({'quotas': source}), None)
-    observer = FakeGCloudAgent('PROJECT', 'ZONE', default_response=response)
+    mock_service = self.make_mock_service(source, source)
+    observer = GcpAgent(service=mock_service, discovery_doc=MOCK_DISCOVERY,
+                        default_variables={'project': 'PROJECT'})
 
     project_quota = {'A': 95.0, 'B': 10.0}
     regions = [('region1', project_quota), ('region2', {'C': 1.0})]
