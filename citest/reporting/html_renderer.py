@@ -423,6 +423,7 @@ class ProcessToRenderInfo(object):
         value = edge.get('_value', None)
         if value and edge.get('format', None) in ['json', 'pre']:
           formatter.push_level()
+          value_info = self.process_edge_value(edge, value)
           formatter.pop_level()
         elif isinstance(value, list):
           formatter.push_level()

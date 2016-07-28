@@ -202,7 +202,6 @@ class ValueObservationVerifier(ov.ObservationVerifier):
         constraint_result = (
             path_predicate.PathPredicate('', constraint)(object_list))
       if not constraint_result:
-        final_builder.add_failed_constraint(constraint)
         logging.getLogger(__name__).debug('FAILED constraint')
         valid = False
 
