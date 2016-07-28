@@ -18,6 +18,7 @@
 
 import unittest
 
+from citest.base import JsonSnapshotable
 from citest.base import JsonSnapshotHelper
 import citest.json_contract as jc
 import citest.json_predicate as jp
@@ -36,6 +37,9 @@ _MULTI_ARRAY = [_LETTER_DICT, _NUMBER_DICT, _LETTER_DICT, _NUMBER_DICT]
 
 class JsonValueObservationVerifierTest(unittest.TestCase):
   def assertEqual(self, expect, have, msg=''):
+    if not isinstance(expect, JsonSnapshotable):
+      super(JsonValueObservationVerifierTest, self).assertEqual(expect, have, msg)
+      return
     try:
       JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
     except AssertionError:
@@ -88,6 +92,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
 
       # All of these tests succeed.
       verify_results = builder.build(True)
+      self.assertEqual([], verify_results.failed_constraints)
 
       try:
         self._try_verify(verifier, observation, True, verify_results)
@@ -122,6 +127,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
 
       # None of these tests succeed.
       verify_results = builder.build(False)
+      self.assertEqual(pred_list, verify_results.failed_constraints)
 
       try:
         self._try_verify(verifier, observation, False, verify_results)
