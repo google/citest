@@ -98,17 +98,20 @@ class PredicateResult(JsonSnapshotableEntity):
     # as a list element.
     entity.add_metadata('_default_relation', verified_relation)
 
-  def __init__(self, valid, comment="", cause=None):
+  def __init__(self, valid, **kwargs):
     """Constructor
 
     Args:
       valid: [bool] Whether the result is considered successful or not.
+
       comment: [string] Optional informal commentary for reporting purposes.
       cause: [Error or PredicateResult] Optional indirect cause [for errors].
     """
     self.__valid = valid
-    self.__comment = comment
-    self.__cause = cause
+    self.__comment = kwargs.pop('comment', "") or ""
+    self.__cause = kwargs.pop('cause', None)
+    if kwargs:
+      raise TypeError('Unexpected arguments {0}'.format(kwargs.keys()))
 
   def __repr__(self):
     return str(self)
@@ -208,9 +211,8 @@ class CompositePredicateResult(PredicateResult, CloneableWithContext):
   def __str__(self):
     return '{0}'.format(self.__results)
 
-  def __init__(self, valid, pred, results, comment=None, cause=None):
-    super(CompositePredicateResult, self).__init__(
-        valid, comment=comment, cause=cause)
+  def __init__(self, valid, pred, results, **kwargs):
+    super(CompositePredicateResult, self).__init__(valid, **kwargs)
     self.__pred = pred
     self.__results = results
 
@@ -272,4 +274,5 @@ class CompositePredicateResultBuilder(object):
       valid: [bool]  Whether the result is considered successful or not.
     """
     return CompositePredicateResult(
-        valid, self.__pred, self.__results, self.comment, self.cause)
+        valid, self.__pred, self.__results,
+        comment=self.comment, cause=self.cause)

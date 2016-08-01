@@ -31,8 +31,8 @@ class HttpErrorPredicateResult(jp.PredicateResult):
     """The value the predicate was applied to."""
     return self.__value
 
-  def __init__(self, valid, value, comment=None):
-    super(HttpErrorPredicateResult, self).__init__(valid, comment=comment)
+  def __init__(self, valid, value, **kwargs):
+    super(HttpErrorPredicateResult, self).__init__(valid, **kwargs)
     self.__value = value
 
   def __eq__(self, result):
@@ -59,18 +59,21 @@ class HttpErrorPredicate(jp.ValuePredicate):
     """Describes the expected response content or None."""
     return self.__content_regex
 
-  def __init__(self, http_code=None, content_regex=None):
+  def __init__(self, http_code=None, content_regex=None, **kwargs):
     """Constructor.
 
     Args:
       http_code: [int] The expected http_code or None.
       content_regex: [string] A regex for the expected content None.
+
+      See base class (ValuePredicate) for additional kwargs.
     """
     if http_code is None and content_regex is None:
       raise ValueError('Needs at least an http_code or content_regex.')
 
     self.__http_code = http_code
     self.__content_regex = content_regex
+    super(HttpErrorPredicate, self).__init__(**kwargs)
 
   def __call__(self, value):
     if not isinstance(value, HttpError):

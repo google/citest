@@ -68,7 +68,7 @@ class CardinalityResult(predicate.PredicateResult, HasPathPredicateResult):
     """The source value (collection) that we are mapping the predicateover."""
     return self.__collect_values_result.source
 
-  def __init__(self, cardinality_pred, path_pred_result, valid=False):
+  def __init__(self, cardinality_pred, path_pred_result, **kwargs):
     """Constructor.
 
     Args:
@@ -76,9 +76,11 @@ class CardinalityResult(predicate.PredicateResult, HasPathPredicateResult):
           generate this result.
       pred_result: [CollectValuesResult]. The result of applying the
           underlying PathPredicate bound to the |cardinality_pred|.
-      valid: [bool] Whether or not the cardinality predicate was satisfied.
+
+      See the base class (PredicateResult) for additional kwargs.
     """
-    super(CardinalityResult, self).__init__(valid)
+    valid = kwargs.pop('valid', False)
+    super(CardinalityResult, self).__init__(valid=valid, **kwargs)
     self.__cardinality_pred = cardinality_pred
     self.__collect_values_result = path_pred_result
 
@@ -114,7 +116,7 @@ class CardinalityResult(predicate.PredicateResult, HasPathPredicateResult):
 class ConfirmedCardinalityResult(CardinalityResult):
   """Denotes a CardinalityPredicate that was satisfied."""
 
-  def __init__(self, cardinality_pred, path_pred_result, valid=False):
+  def __init__(self, cardinality_pred, path_pred_result, **kwargs):
     """Constructor.
 
     Args:
@@ -122,11 +124,14 @@ class ConfirmedCardinalityResult(CardinalityResult):
           generate this result.
       pred_result: [CollectValuesResult]. The result of applying the
           underlying PathPredicate bound to the |cardinality_pred|.
-      valid: [bool] Whether or not the cardinality predicate was satisfied.
+
+      See the base class (CardinalityResult) for additional kwargs.
     """
+    valid = kwargs.pop('valid', True)
     super(ConfirmedCardinalityResult, self).__init__(
+        valid=valid,
         cardinality_pred=cardinality_pred, path_pred_result=path_pred_result,
-        valid=valid)
+        **kwargs)
 
   def __str__(self):
     if not self.count:
@@ -156,8 +161,8 @@ class UnexpectedValueCardinalityResult(FailedCardinalityResult):
 class MissingValueCardinalityResult(FailedCardinalityResult):
   """Denotes a failure because a value did not exist where one was expected."""
 
-  def __init__(self, source, cardinality_pred, path_pred_result,
-               valid=True):
+  def __init__(self, source, cardinality_pred, path_pred_result, **kwargs):
+    valid = kwargs.pop('valid', False)
     super(MissingValueCardinalityResult, self).__init__(
         valid=valid, cardinality_pred=cardinality_pred,
         path_pred_result=path_pred_result)
@@ -220,7 +225,7 @@ class CardinalityPredicate(predicate.ValuePredicate,
     snapshot.edge_builder.make_control(entity, 'Max',
                                        'Any' if self.__max < 0 else self.__max)
 
-  def __init__(self, pred, min=0, max=None):
+  def __init__(self, pred, min=0, max=None, **kwargs):
     """Constructor.
 
     Args:
@@ -228,6 +233,7 @@ class CardinalityPredicate(predicate.ValuePredicate,
       min: The minimum number of path values we expect to find when applied.
       max: The maximum number of path values we expect to find when applied.
     """
+    super(CardinalityPredicate, self).__init__(**kwargs)
     if not isinstance(pred, predicate.ValuePredicate):
       raise TypeError(
           'Got {0}, expected jc.ValuePredicate'.format(pred.__class__))

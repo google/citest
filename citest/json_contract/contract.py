@@ -59,7 +59,7 @@ class ContractClauseVerifyResult(predicate.PredicateResult):
         ok='GOOD' if self else 'BAD',
         verify=verify_summary)
 
-  def __init__(self, valid, clause, verify_results):
+  def __init__(self, valid, clause, verify_results, **kwargs):
     """Constructor.
 
     Args:
@@ -67,8 +67,10 @@ class ContractClauseVerifyResult(predicate.PredicateResult):
       clause: [ContractClause] The clause being validated
       verify_results: [ObservationVerifyResult] The result of verifying
          the clause (against an observation).
+
+      See base class (PredicateResult) for additional kwargs.
     """
-    super(ContractClauseVerifyResult, self).__init__(valid)
+    super(ContractClauseVerifyResult, self).__init__(valid, **kwargs)
     self.__clause = clause
     self.__verify_results = verify_results
 
@@ -132,8 +134,7 @@ class ContractClause(predicate.ValuePredicate):
     snapshot.edge_builder.make_mechanism(entity, 'Observer', self.__observer)
     snapshot.edge_builder.make_mechanism(entity, 'Verifier', self.__verifier)
 
-  def __init__(self, title, observer=None, verifier=None,
-               retryable_for_secs=0):
+  def __init__(self, title, observer=None, verifier=None, **kwargs):
     """Construct clause.
 
     Args:
@@ -143,11 +144,12 @@ class ContractClause(predicate.ValuePredicate):
       retryable_for_secs: If > 0, then how long to continue retrying
         when a verification attempt fails.
     """
+    self.logger = logging.getLogger(__name__)
+    self.__retryable_for_secs = kwargs.pop('retryable_for_secs', 0)
     self.__title = title
     self.__observer = observer
     self.__verifier = verifier
-    self.__retryable_for_secs = retryable_for_secs
-    self.logger = logging.getLogger(__name__)
+    super(ContractClause, self).__init__(**kwargs)
 
   def verify(self):
     """Attempt to make an observation and verify it.
@@ -278,8 +280,7 @@ class ContractClauseBuilder(object):
       raise ValueError('Observer was already set on clause')
     self.__observer = observer
 
-  def __init__(self, title, observer=None, verifier_builder=None,
-               retryable_for_secs=0, strict=False):
+  def __init__(self, title, observer=None, verifier_builder=None, **kwargs):
     """Constructor.
 
     Args:
@@ -289,14 +290,16 @@ class ContractClauseBuilder(object):
       retryable_for_secs: [int] How long the clause can continue colllecting
          observation data until it can be confirmed to hold.
     """
+    strict = kwargs.pop('strict', False)
+    if strict:
+      logger = logging.getLogger(__name__)
+      logger.warning('Strict flag is DEPRECATED in %s', title)
+
+    self.__retryable_for_secs = kwargs.pop('retryable_for_secs', 0)
     self.__title = title
     self.__observer = observer
     self.__verifier_builder = (verifier_builder
                                or ov.ObservationVerifierBuilder(title))
-    self.__retryable_for_secs = retryable_for_secs
-    if strict:
-      logger = logging.getLogger(__name__)
-      logger.warning('Strict flag is DEPRECATED in %s', title)
 
   def build(self):
     """Build the clause from the builder specification."""
@@ -325,15 +328,17 @@ class ContractVerifyResult(predicate.PredicateResult):
     """The aggregated results of verifying each of the contract's clauses."""
     return self.__clause_results
 
-  def __init__(self, valid, clause_results):
+  def __init__(self, valid, clause_results, **kwargs):
     """Constructor.
 
     Args:
       valid: [bool] Whether the contract validated or not.
       clause_results: [PredicateResult] The aggregated results of validating
          each of the clauses is usually a CompositePredicateResult.
+
+      See base class (PredicateResult) for additional kwargs.
     """
-    super(ContractVerifyResult, self).__init__(valid)
+    super(ContractVerifyResult, self).__init__(valid, **kwargs)
     self.__clause_results = clause_results
 
   def __eq__(self, result):

@@ -52,7 +52,8 @@ class BinaryPredicate(predicate.ValuePredicate):
     return '{0}({1} {2!r})'.format(
         self.__class__.__name__, self.__name, self.__operand)
 
-  def __init__(self, name, operand):
+  def __init__(self, name, operand, **kwargs):
+    super(BinaryPredicate, self).__init__(**kwargs)
     self.__name = name
     self.__operand = operand
 
@@ -76,7 +77,7 @@ class StandardBinaryPredicateFactory(object):
     """The name of the predicate for reporting purposes."""
     return self.__name
 
-  def __init__(self, name, comparison_op, operand_type=None):
+  def __init__(self, name, comparison_op, **kwargs):
     """Constructor.
 
     Args:
@@ -84,19 +85,19 @@ class StandardBinaryPredicateFactory(object):
       comparison_op: Callable that takes (value, operand) and returns bool.
       operand_type: Class expected for operands, or None to not enforce.
     """
-    self.__type = operand_type
     self.__name = name
     self.__comparison_op = comparison_op
+    self.__kwargs = dict(kwargs)
 
   def __call__(self, operand):
     return StandardBinaryPredicate(
-        self.__name, self.__comparison_op, operand, operand_type=self.__type)
+        self.__name, self.__comparison_op, operand, **self.__kwargs)
 
 
 class StandardBinaryPredicate(BinaryPredicate):
   """A BinaryPredicate using a bool predicate bound at construction."""
 
-  def __init__(self, name, comparison_op, operand, operand_type=None):
+  def __init__(self, name, comparison_op, operand, **kwargs):
     """Constructor.
 
     Args:
@@ -104,13 +105,17 @@ class StandardBinaryPredicate(BinaryPredicate):
       comparison_op: Implements bool predicate
       operand: Value to bind to predicate.
       operand_type: Class to enforce for operands, or None to not enforce.
+
+      See base class (BinaryPredicate) for additional kwargs.
     """
+    operand_type = kwargs.pop('operand_type', None)
     if operand_type and not isinstance(operand, operand_type):
       raise TypeError(
           '{0} is not {1}: {1!r}', operand.__class__, operand_type, operand)
-    super(StandardBinaryPredicate, self).__init__(name, operand)
+
     self.__type = operand_type
     self.__comparison_op = comparison_op
+    super(StandardBinaryPredicate, self).__init__(name, operand, **kwargs)
 
   def __str__(self):
     if self.__type is None:
@@ -133,11 +138,11 @@ class StandardBinaryPredicate(BinaryPredicate):
 class DictSubsetPredicate(BinaryPredicate):
   """Implements binary predicate comparison predicates against dict values."""
 
-  def __init__(self, operand):
+  def __init__(self, operand, **kwargs):
     if not isinstance(operand, dict):
       raise TypeError(
           '{0} is not a dict: {1!r}'.format(operand.__class__, operand))
-    super(DictSubsetPredicate, self).__init__('has-subset', operand)
+    super(DictSubsetPredicate, self).__init__('has-subset', operand, **kwargs)
 
   def __call__(self, value):
     if not isinstance(value, dict):
@@ -220,10 +225,10 @@ class _BaseListMembershipPredicate(BinaryPredicate):
     """Strict membership means all members must satisfy the predicate."""
     return self.__strict
 
-  def __init__(self, name, operand, strict=False):
+  def __init__(self, name, operand, **kwargs):
     """Constructor."""
-    self.__strict = strict
-    super(_BaseListMembershipPredicate, self).__init__(name, operand)
+    self.__strict = kwargs.pop('strict', False)
+    super(_BaseListMembershipPredicate, self).__init__(name, operand, **kwargs)
 
   def _verify_elem(self, elem, the_list):
     """Verify if |elem| is in |the_list|
@@ -262,12 +267,11 @@ class _BaseListMembershipPredicate(BinaryPredicate):
 class ListSubsetPredicate(_BaseListMembershipPredicate):
   """Implements binary predicate comparison predicate for list subsets."""
 
-  def __init__(self, operand, strict=False):
+  def __init__(self, operand, **kwargs):
     if not isinstance(operand, list):
       raise TypeError(
           '{0} is not a list: {1!r}'.format(operand.__class__, operand))
-    super(ListSubsetPredicate, self).__init__(
-        'has-subset', operand, strict=strict)
+    super(ListSubsetPredicate, self).__init__('has-subset', operand, **kwargs)
 
   def __call__(self, value):
     """Determine if |operand| is a subset of |value|."""
@@ -288,9 +292,9 @@ class ListSubsetPredicate(_BaseListMembershipPredicate):
 class ListMembershipPredicate(_BaseListMembershipPredicate):
   """Implements binary predicate comparison predicate for list membership."""
 
-  def __init__(self, operand, strict=False):
+  def __init__(self, operand, **kwargs):
     super(ListMembershipPredicate, self).__init__(
-        'has-elem', operand, strict=strict)
+        'has-elem', operand, **kwargs)
 
   def __call__(self, value):
     """Determine if |operand| is a member of |value|."""
@@ -313,8 +317,8 @@ class ContainsPredicate(BinaryPredicate):
         numeric     | '=='
   """
 
-  def __init__(self, operand):
-    super(ContainsPredicate, self).__init__('Contains', operand)
+  def __init__(self, operand, **kwargs):
+    super(ContainsPredicate, self).__init__('Contains', operand, **kwargs)
 
   def __call__(self, value):
     if isinstance(value, basestring):
@@ -351,13 +355,15 @@ class EquivalentPredicate(BinaryPredicate):
   This is similar to the type-specific '==' predicate, but is polymorphic.
   """
 
-  def __init__(self, operand):
+  def __init__(self, operand, **kwargs):
     """Constructor.
 
     Args:
       operand: [any] The value to compare the argument against.
+
+      See base class (BinaryPredicate) for additional kwargs.
     """
-    super(EquivalentPredicate, self).__init__('Equivalent', operand)
+    super(EquivalentPredicate, self).__init__('Equivalent', operand, **kwargs)
 
   def __check_operand_and_call(self, operand_type, value, pred_factory):
     """Ensure the operand is of the expected type and apply the predicate.
@@ -394,13 +400,15 @@ class DifferentPredicate(BinaryPredicate):
   This is similar to the type-specific '!=' predicate, but is polymorphic.
   """
 
-  def __init__(self, operand):
+  def __init__(self, operand, **kwargs):
     """Constructor.
 
     Args:
       operand: [any] The value to compare the argument against.
+
+      See base class (BinaryPredicate) for additional kwargs.
     """
-    super(DifferentPredicate, self).__init__('Different', operand)
+    super(DifferentPredicate, self).__init__('Different', operand, **kwargs)
 
   def __check_operand_and_call(self, operand_type, value, pred_factory):
     """Ensure the operand is of the expected type and apply the predicate.
@@ -460,6 +468,7 @@ LIST_NE = StandardBinaryPredicateFactory(
     '!=', lambda a, b: a != b, operand_type=list)
 
 def lists_equivalent(a, b):
+  """Determine if two lists are equivalent without regard to order."""
   if len(a) != len(b):
     return False
   sorted_a = sorted(a)

@@ -86,17 +86,20 @@ class QuotaPredicate(ValuePredicate):
     """The expected quota"""
     return self.__minimum_quota
 
-  def __init__(self, minimum_quota):
+  def __init__(self, minimum_quota, **kwargs):
     """Constructor.
 
     Args:
       minimum_quota [dict of number]: Dictionary of resource metric names
          and quota they require. The predicate will check that the available
          resource quota can accomodate the additional number in this dict.
+
+      See base class (ValuePredicate) for additional kwargs.
     """
     self.__minimum_quota = dict(minimum_quota)
     self.__logger = logging.getLogger(__name__)
     self.__diff = FieldDifference('limit', 'usage')
+    super(QuotaPredicate, self).__init__(**kwargs)
 
   def __repr__(self):
     return 'minimum_metrics: {0!r}'.format(self.__minimum_quota)
