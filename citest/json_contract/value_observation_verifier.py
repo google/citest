@@ -54,7 +54,7 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
         strict=self.__strict)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Strict', self.__strict)
     if len(self.__constraints) == 1:
       # Optimize model for single-element list
@@ -127,7 +127,7 @@ class ValueObservationVerifier(ov.ObservationVerifier):
     return self.__strict
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Strict', self.__strict)
     snapshot.edge_builder.make_control(
         entity, 'Constraints', self.__constraints)

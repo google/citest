@@ -20,10 +20,29 @@
 
 import unittest
 
-from citest.base import (JsonSnapshot, JsonSnapshotable, JsonSnapshotHelper)
+from citest.base import (
+    JsonSnapshot,
+    JsonSnapshotable,
+    JsonSnapshotableEntity,
+    JsonSnapshotHelper)
 
 
-class TestLinkedList(JsonSnapshotable):
+class TestWrappedValue(JsonSnapshotable):
+  @property
+  def value(self):
+    return self.__value
+
+  def __init__(self, value):
+    self.__value = value
+
+  def __eq__(self, other):
+    return self.__class__ == other.__class__ and self.__value == other.value
+
+  def to_snapshot_value(self, snapshot):
+    return self.__value
+
+
+class TestLinkedList(JsonSnapshotableEntity):
   def __init__(self, name, next_elem=None):
     self.__name = name
     self.next = next_elem
@@ -31,8 +50,12 @@ class TestLinkedList(JsonSnapshotable):
   def export_to_json_snapshot(self, snapshot, entity):
     entity.add_metadata('name', self.__name)
     if self.next:
-      next_target = snapshot.make_entity_for_data(self.next)
+      next_target = snapshot.make_entity_for_object(self.next)
       snapshot.edge_builder.make(entity, 'Next', next_target)
+
+
+class TestSpecializedLinkedList(TestLinkedList):
+  pass
 
 
 class SnapshotTest(unittest.TestCase):
@@ -68,12 +91,68 @@ class SnapshotTest(unittest.TestCase):
           AssertionError,
           JsonSnapshotHelper.AssertExpectedValue, spec[0], spec[1])
 
+  def test_to_json_snapshot_value(self):
+    """Test conversion of values."""
+    snapshot = JsonSnapshot()
+
+    # Primitive types dont affect snapshot.
+    self.assertEquals(2, JsonSnapshotHelper.ToJsonSnapshotValue(2, snapshot))
+    self.assertEquals(
+        2.0, JsonSnapshotHelper.ToJsonSnapshotValue(2.0, snapshot))
+    self.assertEquals(
+        '2', JsonSnapshotHelper.ToJsonSnapshotValue('2', snapshot))
+    self.assertEquals(
+        [1, 2, 3], JsonSnapshotHelper.ToJsonSnapshotValue([1, 2, 3], snapshot))
+    d = {'a': 'A', 'b': 2, 'c': [1, 2, 3]}
+    self.assertEquals(
+        d, JsonSnapshotHelper.ToJsonSnapshotValue(d, snapshot))
+    self.assertEquals({'_type': 'JsonSnapshot'}, snapshot.to_json_object())
+
+    # Wrapped values dont affect snapshot
+    self.assertEquals(
+        d,
+        JsonSnapshotHelper.ToJsonSnapshotValue(TestWrappedValue(d), snapshot))
+    self.assertEquals({'_type': 'JsonSnapshot'}, snapshot.to_json_object())
+
+    # types dont affect snapshot
+    self.assertEquals(
+        'type dict',
+        JsonSnapshotHelper.ToJsonSnapshotValue(dict, snapshot))
+    self.assertEquals({'_type': 'JsonSnapshot'}, snapshot.to_json_object())
+
+    # methods dont affect snapshot
+    self.assertEquals(
+        'Method "test_to_json_snapshot_value"',
+        JsonSnapshotHelper.ToJsonSnapshotValue(
+            self.test_to_json_snapshot_value, snapshot))
+    self.assertEquals({'_type': 'JsonSnapshot'}, snapshot.to_json_object())
+
+    # exceptions dont affect snapshot
+    self.assertEquals(
+      'KeyError: \'Hello, World\'',
+        JsonSnapshotHelper.ToJsonSnapshotValue(KeyError('Hello, World'),
+                                               snapshot))
+    self.assertEquals({'_type': 'JsonSnapshot'}, snapshot.to_json_object())
+
+    # JsonSnapshotableEntity definition written into snapshot
+    ll = TestLinkedList('X')
+    ref = JsonSnapshotHelper.ToJsonSnapshotValue(ll, snapshot)
+    self.assertEquals({'_type': 'EntityReference', '_id': 1}, ref)
+    expect = {'_type': 'JsonSnapshot',
+              '_subject_id': 1,
+              '_entities': {1: {'_id': 1,
+                                'class': 'type TestLinkedList',
+                                'name': 'X'}}
+              }
+    self.assertEquals(expect, snapshot.to_json_object())
+    self.assertEquals(1, snapshot.find_entity_for_object(ll).id)
+
   def test_snapshot_make_entity(self):
-    """Test snapshotting JsonSnapshotable objects into entities."""
+    """Test snapshotting JsonSnapshotableEntity objects into entities."""
     elem = TestLinkedList('Hello')
     snapshot = JsonSnapshot()
-    entity = snapshot.make_entity_for_data(elem)
-    found = snapshot.find_entity_for_data(elem)
+    entity = snapshot.make_entity_for_object(elem)
+    found = snapshot.find_entity_for_object(elem)
     self.assertEquals(found, entity)
     self.assertEquals(id(found), id(entity))
     self.assertItemsEqual({'_subject_id': 1,
@@ -85,9 +164,9 @@ class SnapshotTest(unittest.TestCase):
     """Test snapshotting compound entities."""
     elem = TestLinkedList('First', next_elem=TestLinkedList('Second'))
     snapshot = JsonSnapshot()
-    snapshot.make_entity_for_data(elem)
-    entity = snapshot.make_entity_for_data(elem.next)
-    found = snapshot.find_entity_for_data(elem.next)
+    snapshot.make_entity_for_object(elem)
+    entity = snapshot.make_entity_for_object(elem.next)
+    found = snapshot.find_entity_for_object(elem.next)
     self.assertEquals(found, entity)
     self.assertEquals(id(found), id(entity))
     self.assertItemsEqual({'_subject_id': 1,
@@ -175,18 +254,18 @@ class SnapshotTest(unittest.TestCase):
     b.next = c
 
     snapshot = JsonSnapshot()
-    self.assertIsNone(snapshot.find_entity_for_data(b))
-    self.assertIsNone(snapshot.find_entity_for_data(b)) # Still none
-    snapshot.add_data(a)
+    self.assertIsNone(snapshot.find_entity_for_object(b))
+    self.assertIsNone(snapshot.find_entity_for_object(b)) # Still none
+    snapshot.add_object(a)
     json_object = snapshot.to_json_object()
 
-    have_b = snapshot.find_entity_for_data(b)
+    have_b = snapshot.find_entity_for_object(b)
     self.assertEquals(2, have_b.id)
-    entity_b = snapshot.make_entity_for_data(b)
+    entity_b = snapshot.make_entity_for_object(b)
     self.assertEquals(id(have_b), id(entity_b))
 
-    have_c = snapshot.find_entity_for_data(c)
-    entity_c = snapshot.make_entity_for_data(c)
+    have_c = snapshot.find_entity_for_object(c)
+    entity_c = snapshot.make_entity_for_object(c)
     self.assertEquals(id(have_c), id(entity_c))
     self.assertEquals(3, entity_c.id)
 

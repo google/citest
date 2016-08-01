@@ -15,6 +15,7 @@
 
 from snapshot import (
     JsonSnapshotable,
+    JsonSnapshotableEntity,
     JsonSnapshotHelper,
     JsonSnapshot,
     Edge,

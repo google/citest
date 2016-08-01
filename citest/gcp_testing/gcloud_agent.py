@@ -184,7 +184,7 @@ class GCloudAgent(cli_agent.CliAgent):
     return super(GCloudAgent, self)._args_to_full_commandline(args)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     builder.make_control(entity, 'Project', self.__project)
     builder.make_control(entity, 'Zone', self.__zone)

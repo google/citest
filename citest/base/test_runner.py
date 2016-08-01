@@ -36,7 +36,7 @@ import unittest
 # Our modules.
 from . import global_journal
 from . import args_util
-from .snapshot import JsonSnapshotable
+from .snapshot import JsonSnapshotableEntity
 
 # If a -log_config is not provided, then use this.
 _DEFAULT_LOG_CONFIG = """{
@@ -333,7 +333,7 @@ class TestRunner(object):
     Args:
       obj: The object to write into the report.
     """
-    if isinstance(obj, JsonSnapshotable):
+    if isinstance(obj, JsonSnapshotableEntity):
       self.__journal.store(obj)
     else:
       raise '{0} is not JsonSnashotable\n{1}'.format(type(obj), obj)

@@ -15,10 +15,10 @@
 
 """Specifies test cases using BaseAgents."""
 
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 
 
-class OperationContract(JsonSnapshotable):
+class OperationContract(JsonSnapshotableEntity):
   """Specifies a testable operation and contract to verify it.
 
   This is essentially a "test case" using  BaseAgents.
@@ -58,7 +58,7 @@ class OperationContract(JsonSnapshotable):
     return self.__cleanup
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make(entity, 'Operation', self.__operation)
     snapshot.edge_builder.make(entity, 'Contract', self.__contract)
 

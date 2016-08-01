@@ -39,7 +39,7 @@ import traceback as traceback_module
 from ..base import args_util
 from ..base import BaseTestCase
 from ..base import JournalLogger
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 from ..base import TestRunner
 
 
@@ -50,7 +50,7 @@ _DEFAULT_TEST_ID = time.strftime('%H%M%S')
 _DURATION_PRECISION = 3  # millis
 
 
-class OperationContractExecutionAttempt(JsonSnapshotable):
+class OperationContractExecutionAttempt(JsonSnapshotableEntity):
   """Represents an individual attempt at running an OperationContract test case.
 
   This class captures the attempt and results so that it can be recorded in
@@ -114,7 +114,7 @@ class OperationContractExecutionAttempt(JsonSnapshotable):
     self.__status_summary = summary
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     default_relation = self.default_relation
     if default_relation  is not None:
@@ -148,7 +148,7 @@ class OperationContractExecutionAttempt(JsonSnapshotable):
         edge.add_metadata('summary', self.__verification_summary)
 
 
-class OperationContractExecutionTrace(JsonSnapshotable):
+class OperationContractExecutionTrace(JsonSnapshotableEntity):
   """Represents the execution and evaluation of an OperationContract test case.
   """
 
@@ -194,7 +194,7 @@ class OperationContractExecutionTrace(JsonSnapshotable):
     return attempt
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     entity.add_metadata('_title', self.__test_case.operation.title)
 
     builder = snapshot.edge_builder

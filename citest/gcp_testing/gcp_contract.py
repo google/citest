@@ -43,7 +43,7 @@ class GcpObjectObserver(jc.ObjectObserver):
     self.__kwargs = dict(kwargs)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Args', self.__kwargs)
     super(GcpObjectObserver, self).export_to_json_snapshot(snapshot, entity)
 

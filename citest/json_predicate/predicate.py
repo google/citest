@@ -15,10 +15,10 @@
 """Implements ValuePredicate that determines when a given value is 'valid'."""
 
 
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 
 
-class ValuePredicate(JsonSnapshotable):
+class ValuePredicate(JsonSnapshotableEntity):
   """Base class denoting a predicate that determines if a JSON value is ok.
 
    This class must be specialized with a __call__ method that takes a single
@@ -51,7 +51,7 @@ class ValuePredicate(JsonSnapshotable):
     return not self.__eq__(pred)
 
 
-class PredicateResult(JsonSnapshotable):
+class PredicateResult(JsonSnapshotableEntity):
   """Base class for predicate results.
 
   Attributes:
@@ -85,7 +85,7 @@ class PredicateResult(JsonSnapshotable):
     return self.__valid
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     verified_relation = builder.determine_valid_relation(self.__valid)
     builder.make(entity, 'Valid', self.__valid, relation=verified_relation)

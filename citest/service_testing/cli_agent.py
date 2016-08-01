@@ -18,14 +18,14 @@ import re
 import subprocess
 
 from ..base import JournalLogger
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 from .. import json_contract as jc
 from . import base_agent
 
 
 class CliResponseType(collections.namedtuple('CliResponseType',
                                              ['exit_code', 'output', 'error']),
-                      JsonSnapshotable):
+                      JsonSnapshotableEntity):
   """Holds the results from running the command-line program.
 
   Attributes:
@@ -42,7 +42,7 @@ class CliResponseType(collections.namedtuple('CliResponseType',
         self.exit_code, self.output, self.error)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     builder.make(entity, 'Exit Code', self.exit_code)
     if self.error:
@@ -102,7 +102,7 @@ class CliAgentRunError(base_agent.AgentError):
     return self.__run_response
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     super(CliAgentRunError, self).export_to_json_snapshot(snapshot, entity)
     snapshot.edge_builder.make_data(
         entity, 'Cli Response', self.__run_response)
@@ -140,7 +140,7 @@ class CliAgent(base_agent.BaseAgent):
     self.__output_scrubber = output_scrubber
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Program', self.__program)
     super(CliAgent, self).export_to_json_snapshot(snapshot, entity)
 
@@ -221,7 +221,7 @@ class CliRunOperation(base_agent.AgentOperation):
     self.__args = list(args)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Args', self.__args)
     super(CliRunOperation, self).export_to_json_snapshot(snapshot, entity)
 
@@ -253,7 +253,7 @@ class CliAgentObservationFailureVerifier(jc.ObservationFailureVerifier):
     self.__error_regex = error_regex
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Regex', self.__error_regex)
     super(CliAgentObservationFailureVerifier, self).export_to_json_snapshot(
         snapshot, entity)

@@ -23,7 +23,7 @@ import traceback
 import urllib2
 
 from ..base import JournalLogger
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 from .http_scrubber import HttpScrubber
 
 from . import base_agent
@@ -32,7 +32,7 @@ from . import base_agent
 class HttpResponseType(
     collections.namedtuple('HttpResponseType',
                            ['http_code', 'output', 'exception']),
-    JsonSnapshotable):
+    JsonSnapshotableEntity):
   """Holds the results from an HTTP message.
 
   Attributes:
@@ -52,7 +52,7 @@ class HttpResponseType(
         self.http_code, self.output, self.exception)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface.
+    """Implements JsonSnapshotableEntity interface.
 
     The payload will be emitted as a string. Consider calling
     export_to_json_snapshot_with_format instead to specify the payload format.
@@ -60,7 +60,7 @@ class HttpResponseType(
     self.export_to_json_snapshot_with_format(snapshot, entity, format=None)
 
   def export_to_json_snapshot_with_format(self, snapshot, entity, format):
-    """Helper function for JsonSnapshotable, allowing a format specification.
+    """Helper function for JsonSnapshotableEntity, allowing a format tag.
 
     Args:
       snapshot: [JsonSnapshot] The snapshot owning the entity.
@@ -260,7 +260,7 @@ class HttpAgent(base_agent.BaseAgent):
     self.add_header('Authorization', 'Basic ' + encoded_auth)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Base URL', self.__base_url)
     super(HttpAgent, self).export_to_json_snapshot(snapshot, entity)
 
@@ -450,7 +450,7 @@ class BaseHttpOperation(base_agent.AgentOperation):
     self.__snapshot_format = format
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'URL Path', self.__path)
     edge = snapshot.edge_builder.make_data(entity, 'Payload Data', self.__data)
     if self.__snapshot_format:

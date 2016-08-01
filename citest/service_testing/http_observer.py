@@ -71,7 +71,7 @@ class HttpObjectObserver(jc.ObjectObserver):
     return 'HttpObjectObserver({0})'.format(self.__agent)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Agent', self.__agent)
     snapshot.edge_builder.make_control(entity, 'Path', self.__path)
     super(HttpObjectObserver, self).export_to_json_snapshot(snapshot, entity)
@@ -198,7 +198,7 @@ class HttpObservationFailureVerifier(jc.ObservationFailureVerifier):
     self.__error_regex = error_regex
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'HTTP Code', self.__http_code)
     if self.__error_regex:
       snapshot.edge_builder.make_control(entity, 'Regex', self.__error_regex)

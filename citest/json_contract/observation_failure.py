@@ -39,7 +39,7 @@ class ObservationFailedError(predicate.PredicateResult):
     self.__failures = failures
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     super(ObservationFailedError, self).export_to_json_snapshot(
         snapshot, entity)
     snapshot.edge_builder.make(entity, 'Failures', self.__failures)

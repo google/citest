@@ -40,7 +40,7 @@ class KubeObjectObserver(jc.ObjectObserver):
     self.__args = args
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Args', self.__args)
     super(KubeObjectObserver, self).export_to_json_snapshot(snapshot, entity)
 
