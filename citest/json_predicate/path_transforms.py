@@ -37,9 +37,9 @@ class FieldDifference(JsonSnapshotableEntity):
       minuend: [string] The field of the value to subtract from.
       subtractend: [string] The field of the value to substract.
     """
-    if minuend.find(PATH_SEP) >= 0:
+    if not callable(minuend) and minuend.find(PATH_SEP) >= 0:
       raise ValueError('Nested fields are not yet supported.')
-    if subtractend.find(PATH_SEP) >= 0:
+    if not callable(subtractend) and subtractend.find(PATH_SEP) >= 0:
       raise ValueError('Nested fields are not yet supported.')
 
     self.__minuend = minuend
@@ -59,7 +59,7 @@ class FieldDifference(JsonSnapshotableEntity):
         entity, 'Operation',
         '{0} - {1}'.format(self.__minuend, self.__subtractend))
 
-  def __call__(self, source):
+  def __call__(self, context, source):
     """Operator.
 
     Args:
@@ -67,4 +67,13 @@ class FieldDifference(JsonSnapshotableEntity):
     Returns:
       Value of minuend - subtractend
     """
-    return source[self.__minuend] - source[self.__subtractend]
+    minuend_key = context.eval(self.__minuend)
+    subtractend_key = context.eval(self.__subtractend)
+    if minuend_key.find(PATH_SEP) >= 0:
+      raise ValueError('Nested fields "{0}" are not yet supported.'
+                       .format(minuend_key))
+    if subtractend_key.find(PATH_SEP) >= 0:
+      raise ValueError('Nested fields "{0}" are not yet supported.'
+                       .format(subtractend_key))
+
+    return  source[minuend_key] - source[subtractend_key]

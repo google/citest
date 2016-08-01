@@ -146,10 +146,11 @@ class ObjectObserver(JsonSnapshotableEntity):
     """
     self.__filter = filter
 
-  def filter_all_objects_to_observation(self, objects, observation):
+  def filter_all_objects_to_observation(self, context, objects, observation):
     """Add objects to Observation that comply with the observer's filter.
 
     Args:
+      context: The execution context to filter within.
       objects: The list of objects to add.
         Each element will be filtered independently
       observation: The Observation object to add filtered objects to.
@@ -161,7 +162,7 @@ class ObjectObserver(JsonSnapshotableEntity):
     if not isinstance(objects, list):
       objects = [objects]
     for obj in objects:
-      obj_result = self.__filter(obj)
+      obj_result = self.__filter(context, obj)
       if obj_result:
         observation.add_object(obj)
 

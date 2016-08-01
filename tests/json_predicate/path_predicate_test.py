@@ -21,6 +21,7 @@
 import unittest
 
 import citest.json_predicate as jp
+from citest.base import ExecutionContext
 from citest.json_predicate import (
     PATH_SEP,
     DONT_ENUMERATE_TERMINAL,
@@ -48,8 +49,8 @@ class TestEqualsPredicate(ValuePredicate):
   def __init__(self, operand):
     self.__operand = operand
 
-  def __call__(self, value):
-    valid = value == self.__operand
+  def __call__(self, context, value):
+    valid = value == context.eval(self.__operand)
     return PathValueResult(pred=self, source=value, target_path='',
                            path_value=PathValue('', value), valid=valid)
 
@@ -66,10 +67,20 @@ class JsonPathPredicateTest(unittest.TestCase):
       msg = 'EXPECTED\n{0!r}\nGOT\n{1!r}'.format(a, b)
     super(JsonPathPredicateTest, self).assertEqual(a, b, msg)
 
+  def test_indirect_path(self):
+    context = ExecutionContext(test_path='b')
+    source = _LETTER_DICT
+    indirect_result = PathPredicate(lambda x: x['test_path'])(context, source)
+    self.assertTrue(indirect_result)
+
+    direct_result = PathPredicate('b')(context, source)
+    self.assertEqual(direct_result.path_values, indirect_result.path_values)
+
   def test_collect_from_dict_identity(self):
+    context = ExecutionContext()
     source = _LETTER_DICT
     pred = PathPredicate('')
-    values = pred(source)
+    values = pred(context, source)
 
     builder = PathPredicateResultBuilder(source, pred)
     builder.add_result_candidate(
@@ -82,15 +93,16 @@ class JsonPathPredicateTest(unittest.TestCase):
     self.assertEqual([], values.path_failures)
 
     pred = PathPredicate('/')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('', source)], values.path_values)
     self.assertEqual([], values.path_failures)
 
   def test_collect_from_dict_transform(self):
+    context = ExecutionContext()
     source = {'a': 7, 'b': 4}
-    pred = PathPredicate('', transform=lambda x: x['a'] - x['b'])
+    pred = PathPredicate('', transform=lambda ctxt, val: val['a'] - val['b'])
     expect = 7 - 4
-    values = pred(source)
+    values = pred(context, source)
 
     builder = PathPredicateResultBuilder(source, pred)
     builder.add_result_candidate(
@@ -100,9 +112,10 @@ class JsonPathPredicateTest(unittest.TestCase):
     self.assertEqual(builder.build(True), values)
 
   def test_collect_from_list_identity(self):
+    context = ExecutionContext()
     letters = ['A', 'B', 'C']
     pred = PathPredicate('')
-    values = pred(letters)
+    values = pred(context, letters)
     self.assertEqual([PathValue('[0]', 'A'),
                       PathValue('[1]', 'B'),
                       PathValue('[2]', 'C')],
@@ -110,12 +123,12 @@ class JsonPathPredicateTest(unittest.TestCase):
     self.assertEqual([], values.path_failures)
 
     pred = PathPredicate(DONT_ENUMERATE_TERMINAL)
-    values = pred(letters)
+    values = pred(context, letters)
     self.assertEqual([PathValue('', letters)], values.path_values)
     self.assertEqual([], values.path_failures)
 
     pred = PathPredicate(PATH_SEP)
-    values = pred(letters)
+    values = pred(context, letters)
     self.assertEqual([PathValue('[0]', 'A'),
                       PathValue('[1]', 'B'),
                       PathValue('[2]', 'C')],
@@ -124,22 +137,24 @@ class JsonPathPredicateTest(unittest.TestCase):
 
   def test_collect_from_dict_found(self):
     # """Normal dictionary attribute lookup."""
+    context = ExecutionContext()
     source = _LETTER_DICT
     pred = PathPredicate('a')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('a', 'A')], values.path_values)
     self.assertEqual([], values.path_failures)
 
     pred = PathPredicate('b')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('b', 'B')], values.path_values)
     self.assertEqual([], values.path_failures)
 
   def test_collect_from_dict_not_found(self):
     # """Normal dictionary attribute lookup with missing attribute."""
+    context = ExecutionContext()
     source = _LETTER_DICT
     pred = PathPredicate('Z')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([], values.path_values)
     self.assertEqual([MissingPathError(_LETTER_DICT, 'Z',
                                        path_value=('', _LETTER_DICT))],
@@ -147,22 +162,24 @@ class JsonPathPredicateTest(unittest.TestCase):
 
   def test_collect_from_nested_dict_found(self):
     # """Nested dictionary attribute lookup."""
+    context = ExecutionContext()
     source = {'outer': {'inner': _LETTER_DICT}}
     pred = PathPredicate(PATH_SEP.join(['outer', 'inner', 'a']))
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue(pred.path, 'A')], values.path_values)
     self.assertEqual([], values.path_failures)
 
     pred = PathPredicate(PATH_SEP.join(['outer', 'inner', 'b']))
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue(pred.path, 'B')], values.path_values)
     self.assertEqual([], values.path_failures)
 
   def test_collect_from_nested_dict_not_found(self):
     # """Nested dictionary attribute lookup with missing element."""
+    context = ExecutionContext()
     source = _LETTER_DICT
     pred = PathPredicate(PATH_SEP.join(['a', 'b']))
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([], values.path_values)
     self.assertEqual(
         [MissingPathError('A', 'b', path_value=PathValue('a', 'A'))],
@@ -170,22 +187,24 @@ class JsonPathPredicateTest(unittest.TestCase):
 
   def test_collect_from_list_found(self):
     # """Ambiguous path passes through a list element."""
+    context = ExecutionContext()
     source = [_LETTER_DICT]
     pred = PathPredicate('a')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue(PATH_SEP.join(['[0]', 'a']), 'A')],
                      values.path_values)
     pred = PathPredicate('b')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue(PATH_SEP.join(['[0]', 'b']), 'B')],
                      values.path_values)
     self.assertEqual([], values.path_failures)
 
   def test_collect_from_list_not_found(self):
     # """Ambiguous path passes through a list element but cannot be resolved."""
+    context = ExecutionContext()
     source = [_LETTER_DICT]
     pred = PathPredicate('Z')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([], values.path_values)
     self.assertEqual(
         [MissingPathError(
@@ -194,24 +213,26 @@ class JsonPathPredicateTest(unittest.TestCase):
 
   def test_collect_plain_terminal_list(self):
     # """Path to a value that is a list."""
+    context = ExecutionContext()
     source = {'a': [_LETTER_DICT]}
     pred = PathPredicate('a' + DONT_ENUMERATE_TERMINAL)
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('a', [_LETTER_DICT])], values.path_values)
     self.assertEqual([], values.path_failures)
 
     pred = PathPredicate(PATH_SEP.join(['a', 'a']))
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue(PATH_SEP.join(['a[0]', 'a']), 'A')],
                      values.path_values)
     self.assertEqual([], values.path_failures)
 
   def test_collect_enumerated_terminal_list(self):
     # """Enumerated path to a value that is a list."""
+    context = ExecutionContext()
     array = ['A', 'B', 'C']
     source = {'a': array}
     pred = PathPredicate('a' + PATH_SEP)
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('a[0]', 'A'),
                       PathValue('a[1]', 'B'),
                       PathValue('a[2]', 'C')],
@@ -219,7 +240,7 @@ class JsonPathPredicateTest(unittest.TestCase):
     self.assertEqual([], values.path_failures)
 
     pred = PathPredicate('a')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('a[0]', 'A'),
                       PathValue('a[1]', 'B'),
                       PathValue('a[2]', 'C')],
@@ -228,25 +249,27 @@ class JsonPathPredicateTest(unittest.TestCase):
 
   def test_collect_from_list_with_index(self):
     # """Path with explicit list indexes to traverse."""
+    context = ExecutionContext()
     source = [_LETTER_DICT, _NUMBER_DICT]
     pred = PathPredicate('[0]')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('[0]', _LETTER_DICT)], values.path_values)
     self.assertEqual([], values.path_failures)
 
     pred = PathPredicate('[1]')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('[1]', _NUMBER_DICT)], values.path_values)
     self.assertEqual([], values.path_failures)
 
     pred = PathPredicate(PATH_SEP.join(['[1]', 'a']))
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('[1]/a', 1)], values.path_values)
     self.assertEqual([], values.path_failures)
 
 
   def test_collect_from_list_of_list_with_index(self):
     # """Path with explicit list indexes to traverse through nested lists."""
+    context = ExecutionContext()
     upper = ['A', 'B', 'C']
     lower = ['a', 'b', 'c']
     letters = [upper, lower]
@@ -257,7 +280,7 @@ class JsonPathPredicateTest(unittest.TestCase):
 
     # By default, values that are lists get expanded (one level)
     pred = PathPredicate('[1]')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEquals([PathValue('[1][0]', arabic),
                        PathValue('[1][1]', roman)],
                       values.path_values)
@@ -265,23 +288,23 @@ class JsonPathPredicateTest(unittest.TestCase):
 
     # If we dont want to expand, then decorate with DONT_ENUMERATE_TERMINAL.
     pred = PathPredicate('[0]' + DONT_ENUMERATE_TERMINAL)
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('[0]', letters)], values.path_values)
     self.assertEqual([], values.path_failures)
 
     pred = PathPredicate('[1]' + DONT_ENUMERATE_TERMINAL)
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('[1]', numbers)], values.path_values)
     self.assertEqual([], values.path_failures)
 
     # Go out one more level
     pred = PathPredicate('[1][0]' + DONT_ENUMERATE_TERMINAL)
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('[1][0]', arabic)], values.path_values)
     self.assertEqual([], values.path_failures)
 
     pred = PathPredicate('[1][0]')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('[1][0][0]', 1),
                       PathValue('[1][0][1]', 2),
                       PathValue('[1][0][2]', 3)],
@@ -290,22 +313,23 @@ class JsonPathPredicateTest(unittest.TestCase):
 
     # Go all the way down.
     pred = PathPredicate('[1][0][2]')
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue('[1][0][2]', 3)], values.path_values)
     self.assertEqual([], values.path_failures)
 
 
   def test_collect_from_nested_list_found(self):
     # """Ambiguous path through nested lists."""
+    context = ExecutionContext()
     source = {'outer': [_LETTER_DICT, _NUMBER_DICT]}
     pred = PathPredicate(PATH_SEP.join(['outer', 'a']))
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue(PATH_SEP.join(['outer[0]', 'a']), 'A'),
                       PathValue(PATH_SEP.join(['outer[1]', 'a']), 1)],
                      values.path_values)
 
     pred = PathPredicate(PATH_SEP.join(['outer', 'z']))
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue(PATH_SEP.join(['outer[0]', 'z']), 'Z')],
                      values.path_values)
     self.assertEqual(
@@ -315,7 +339,7 @@ class JsonPathPredicateTest(unittest.TestCase):
         values.path_failures)
 
     pred = PathPredicate(PATH_SEP.join(['outer', 'three']))
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([PathValue(PATH_SEP.join(['outer[1]', 'three']), 3)],
                      values.path_values)
     self.assertEqual(
@@ -326,9 +350,10 @@ class JsonPathPredicateTest(unittest.TestCase):
 
   def test_collect_from_nested_list_not_found(self):
     # """Path through nested lists that cannot be resolved."""
+    context = ExecutionContext()
     source = {'outer': [_LETTER_DICT, _NUMBER_DICT]}
     pred = PathPredicate(PATH_SEP.join(['outer', 'X']))
-    values = pred(source)
+    values = pred(context, source)
     self.assertEqual([], values.path_values)
     self.assertEqual(
         [MissingPathError(
@@ -340,6 +365,7 @@ class JsonPathPredicateTest(unittest.TestCase):
         values.path_failures)
 
   def test_collect_filter_good(self):
+    context = ExecutionContext()
     source = {'outer': [_LETTER_DICT, _NUMBER_DICT]}
     filter_pred = TestEqualsPredicate(2)
     pred = PathPredicate(PATH_SEP.join(['outer', 'b']), pred=filter_pred)
@@ -359,7 +385,7 @@ class JsonPathPredicateTest(unittest.TestCase):
     builder.add_result_candidate(PathValue(path_1, 2), good_result)
     expect = builder.build(True)
 
-    pred_result = pred(source)
+    pred_result = pred(context, source)
     self.assertEqual([PathValue(PATH_SEP.join(['outer[1]', 'b']), 2)],
                      pred_result.path_values)
 

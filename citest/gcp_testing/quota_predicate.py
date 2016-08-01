@@ -105,10 +105,11 @@ class QuotaPredicate(ValuePredicate):
   def __repr__(self):
     return 'minimum_metrics: {0!r}'.format(self.__minimum_quota)
 
-  def __call__(self, value):
+  def __call__(self, context, value):
     """Implements ValuePredicate.
 
     Args:
+       context: [ExecutionContext] The execution context to evaluate within.
        values: [array of dict] A list of dictionary resource quota descriptions
           following the format returned described by the "quotas" attribute of
           https://cloud.google.com/compute/docs/reference/latest/projects#resource
@@ -128,7 +129,7 @@ class QuotaPredicate(ValuePredicate):
                             comment='Missing metric value.'))
         continue
       pred = PathPredicate('', pred=NUM_GE(expect), transform=self.__diff)
-      result = pred(found)
+      result = pred(context, found)
       builder.append_result(result)
       if not result:
         bad_metrics.append(metric)

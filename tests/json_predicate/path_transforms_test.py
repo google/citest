@@ -20,6 +20,7 @@
 
 import unittest
 
+from citest.base import ExecutionContext
 from citest.json_predicate import FieldDifference
 
 
@@ -37,9 +38,16 @@ class PathTransformTest(unittest.TestCase):
     self.assertNotEqual(orig, diff)
 
   def test_field_difference(self):
+    context = ExecutionContext()
     source = {'a': 7, 'b': 4}
     xform = FieldDifference('a', 'b')
-    self.assertEqual(3, xform(source))
+    self.assertEqual(3, xform(context, source))
+
+  def test_field_difference_indirect(self):
+    context = ExecutionContext()
+    source = {'a': 7, 'b': 4}
+    xform = FieldDifference(lambda x: 'b', lambda x: 'a')
+    self.assertEqual(-3, xform(context, source))
 
 
 if __name__ == '__main__':

@@ -18,7 +18,9 @@
 
 import unittest
 
-from citest.base import JsonSnapshotHelper
+from citest.base import (
+    ExecutionContext,
+    JsonSnapshotHelper)
 from citest.json_predicate import PathValue
 import citest.json_predicate as jp
 
@@ -41,6 +43,7 @@ class CardinalityPredicateTest(unittest.TestCase):
       raise
 
   def test_cardinality_bounds_1(self):
+    context = ExecutionContext()
     for min in range(0, 3):
       for max in range(0, 3):
         if min > max:
@@ -50,7 +53,7 @@ class CardinalityPredicateTest(unittest.TestCase):
         expect_ok = min <= 1 and max >= 1
 
         source = _CAB
-        result = predicate(source)
+        result = predicate(context, source)
 
         all_results = [
             jp.CompositePredicateResult(
@@ -92,17 +95,20 @@ class CardinalityPredicateTest(unittest.TestCase):
                   predicate, expect_path_result),
               result)
 
-  def test_cardinality_bounds_2(self):
+  def test_cardinality_bounds_2_indirect(self):
+    predicate = jp.CardinalityPredicate(_AorB,
+                                        min=lambda x: x['min'],
+                                        max=lambda x: x['max'])
     for min in range(0, 3):
       for max in range(0, 3):
         if min > max:
           continue
 
-        predicate = jp.CardinalityPredicate(_AorB, min=min, max=max)
+        context = ExecutionContext(min=min, max=max)
         expect_ok = min <= 2 and max >= 2
 
         source = _CAB
-        result = predicate(source)
+        result = predicate(context, source)
 
         all_results = [
             jp.CompositePredicateResult(

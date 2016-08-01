@@ -52,11 +52,10 @@ class GcpObjectObserver(jc.ObjectObserver):
 
   def collect_observation(self, context, observation, trace=True):
     try:
-      result = self.__method(context, **self.__kwargs)
-      if isinstance(result, list):
-        observation.add_all_objects(result)
-      else:
-        observation.add_object(result)
+      doc = self.__method(context, **self.__kwargs)
+      if not isinstance(doc, list):
+        doc = [doc]
+      self.filter_all_objects_to_observation(context, doc, observation)
     except HttpError as http_error:
       logging.getLogger(__name__).info('%s\n%s\n----------------\n',
                                        http_error, traceback.format_exc())

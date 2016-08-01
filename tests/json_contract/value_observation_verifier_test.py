@@ -92,7 +92,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
         observation.add_object(obj)
 
       for pred in pred_list:
-        builder.add_path_predicate_result(pred(observation.objects))
+        builder.add_path_predicate_result(pred(context, observation.objects))
 
       # All of these tests succeed.
       verify_results = builder.build(True)
@@ -128,7 +128,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
         observation.add_object(obj)
 
       for pred in pred_list:
-        builder.add_path_predicate_result(pred(observation.objects))
+        builder.add_path_predicate_result(pred(context, observation.objects))
 
       # None of these tests succeed.
       verify_results = builder.build(False)
@@ -165,7 +165,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
         observation.add_object(obj)
 
       for pred in pred_list:
-        builder.add_path_predicate_result(pred(observation.objects))
+        builder.add_path_predicate_result(pred(context, observation.objects))
 
       # None of these tests succeed.
       verify_results = builder.build(False)
@@ -201,8 +201,8 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
         observation.add_object(obj)
 
       for pred in pred_list:
-        pred_result = jp.PathPredicate('', pred)(observation.objects)
-        builder.add_path_predicate_result(pred(observation.objects))
+        pred_result = jp.PathPredicate('', pred)(context, observation.objects)
+        builder.add_path_predicate_result(pred(context, observation.objects))
 
       # None of these tests succeed.
       verify_results = builder.build(False)
@@ -255,7 +255,8 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       observation.add_all_objects(obj_list)
 
       for pred in pred_list:
-        result_builder.add_path_predicate_result(pred(observation.objects))
+        result_builder.add_path_predicate_result(
+            pred(context, observation.objects))
 
       # All of these tests succeed.
       verify_results = result_builder.build(expect_valid)

@@ -49,11 +49,11 @@ class ConjunctivePredicate(predicate.ValuePredicate):
     snapshot.edge_builder.make(entity, 'Conjunction', self.__conjunction,
                                join='AND')
 
-  def __call__(self, value):
+  def __call__(self, context, value):
     everything = []
     valid = True
     for pred in self.__conjunction:
-      result = pred(value)
+      result = pred(context, value)
       everything.append(result)
       if not result:
         valid = False
@@ -93,11 +93,11 @@ class DisjunctivePredicate(predicate.ValuePredicate):
     snapshot.edge_builder.make(entity, 'Disjunction', self.__disjunction,
                                join='OR')
 
-  def __call__(self, value):
+  def __call__(self, context, value):
     everything = []
     valid = False
     for pred in self.__disjunction:
-      result = pred(value)
+      result = pred(context, value)
       everything.append(result)
       if result:
         valid = True
@@ -132,8 +132,8 @@ class NegationPredicate(predicate.ValuePredicate):
     """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.__pred)
 
-  def __call__(self, value):
-    base_result = self.__pred(value)
+  def __call__(self, context, value):
+    base_result = self.__pred(context, value)
     return predicate.CompositePredicateResult(
         valid=not base_result.valid, pred=self, results=[base_result])
 
@@ -209,18 +209,18 @@ class ConditionalPredicate(predicate.ValuePredicate):
     if self.__else_pred:
       snapshot.edge_builder.make_mechanism(entity, 'Else', self.__else_pred)
 
-  def __call__(self, value):
+  def __call__(self, context, value):
     if self.__demorgan_pred:
-      return self.__demorgan_pred(value)
+      return self.__demorgan_pred(context, value)
 
     # Run the "if" predicate
     # then, depending on the result, run either "then" or "else" predicate.
-    result = self.__if_pred(value)
+    result = self.__if_pred(context, value)
     tried = [result]
     if result:
-      result = self.__then_pred(value)
+      result = self.__then_pred(context, value)
     else:
-      result = self.__else_pred(value)
+      result = self.__else_pred(context, value)
     tried.append(result)
 
     return predicate.CompositePredicateResult(

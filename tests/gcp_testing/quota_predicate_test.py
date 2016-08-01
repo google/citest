@@ -50,7 +50,7 @@ MOCK_DISCOVERY = {
       }}
 
 
-def make_quota_result(valid, source, require, metric):
+def make_quota_result(context, valid, source, require, metric):
   """Construct the values returned by QuotaPredicate.
 
   These are what is currently implemented, but the current implementation
@@ -60,7 +60,8 @@ def make_quota_result(valid, source, require, metric):
   diff = FieldDifference('limit', 'usage')
   for value in source:
     if value['metric'] == metric:
-      return PathPredicate('', pred=NUM_GE(require[metric]), transform=diff)(value)
+      pred = PathPredicate('', pred=NUM_GE(require[metric]), transform=diff)
+      return pred(context, value)
 
   raise ValueError('Missing metric')
 
@@ -74,32 +75,36 @@ class GcpQuotaPredicateTest(unittest.TestCase):
       raise
 
   def test_good(self):
+    context = ExecutionContext()
     source = [{'metric': 'A', 'limit': 100.0, 'usage': 0.0},
               {'metric': 'B', 'limit': 100.0, 'usage': 90.0},
               {'metric': 'C', 'limit': 100.0, 'usage': 100.0}]
     require = {'A': 95.0, 'B': 10.0}
     pred = QuotaPredicate(require)
     builder = CompositePredicateResultBuilder(pred)
-    builder.append_result(make_quota_result(True, source, require, 'A'))
-    builder.append_result(make_quota_result(True, source, require, 'B'))
+    builder.append_result(make_quota_result(context, True, source, require, 'A'))
+    builder.append_result(make_quota_result(context, True, source, require, 'B'))
     builder.comment = 'Satisfied all 2 metrics.'
 
-    result = pred(source)
+    result = pred(context, source)
     self.assertTrue(result)
     self.assertEqual(result, builder.build(True))
 
   def test_bad(self):
+    context = ExecutionContext()
     source = [{'metric': 'A', 'limit': 100.0, 'usage': 0.0},
               {'metric': 'B', 'limit': 100.0, 'usage': 90.0},
               {'metric': 'C', 'limit': 100.0, 'usage': 100.0}]
     require = {'A': 95.0, 'B': 15.0}
     pred = QuotaPredicate(require)
     builder = CompositePredicateResultBuilder(pred)
-    builder.append_result(make_quota_result(True, source, require, 'A'))
-    builder.append_result(make_quota_result(False, source, require, 'B'))
+    builder.append_result(
+        make_quota_result(context, True, source, require, 'A'))
+    builder.append_result(
+        make_quota_result(context, False, source, require, 'B'))
     builder.comment = 'Insufficient C.'
 
-    result = pred(source)
+    result = pred(context, source)
     self.assertFalse(result)
 
   def make_mock_service(self, project_quota, region_quota):

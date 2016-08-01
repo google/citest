@@ -197,10 +197,10 @@ class ValueObservationVerifier(ov.ObservationVerifier):
                                         constraint)
 
       if isinstance(constraint, path_predicate.ProducesPathPredicateResult):
-        constraint_result = constraint(object_list)
+        constraint_result = constraint(context, object_list)
       else:
         constraint_result = (
-            path_predicate.PathPredicate('', constraint)(object_list))
+            path_predicate.PathPredicate('', constraint)(context, object_list))
       if not constraint_result:
         logging.getLogger(__name__).debug('FAILED constraint')
         valid = False

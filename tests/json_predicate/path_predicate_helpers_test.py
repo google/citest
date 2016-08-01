@@ -17,8 +17,12 @@
 
 import unittest
 
-from citest.base import JsonSnapshotHelper
-from citest.json_predicate import PATH_SEP, PathValue
+from citest.base import (
+    ExecutionContext,
+    JsonSnapshotHelper)
+from citest.json_predicate import (
+    PATH_SEP,
+    PathValue)
 import citest.json_predicate as jp
 
 
@@ -53,9 +57,10 @@ class JsonPathPredicateTest(unittest.TestCase):
       raise
 
   def test_path_value_found_top(self):
+    context = ExecutionContext()
     source = _COMPOSITE_DICT
     pred = jp.PathEqPredicate('letters', _LETTER_DICT)
-    result = pred(source)
+    result = pred(context, source)
     expect = _make_result(pred, jp.DICT_EQ(_LETTER_DICT), source,
                           [PathValue('letters', _LETTER_DICT)],
                           [])
@@ -63,6 +68,7 @@ class JsonPathPredicateTest(unittest.TestCase):
     self.assertEqual(expect, result)
 
   def test_path_found_in_array(self):
+    context = ExecutionContext()
     pred = jp.PathPredicate(PATH_SEP.join(['outer', 'inner', 'a']))
     simple = {'a': 'A', 'b': 'B'}
     source = {'outer': [{'middle': simple}, {'inner': simple}]}
@@ -73,12 +79,13 @@ class JsonPathPredicateTest(unittest.TestCase):
             path_value=PathValue('outer[0]', source['outer'][0]))]
 
     expect = _make_result(pred, None, source, found, [], pruned)
-    self.assertEqual(expect, pred(source))
+    self.assertEqual(expect, pred(context, source))
 
   def test_path_found_multiple(self):
+    context = ExecutionContext()
     source = {'outer': [_LETTER_DICT, _NUMBER_DICT]}
     pred = jp.PathPredicate(PATH_SEP.join(['outer', 'a']))
-    result = pred(source)
+    result = pred(context, source)
     self.assertEqual(
         _make_result(
             pred, None, source,
@@ -88,9 +95,10 @@ class JsonPathPredicateTest(unittest.TestCase):
         result)
 
   def test_path_value_found_nested(self):
+    context = ExecutionContext()
     source = _COMPOSITE_DICT
     pred = jp.PathEqPredicate(PATH_SEP.join(['letters', 'a']), 'A')
-    result = pred(source)
+    result = pred(context, source)
 
     self.assertEqual(
         _make_result(
@@ -100,9 +108,10 @@ class JsonPathPredicateTest(unittest.TestCase):
     self.assertTrue(result)
 
   def test_path_value_not_found(self):
+    context = ExecutionContext()
     source = _COMPOSITE_DICT
     pred = jp.PathEqPredicate(PATH_SEP.join(['letters', 'a']), 'B')
-    result = pred(source)
+    result = pred(context, source)
     self.assertEqual(
         _make_result(
             pred, jp.STR_EQ('B'), source, [],

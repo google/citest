@@ -78,7 +78,8 @@ class JsonObserverTest(unittest.TestCase):
     observation = jc.Observation()
     expected = jc.Observation()
     expected.add_object(_NUMBER_DICT)
-    observer.filter_all_objects_to_observation([_NUMBER_DICT], observation)
+    observer.filter_all_objects_to_observation(
+        context, [_NUMBER_DICT], observation)
     self.assertEqual([_NUMBER_DICT], observation.objects)
     self.assertEqual(expected, observation)
 
@@ -89,7 +90,8 @@ class JsonObserverTest(unittest.TestCase):
 
     expected = jc.Observation()
     expected.add_object(_LETTER_DICT)
-    observer.filter_all_objects_to_observation([_LETTER_DICT], observation)
+    observer.filter_all_objects_to_observation(
+        context, [_LETTER_DICT], observation)
     self.assertEqual([_LETTER_DICT], observation.objects)
     self.assertEqual(expected, observation)
 
@@ -98,12 +100,13 @@ class JsonObserverTest(unittest.TestCase):
     expected.add_object(_LETTER_DICT)
     expected.add_object(_LETTER_DICT)
     observer.filter_all_objects_to_observation(
-        [_LETTER_DICT, _NUMBER_DICT, _LETTER_DICT], observation)
+        context, [_LETTER_DICT, _NUMBER_DICT, _LETTER_DICT], observation)
     self.assertEqual([_LETTER_DICT, _LETTER_DICT], observation.objects)
 
     observation = jc.Observation()
     expected = jc.Observation()
-    observer.filter_all_objects_to_observation([_NUMBER_DICT], observation)
+    observer.filter_all_objects_to_observation(
+        context, [_NUMBER_DICT], observation)
     self.assertEqual([], observation.objects)
     # Note that filtering doesnt observe errors.
     self.assertEqual(expected, observation)
