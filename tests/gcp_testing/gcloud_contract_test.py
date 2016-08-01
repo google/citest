@@ -15,7 +15,10 @@
 
 import unittest
 
-from citest.base import JsonSnapshotHelper
+from citest.base import (
+  ExecutionContext,
+  JsonSnapshotHelper)
+
 import citest.gcp_testing as gt
 import citest.json_contract as jc
 import citest.service_testing as st
@@ -26,16 +29,18 @@ import fake_gcloud_agent
 class GCloudContractTest(unittest.TestCase):
 
   def test_empty_builder(self):
+    context = ExecutionContext()
     default_response = st.CliResponseType(0, '', '')
     gcloud = fake_gcloud_agent.FakeGCloudAgent(
         'PROJECT', 'ZONE', default_response=default_response)
     contract_builder = gt.GCloudContractBuilder(gcloud)
     contract = contract_builder.build()
-    results = contract.verify()
+    results = contract.verify(context)
     self.assertTrue(results)
 
   def test_list(self):
     # Return a list of two objects -- a dictionary and an array.
+    context = ExecutionContext()
     default_response = st.CliResponseType(0, '[{"field":"value"}, [1,2,3]]', '')
 
     gcloud = fake_gcloud_agent.FakeGCloudAgent(
@@ -54,13 +59,15 @@ class GCloudContractTest(unittest.TestCase):
     # we can verify the contract will call the clause which in turn will
     # call the agent with the expected parameters we test for below.
     contract = contract_builder.build()
-    self.assertTrue(contract.verify())
+    self.assertTrue(contract.verify(context))
 
     command = gcloud.build_gcloud_command_args(
         'instances', ['list'] + extra_args, project='PROJECT')
     self.assertEquals(command, gcloud.last_run_params)
 
   def test_inspect_not_found_ok(self):
+    context = ExecutionContext()
+
     # Return a 404 Not found
     # The string we return just needs to end with " was not found",
     # which is what gcloud currently returns (subject to change)
@@ -74,7 +81,9 @@ class GCloudContractTest(unittest.TestCase):
         'PROJECT', 'ZONE', default_response=error_response)
     contract_builder = gt.GCloudContractBuilder(gcloud)
 
-    extra_args=['arg1', 'arg2', 'arg3']
+    context.add_internal('test', 'arg2')
+    extra_args = ['arg1', lambda x: x['test'], 'arg3']
+    expect_extra_args = ['arg1', 'arg2', 'arg3']
 
     c1 = contract_builder.new_clause_builder('TITLE')
     verifier = c1.inspect_resource(
@@ -84,12 +93,12 @@ class GCloudContractTest(unittest.TestCase):
     self.assertTrue(isinstance(verifier, jc.ValueObservationVerifierBuilder))
 
     contract = contract_builder.build()
-    verification_result = contract.verify()
+    verification_result = contract.verify(context)
     self.assertTrue(verification_result,
                     JsonSnapshotHelper.ValueToEncodedJson(verification_result))
 
     command = gcloud.build_gcloud_command_args(
-        'instances', ['describe', 'test_name'] + extra_args,
+        'instances', ['describe', 'test_name'] + expect_extra_args,
         project='PROJECT', zone='ZONE')
     self.assertEquals(command, gcloud.last_run_params)
 

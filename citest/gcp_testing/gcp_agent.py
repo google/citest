@@ -18,14 +18,14 @@
 import json
 import logging
 
+import apiclient
 import httplib2
 
-from apiclient import discovery
 from oauth2client.service_account import ServiceAccountCredentials
 
 from ..base import JournalLogger
 from ..service_testing import BaseAgent
-
+import citest
 
 PLATFORM_READ_ONLY_SCOPE = (
     'https://www.googleapis.com/auth/cloud-platform.read-only'
@@ -58,7 +58,10 @@ class GcpAgent(BaseAgent):
     if version is None:
       version = default_version
 
-    service = discovery.build('discovery', 'v1', http=httplib2.Http())
+    http = httplib2.Http()
+    http = apiclient.http.set_user_agent(
+        http, 'citest/{version}'.format(version=citest.__version__))
+    service = apiclient.discovery.build('discovery', 'v1', http=http)
 
     # pylint: disable=no-member
     return service.apis().getRest(api=api, version=version).execute()
@@ -85,6 +88,8 @@ class GcpAgent(BaseAgent):
       version = default_version
 
     http = httplib2.Http()
+    http = apiclient.http.set_user_agent(
+        http, 'citest/{version}'.format(version=citest.__version__))
     if scopes is not None:
       logger.info('Authenticating %s %s', api, version)
       credentials = ServiceAccountCredentials.from_json_keyfile_name(
@@ -92,7 +97,7 @@ class GcpAgent(BaseAgent):
       http = credentials.authorize(http)
 
     logger.info('Constructing %s service...', api)
-    return discovery.build(api, version, http=http)
+    return apiclient.discovery.build(api, version, http=http)
 
   @classmethod
   def make_agent(cls, version=None,
@@ -193,7 +198,7 @@ class GcpAgent(BaseAgent):
                        .format(method, missing))
     return result
 
-  def get_resource(self, resource_type, resource_id=None, **kwargs):
+  def get_resource(self, context, resource_type, resource_id=None, **kwargs):
     """Get instance metadata details.
 
     Args:
@@ -203,9 +208,11 @@ class GcpAgent(BaseAgent):
          on the resource type (such as zone, etc).
     """
     return self.invoke_resource(
-        'get', resource_type=resource_type, resource_id=resource_id, **kwargs)
+        context, 'get',
+        resource_type=resource_type, resource_id=resource_id, **kwargs)
 
-  def invoke_resource(self, method, resource_type, resource_id=None, **kwargs):
+  def invoke_resource(self, context, method, resource_type,
+                      resource_id=None, **kwargs):
     """Invoke a method on a resource type or instance.
 
     Args:
@@ -219,6 +226,7 @@ class GcpAgent(BaseAgent):
     """
     variables = self.resource_method_to_variables(
         method, resource_type, resource_id=resource_id, **kwargs)
+    variables = context.eval(variables)
 
     resource_obj = vars(self.__service).get(resource_type, None)
     if resource_obj is None:
@@ -246,7 +254,7 @@ class GcpAgent(BaseAgent):
       
     return response
 
-  def list_resource(self, resource_type, method_variant='list',
+  def list_resource(self, context, resource_type, method_variant='list',
                     item_list_transform=None, **kwargs):
     """List the contents of the specified resource.
 
@@ -269,6 +277,7 @@ class GcpAgent(BaseAgent):
     method_container = resource_obj()
     variables = self.resource_method_to_variables(
         method_variant, resource_type, **kwargs)
+    variables = context.eval(variables)
     request = getattr(method_container, method_variant)(**variables)
 
     JournalLogger.begin_context('List {0}'.format(resource_type))

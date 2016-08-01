@@ -23,6 +23,7 @@ from googleapiclient.errors import HttpError
 
 from citest.base import (
     new_global_journal_with_path,
+    ExecutionContext,
     JsonSnapshotHelper)
 
 import citest.gcp_testing as gt
@@ -30,7 +31,7 @@ import citest.json_predicate as jp
 import citest.json_contract as jc
 import citest.service_testing as st
 
-from .test_gcp_agent import (
+from test_gcp_agent import (
     FakeGcpService,
     TestGcpAgent)
 
@@ -50,13 +51,15 @@ class GcpContractTest(st.AgentTestCase):
     return TestGcpAgent.make_test_agent()
 
   def test_empty_builder(self):
+    context = ExecutionContext()
     agent = self.testing_agent
     contract_builder = gt.GcpContractBuilder(agent)
     contract = contract_builder.build()
-    results = contract.verify()
+    results = contract.verify(context)
     self.assertTrue(results)
 
   def test_list(self):
+    context = ExecutionContext()
     default_variables = {'project': 'PROJECT'}
     service = MyFakeGcpService([{'items': [1, 2, 3]}])
     agent = TestGcpAgent.make_test_agent(
@@ -72,9 +75,11 @@ class GcpContractTest(st.AgentTestCase):
     # we can verify the contract will call the clause which in turn will
     # call the agent with the expected parameters we test for below.
     contract = contract_builder.build()
-    self.assertTrue(contract.verify())
+    self.assertTrue(contract.verify(context))
+    self.assertEquals({'project': 'PROJECT'}, agent.service.last_list_args)
 
   def test_inspect_not_found_ok(self):
+    context = ExecutionContext()
     response = Mock()
     response.status = 404
     response.reason = 'Not Found'
@@ -93,9 +98,34 @@ class GcpContractTest(st.AgentTestCase):
     self.assertTrue(isinstance(verifier, jc.ValueObservationVerifierBuilder))
 
     contract = contract_builder.build()
-    verification_result = contract.verify()
+    verification_result = contract.verify(context)
     self.assertTrue(verification_result,
                     JsonSnapshotHelper.ValueToEncodedJson(verification_result))
+    self.assertEquals({'project': 'PROJECT', 'region': 'us-central1-f'},
+                      agent.service.last_get_args)
+
+  def test_inspect_indirect(self):
+    context = ExecutionContext(test_id='TESTID', test_project='PROJECT')
+    default_variables = {'project': lambda x: x.get('test_project', 'UNKNOWN')}
+    service = MyFakeGcpService(['Hello, World'])
+    agent = TestGcpAgent.make_test_agent(
+        service=service, default_variables=default_variables)
+
+    contract_builder = gt.GcpContractBuilder(agent)
+
+    c1 = contract_builder.new_clause_builder('TITLE')
+    verifier = c1.inspect_resource(
+        'regions', resource_id=lambda x: x['test_id'],
+        no_resource_ok=True)
+    verifier.contains_path_value('', 'Hello, World')
+    self.assertTrue(isinstance(verifier, jc.ValueObservationVerifierBuilder))
+
+    contract = contract_builder.build()
+    verification_result = contract.verify(context)
+    self.assertTrue(verification_result,
+                    JsonSnapshotHelper.ValueToEncodedJson(verification_result))
+    self.assertEquals({'project': 'PROJECT', 'region': 'TESTID'},
+                      agent.service.last_get_args)
 
 
 if __name__ == '__main__':

@@ -394,6 +394,9 @@ class JsonSnapshotHelper(object):
     if isinstance(value, types.MethodType):
       return 'Method "{0}"'.format(value.__name__)
 
+    if isinstance(value, types.LambdaType):
+      return 'Lambda "{0}"'.format(value.func_name)
+
     raise TypeError(
         '{0} is not implicitly JsonSnapshotable.'.format(value.__class__))
 

@@ -163,7 +163,7 @@ class ValueObservationVerifier(ov.ObservationVerifier):
     self.__constraints = kwargs.pop('constraints', None)
     super(ValueObservationVerifier, self).__init__(title, **kwargs)
 
-  def __call__(self, observation):
+  def __call__(self, context, observation):
     if observation.errors:
       logging.getLogger(__name__).debug(
           'Failing because of observation errors %s', observation.errors)

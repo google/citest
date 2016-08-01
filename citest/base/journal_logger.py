@@ -230,4 +230,3 @@ class JournalLogHandler(logging.StreamHandler):
     # which is accessable outside this logger, it needs to already be flushed
     # to allow interleaving writers to preserve ordering.
     pass
-

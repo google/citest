@@ -18,8 +18,11 @@
 
 import unittest
 
-from citest.base import JsonSnapshotableEntity
-from citest.base import JsonSnapshotHelper
+from citest.base import (
+  ExecutionContext,
+  JsonSnapshotableEntity,
+  JsonSnapshotHelper)
+
 import citest.json_contract as jc
 import citest.json_predicate as jp
 
@@ -68,6 +71,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
     self.assertEqual([count_aA, count_bB], verifier.constraints)
 
   def test_object_observation_verifier_multiple_constraint_found(self):
+    context = ExecutionContext()
     pred_list = [jp.PathPredicate('a', jp.STR_EQ('A')),
                  jp.PathPredicate('b', jp.STR_EQ('B'))]
     # This is our object verifier for these tests.
@@ -95,12 +99,13 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       self.assertEqual([], verify_results.failed_constraints)
 
       try:
-        self._try_verify(verifier, observation, True, verify_results)
+        self._try_verify(context, verifier, observation, True, verify_results)
       except:
         print 'testing {0}'.format(test[0])
         raise
 
   def test_object_observation_verifier_one_constraint_not_found(self):
+    context = ExecutionContext()
     pred_list = [jp.PathPredicate('a', jp.STR_EQ('NOT_FOUND'))]
 
     # This is our object verifier for these tests.
@@ -130,12 +135,13 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       self.assertEqual(pred_list, verify_results.failed_constraints)
 
       try:
-        self._try_verify(verifier, observation, False, verify_results)
+        self._try_verify(context, verifier, observation, False, verify_results)
       except:
         print 'testing {0}'.format(test[0])
         raise
 
   def test_object_observation_verifier_multiple_constraint_not_found(self):
+    context = ExecutionContext()
     pred_list = [jp.PathPredicate('a', jp.STR_EQ('NOT_FOUND')),
                  jp.PathPredicate('b', jp.STR_EQ('NOT_FOUND'))]
 
@@ -165,12 +171,13 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       verify_results = builder.build(False)
 
       try:
-        self._try_verify(verifier, observation, False, verify_results)
+        self._try_verify(context, verifier, observation, False, verify_results)
       except:
         print 'testing {0}'.format(test[0])
         raise
 
   def test_object_observation_verifier_some_but_not_all_constraints_found(self):
+    context = ExecutionContext()
     pred_list = [jp.PathPredicate('a', jp.STR_EQ('NOT_FOUND')),
                  jp.PathPredicate('b', jp.STR_EQ('B'))]
 
@@ -201,7 +208,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       verify_results = builder.build(False)
 
       try:
-        self._try_verify(verifier, observation, False, verify_results)
+        self._try_verify(context, verifier, observation, False, verify_results)
       except:
         print 'testing {0}'.format(test[0])
         raise
@@ -237,6 +244,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
                   (True, [match_value_not_name_obj, match_neither_obj]),
                   (False, [match_neither_obj, match_name_not_value_obj])]
 
+    context = ExecutionContext()
     verifier = verifier_builder.build()
     for test in test_cases:
       observation = jc.Observation()
@@ -253,23 +261,25 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       verify_results = result_builder.build(expect_valid)
 
       try:
-        self._try_verify(verifier, observation, expect_valid, verify_results)
+        self._try_verify(context, verifier, observation,
+                         expect_valid, verify_results)
       except:
         print 'testing {0}'.format(obj_list)
         raise
 
-  def _try_verify(self, verifier, observation, expect_ok, expect_results=None,
-                  dump=False):
+  def _try_verify(self, context, verifier, observation,
+                  expect_ok, expect_results=None, dump=False):
     """Helper function for a verifier result on a given observation.
 
     Args:
+      context: The citest execution context
       verifier: The jc.ObservationVerifier to run.
       observation: The jc.Observation to run on.
       expect_ok: Whether we expect the verifier to succeed or not.
       expect_results: If not None, then the expected verify_results.
       dump: If True then print the verify_results to facilitate debugging.
     """
-    verify_results = verifier(observation)
+    verify_results = verifier(context, observation)
 
     # Assert that the observation was unchanged.
     self.assertEqual(verify_results.observation, observation)

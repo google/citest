@@ -41,7 +41,7 @@ class GcpStorageAgent(GcpAgent):
   def default_discovery_name_and_version(cls):
     return 'storage', 'v1'
 
-  def inspect_bucket(self, bucket, path=None, **kwargs):
+  def inspect_bucket(self, context, bucket, path=None, **kwargs):
     """Get metadata for a bucket or object in the bucket.
 
     Args:
@@ -52,12 +52,14 @@ class GcpStorageAgent(GcpAgent):
     Returns:
       Metadata for specified resource.
     """
+    path = context.eval(path)
     if not path:
-      return self.get_resource('buckets', bucket=bucket, **kwargs)
+      return self.get_resource(context, 'buckets', bucket=bucket, **kwargs)
     else:
-      return self.get_resource('objects', bucket=bucket, object=path, **kwargs)
+      return self.get_resource(context, 'objects', bucket=bucket, object=path,
+                               **kwargs)
 
-  def list_bucket(self, bucket, path_prefix, with_versions, **kwargs):
+  def list_bucket(self, context, bucket, path_prefix, with_versions, **kwargs):
     """List the contents of the path in the specified bucket.
 
     Args:
@@ -72,11 +74,11 @@ class GcpStorageAgent(GcpAgent):
       A list of resources.
     """
     return super(GcpStorageAgent, self).list_resource(
-        'objects', bucket=bucket, prefix=path_prefix, versions=with_versions,
-        **kwargs)
+        context, 'objects', bucket=bucket, prefix=path_prefix,
+        versions=with_versions, **kwargs)
 
   def retrieve_content(
-      self, bucket, path, transform=None, generation=None, **kwargs):
+      self, context, bucket, path, transform=None, generation=None, **kwargs):
     """Retrieves the content at the specified path.
 
     Args:
@@ -93,6 +95,9 @@ class GcpStorageAgent(GcpAgent):
                      path, bucket, generation)
 
     # Get Payload Data
+    bucket = context.eval(bucket)
+    path = context.eval(path)
+    generation = context.eval(generation)
     request = self.service.objects().get_media(
         bucket=bucket,
         object=path,

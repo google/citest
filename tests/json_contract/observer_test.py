@@ -15,6 +15,8 @@
 # pylint: disable=missing-docstring
 
 import unittest
+
+from citest.base import ExecutionContext
 import citest.json_contract as jc
 import citest.json_predicate as jp
 
@@ -71,6 +73,7 @@ class JsonObserverTest(unittest.TestCase):
 
   def test_object_observer_map(self):
     # Test no filter.
+    context = ExecutionContext()
     observer = jc.ObjectObserver()
     observation = jc.Observation()
     expected = jc.Observation()
@@ -131,6 +134,7 @@ class JsonObserverTest(unittest.TestCase):
     ]
 
     # For each of the cases, test it with strict and non-strict verification.
+    context = ExecutionContext()
     for test in test_cases:
       name = test[0]
       observation = test[1]
@@ -142,7 +146,7 @@ class JsonObserverTest(unittest.TestCase):
         verifier = jc.ValueObservationVerifier(
             title='Verifier', constraints=[aA, bB], strict=test_strict)
 
-        verify_result = verifier(observation)
+        verify_result = verifier(context, observation)
         try:
           self.assertEqual(expected, verify_result.__nonzero__())
         except Exception as e:

@@ -39,7 +39,7 @@ class GcpComputeAgent(GcpAgent):
     """Implements GcpAgent interface."""
     return 'compute', 'v1'
 
-  def aggregated_list_resource(self, resource_type, **kwargs):
+  def aggregated_list_resource(self, context, resource_type, **kwargs):
     """List the contents of the specified resource.
 
     This uses the aggregatedList variants (so the resource_type
@@ -70,5 +70,6 @@ class GcpComputeAgent(GcpAgent):
           result.extend(data_values)
       return result
 
-    return self.list_resource(resource_type, method_variant='aggregatedList',
+    return self.list_resource(context, esource_type,
+                              method_variant='aggregatedList',
                               item_list_transform=transform, **kwargs)

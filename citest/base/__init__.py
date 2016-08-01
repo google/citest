@@ -36,6 +36,7 @@ from global_journal import (
     set_global_journal,
     unset_global_journal)
 
+from execution_context import ExecutionContext
 from json_scrubber import JsonScrubber
 from base_test_case import BaseTestCase
 from test_runner import TestRunner

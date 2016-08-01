@@ -15,6 +15,7 @@
 
 import unittest
 
+from citest.base import ExecutionContext
 import fake_gcloud_agent
 import citest.gcp_testing as gt
 
@@ -24,37 +25,38 @@ class GCloudAgentTest(unittest.TestCase):
     gt.GCloudAgent.is_preview_type('force-startup')
 
   def test_gcloud_list(self):
+    context = ExecutionContext()
     standard_params = ['--format', 'json', '--project', 'PROJECT']
     gcloud = fake_gcloud_agent.FakeGCloudAgent('PROJECT', 'ZONE')
-    gcloud.list_resources('instances')
+    gcloud.list_resources(context, 'instances')
     self.assertEqual(
       gcloud.last_run_params,
       ['-q', 'compute'] + standard_params + ['instances', 'list'])
 
-    gcloud.list_resources('managed-instance-groups')
+    gcloud.list_resources(context, 'managed-instance-groups')
     self.assertEqual(
       gcloud.last_run_params,
       ['-q', 'compute'] + standard_params
       + ['instance-groups', 'managed', 'list', '--zone', 'ZONE'])
 
-    gcloud.list_resources('unmanaged-instance-groups')
+    gcloud.list_resources(context, 'unmanaged-instance-groups')
     self.assertEqual(
       gcloud.last_run_params,
       ['-q', 'compute'] + standard_params
       + ['instance-groups', 'unmanaged', 'list', '--zone', 'ZONE'])
 
-    gcloud.describe_resource('instances', 'NAME')
+    gcloud.describe_resource(context, 'instances', 'NAME')
     self.assertEqual(gcloud.last_run_params,
                      ['-q', 'compute'] + standard_params
                      + ['instances', 'describe', 'NAME',  '--zone', 'ZONE'])
 
-    gcloud.describe_resource('managed-instance-groups', 'NAME')
+    gcloud.describe_resource(context, 'managed-instance-groups', 'NAME')
     self.assertEqual(gcloud.last_run_params,
                      ['-q', 'compute'] + standard_params
                      + ['instance-groups', 'managed',
                         'describe', 'NAME', '--zone', 'ZONE'])
 
-    gcloud.describe_resource('unmanaged-instance-groups', 'NAME')
+    gcloud.describe_resource(context, 'unmanaged-instance-groups', 'NAME')
     self.assertEqual(gcloud.last_run_params,
                      ['-q', 'compute'] + standard_params
                      + ['instance-groups', 'unmanaged',

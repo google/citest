@@ -39,8 +39,9 @@ class AwsObjectObserver(jc.ObjectObserver):
   def __str__(self):
     return 'AwsObjectObserver({0})'.format(self.__args)
 
-  def collect_observation(self, observation, trace=True):
-    aws_response = self.__aws.run(self.__args, trace)
+  def collect_observation(self, context, observation, trace=True):
+    args = context.eval(self.__args)
+    aws_response = self.__aws.run(args, trace)
     if not aws_response.ok():
       observation.add_error(
           cli_agent.CliAgentRunError(self.__aws, aws_response))
@@ -84,7 +85,8 @@ class AwsClauseBuilder(jc.ContractClauseBuilder):
     self.__aws = aws
     self.__strict = strict
 
-  def collect_resources(self, aws_module, command, args=None, filter=None,
+  def collect_resources(self, aws_module, command,
+                        args=None, filter=None,
                         no_resources_ok=False):
     """Collect the AWS resources of a particular type.
 

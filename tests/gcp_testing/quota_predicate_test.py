@@ -18,7 +18,9 @@ import json
 import unittest
 from mock import Mock
 
-from citest.base import JsonSnapshotHelper
+from citest.base import (
+  ExecutionContext,
+  JsonSnapshotHelper)
 
 from citest.json_predicate import (
     CompositePredicateResultBuilder,
@@ -117,6 +119,7 @@ class GcpQuotaPredicateTest(unittest.TestCase):
     return mock_service
 
   def test_contract_ok(self):
+    context = ExecutionContext()
     source = [{'metric': 'A', 'limit': 100.0, 'usage': 0.0},
               {'metric': 'B', 'limit': 100.0, 'usage': 90.0},
               {'metric': 'C', 'limit': 100.0, 'usage': 100.0}]
@@ -128,11 +131,12 @@ class GcpQuotaPredicateTest(unittest.TestCase):
     regions = [('region1', project_quota)]
 
     contract = make_quota_contract(observer, project_quota, regions)
-    got_result = contract.verify()
+    got_result = contract.verify(context)
     self.assertTrue(got_result)
     self.assertEqual(2, len(got_result.clause_results))
 
   def test_contract_bad(self):
+    context = ExecutionContext()
     source = [{'metric': 'A', 'limit': 100.0, 'usage': 0.0},
               {'metric': 'B', 'limit': 100.0, 'usage': 90.0},
               {'metric': 'C', 'limit': 100.0, 'usage': 100.0}]
@@ -144,7 +148,7 @@ class GcpQuotaPredicateTest(unittest.TestCase):
     regions = [('region1', project_quota), ('region2', {'C': 1.0})]
 
     contract = make_quota_contract(observer, project_quota, regions)
-    result = contract.verify()
+    result = contract.verify(context)
     self.assertFalse(result)
     self.assertEqual(3, len(result.clause_results))
     self.assertTrue(result.clause_results[0])

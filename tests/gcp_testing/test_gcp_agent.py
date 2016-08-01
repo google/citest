@@ -94,6 +94,8 @@ class FakeGcpService(object):
     self.__execute_response_list = list(execute_response_list)
     self.__execute_response_list.reverse()
     self.my_test = self._my_test  # needs to be a variable
+    self.last_list_args = None
+    self.last_get_args = None
 
   def _my_test(self):
     self.__calls.append('my_test')
@@ -101,10 +103,12 @@ class FakeGcpService(object):
 
   def get(self, **kwargs):
     self.__calls.append('get({0})'.format(kwargs))
+    self.last_get_args = dict(**kwargs)
     return self
 
   def list(self, **kwargs):
     self.__calls.append('list({0})'.format(kwargs))
+    self.last_list_args = dict(**kwargs)
     return self
 
   def execute(self):
