@@ -26,19 +26,19 @@ import unittest
 from StringIO import StringIO
 from citest.base import Journal
 
-from citest.base import JsonSnapshot, JsonSnapshotable
+from citest.base import JsonSnapshot, JsonSnapshotableEntity
 from citest.base import RecordOutputStream, RecordInputStream
 
 from test_clock import TestClock
 
 
-class TestDetails(JsonSnapshotable):
+class TestDetails(JsonSnapshotableEntity):
   def export_to_json_snapshot(self, snapshot, entity):
     snapshot.edge_builder.make(entity, 'DetailR', 3.14)
     snapshot.edge_builder.make(entity, 'DetailB', True)
 
 
-class TestData(JsonSnapshotable):
+class TestData(JsonSnapshotableEntity):
   def __init__(self, name, param, data=None):
     self.__name = name
     self.__param = param
@@ -49,7 +49,7 @@ class TestData(JsonSnapshotable):
     entity.add_metadata('param', self.__param)
 
     if self.__data:
-      data = snapshot.make_entity_for_data(self.__data)
+      data = snapshot.make_entity_for_object(self.__data)
       snapshot.edge_builder.make(entity, 'Data', data)
     return entity
 
@@ -150,7 +150,7 @@ class JournalTest(unittest.TestCase):
     data = TestData('NAME', 1234, TestDetails())
     decoder = json.JSONDecoder(encoding='ASCII')
     snapshot = JsonSnapshot()
-    snapshot.add_data(data)
+    snapshot.add_object(data)
 
     time_function = lambda: 1.23
     journal = Journal(time_function)
@@ -187,14 +187,14 @@ class JournalTest(unittest.TestCase):
     self.assertEquals(4, len(got))
 
     snapshot = JsonSnapshot()
-    snapshot.add_data(first)
+    snapshot.add_object(first)
     json_object = snapshot.to_json_object()
     json_object['_timestamp'] = journal.clock.last_time - 1
     json_object['_thread'] = threading.current_thread().ident
     self.assertItemsEqual(json_object, got[1])
 
     snapshot = JsonSnapshot()
-    snapshot.add_data(second)
+    snapshot.add_object(second)
     json_object = snapshot.to_json_object()
     json_object['_timestamp'] = journal.clock.last_time
     json_object['_thread'] = threading.current_thread().ident

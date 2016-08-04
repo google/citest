@@ -16,10 +16,15 @@
 """Citest support modules for testing against Google Cloud Platform (GCP)."""
 
 
-from gcloud_agent import GCloudAgent
+from gcp_agent import GcpAgent
+from gcp_contract import GcpContractBuilder
 
-from gcloud_contract import GceContractBuilder # DEPRECATED
-
+from gcp_compute_agent import (
+    COMPUTE_FULL_SCOPE,
+    COMPUTE_READ_ONLY_SCOPE,
+    COMPUTE_READ_WRITE_SCOPE,
+    GcpComputeAgent)
+    
 from gcp_storage_agent import (
     GcpStorageAgent,
     STORAGE_FULL_SCOPE,
@@ -28,19 +33,13 @@ from gcp_storage_agent import (
     
 from gcp_storage_contract import GcpStorageContractBuilder
 
+from gcloud_agent import GCloudAgent
+from gcloud_contract import GCloudContractBuilder
+
 from quota_predicate import (
     QuotaPredicate,
     make_quota_contract,
     verify_quota)
-
-from gcp_agent import GcpAgent
-from gcp_compute_agent import (
-    COMPUTE_FULL_SCOPE,
-    COMPUTE_READ_ONLY_SCOPE,
-    COMPUTE_READ_WRITE_SCOPE,
-    GcpComputeAgent)
-    
-from gcp_contract import GcpContractBuilder
 
 from gcp_error_predicates import (
     GoogleAgentObservationFailureVerifier,

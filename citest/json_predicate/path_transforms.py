@@ -14,10 +14,10 @@
 
 """Common transforms to use with PathPredicate that provide journaling."""
 
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 from .path_value import PATH_SEP
 
-class FieldDifference(JsonSnapshotable):
+class FieldDifference(JsonSnapshotableEntity):
   """Transform a dictionary value into the difference of two fields within."""
 
   @property
@@ -54,7 +54,7 @@ class FieldDifference(JsonSnapshotable):
             and self.__subtractend == transform.subtractend)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(
         entity, 'Operation',
         '{0} - {1}'.format(self.__minuend, self.__subtractend))

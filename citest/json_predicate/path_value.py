@@ -16,7 +16,7 @@
 """Track the accumulation of Path/Value pairs found."""
 
 import collections
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 
 # Denotes the seperator used when specifying paths to JSON attributes
 # in an object hierarchy.
@@ -24,7 +24,7 @@ PATH_SEP = '/'
 
 
 class PathValue(collections.namedtuple('PathValue', ['path', 'value']),
-                JsonSnapshotable):
+                JsonSnapshotableEntity):
   """A path, value pair.
 
   Attributes:
@@ -36,7 +36,7 @@ class PathValue(collections.namedtuple('PathValue', ['path', 'value']),
     return '"{0}"={1!r}'.format(self.path, self.value)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Path', self.path)
     snapshot.edge_builder.make_data(entity, 'Value', self.value,
                                     format='json')

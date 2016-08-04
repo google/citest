@@ -98,7 +98,7 @@ class CardinalityResult(predicate.PredicateResult, HasPathPredicateResult):
             and self.__collect_values_result == event.path_predicate_result)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     count_relation = builder.determine_valid_relation(self)
     result_relation = builder.determine_valid_relation(
@@ -214,7 +214,7 @@ class CardinalityPredicate(predicate.ValuePredicate,
     return self.__max
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.path_pred)
     snapshot.edge_builder.make_control(entity, 'Min', self.__min)
     snapshot.edge_builder.make_control(entity, 'Max',

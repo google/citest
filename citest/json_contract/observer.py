@@ -16,9 +16,9 @@
 """Observers make observations that are a collection of data to be verified."""
 
 
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 
-class Observation(JsonSnapshotable):
+class Observation(JsonSnapshotableEntity):
   """Tracks details for ObjectObserver and ObservationVerifier."""
 
   @property
@@ -36,7 +36,7 @@ class Observation(JsonSnapshotable):
     self.__errors = []
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     edge = builder.make(entity, 'Errors', self.__errors)
     if self.__errors:
@@ -119,7 +119,7 @@ class Observation(JsonSnapshotable):
     return True
 
 
-class ObjectObserver(JsonSnapshotable):
+class ObjectObserver(JsonSnapshotableEntity):
   """Acts as an object source to feed objects into a contract.
 
   This class requires specialization for specific sources.
@@ -133,7 +133,7 @@ class ObjectObserver(JsonSnapshotable):
     return self.__filter
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Filter', self.__filter)
 
   def __init__(self, filter=None):

@@ -54,7 +54,7 @@ class PathResult(PredicateResult, CloneableWithContext):
     return self.__source
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     builder.make_control(entity, 'Target Path', self.__target_path)
     builder.make_input(entity, 'Source', self.__source, format='json')
@@ -152,7 +152,7 @@ class PathValueResult(PathResult):
         comment=self.comment, cause=self.cause)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     if self.__pred:
       builder.make_control(entity, 'Filter', self.__pred)

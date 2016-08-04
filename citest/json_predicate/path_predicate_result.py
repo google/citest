@@ -16,19 +16,19 @@
 
 
 import collections
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 from . import predicate
 
 
 class PathPredicateResultCandidate(
     collections.namedtuple('PathPredicateResultCandidate',
                            ['path_value', 'result']),
-    JsonSnapshotable):
+    JsonSnapshotableEntity):
   """Holds a value matching the desired path with its filtering result."""
   # pylint: disable=too-few-public-methods
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_output(
         entity, 'Path Value', self.path_value)
     snapshot.edge_builder.make_output(
@@ -226,7 +226,7 @@ class PathPredicateResult(predicate.PredicateResult, HasPathPredicateResult):
             and self.__path_failures == result.path_failures)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.__pred)
     # Separate out just the path values from the full justification (below)
     # to make it easy to get at the list of values found, which is often

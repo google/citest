@@ -15,14 +15,14 @@
 """Test citest.reporting.html_renderer module."""
 
 import unittest
-from citest.base import (JsonSnapshotable, JsonSnapshot)
+from citest.base import (JsonSnapshotableEntity, JsonSnapshot)
 from citest.reporting.html_document_manager import HtmlDocumentManager
 from citest.reporting.html_renderer import HtmlRenderer
 from citest.reporting.html_renderer import ProcessToRenderInfo
 from citest.reporting.journal_processor import ProcessedEntityManager
 
 
-class TestLinkedList(JsonSnapshotable):
+class TestLinkedList(JsonSnapshotableEntity):
   # pylint: disable=missing-docstring
   # pylint: disable=too-few-public-methods
   def __init__(self, name, next_elem=None):
@@ -32,7 +32,7 @@ class TestLinkedList(JsonSnapshotable):
   def export_to_json_snapshot(self, snapshot, entity):
     entity.add_metadata('name', self.__name)
     if self.next:
-      next_target = snapshot.make_entity_for_data(self.next)
+      next_target = snapshot.make_entity_for_object(self.next)
       snapshot.edge_builder.make(entity, 'Next', next_target)
 
 
@@ -117,7 +117,7 @@ class HtmlRendererTest(unittest.TestCase):
     tail = TestLinkedList(name='tail')
     head = TestLinkedList(name='head', next_elem=tail)
     snapshot = JsonSnapshot()
-    snapshot.make_entity_for_data(head)
+    snapshot.make_entity_for_object(head)
     json_snapshot = snapshot.to_json_object()
 
     entity_manager = ProcessedEntityManager()
@@ -177,7 +177,7 @@ class HtmlRendererTest(unittest.TestCase):
     processor = ProcessToRenderInfo(
         HtmlDocumentManager('test_json'), entity_manager)
 
-    snapshot.make_entity_for_data(head)
+    snapshot.make_entity_for_object(head)
     json_snapshot = snapshot.to_json_object()
     self.assertEqual(1, json_snapshot.get('_subject_id'))
     entity_manager.push_entity_map(json_snapshot.get('_entities'))

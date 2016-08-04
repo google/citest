@@ -18,7 +18,7 @@
 
 import logging
 
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 from ..json_predicate import map_predicate
 from ..json_predicate import predicate
 
@@ -196,7 +196,7 @@ class ObservationVerifyResult(predicate.PredicateResult):
     self.__failed_constraints = failed_constraints
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     super(ObservationVerifyResult, self).export_to_json_snapshot(
         snapshot, entity)
     builder = snapshot.edge_builder
@@ -241,7 +241,7 @@ class ObservationVerifier(predicate.ValuePredicate):
     return self.__title
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     entity.add_metadata('_title', self.__title)
     disjunction = self.__dnf_verifiers
     builder = snapshot.edge_builder
@@ -255,7 +255,7 @@ class ObservationVerifier(predicate.ValuePredicate):
       if len(conjunction) == 1:
         # A special case to optimize the report to remove the conjunction
         # wrapper since there is only one component anyway
-        all_conjunctions.append(snapshot.make_entity_for_data(conjunction[0]))
+        all_conjunctions.append(snapshot.make_entity_for_object(conjunction[0]))
       else:
         conjunction_entity = snapshot.new_entity(summary='AND predicates')
         builder.make(
@@ -338,7 +338,7 @@ class _VerifierBuilderWrapper(object):
     return self.__verifier
 
 
-class ObservationVerifierBuilder(JsonSnapshotable):
+class ObservationVerifierBuilder(JsonSnapshotableEntity):
   @property
   def title(self):
     return self.__title
@@ -367,7 +367,7 @@ class ObservationVerifierBuilder(JsonSnapshotable):
     self.__current_builder = None
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     entity.add_metadata('_title', self.__title)
     snapshot.edge_builder.make(entity, 'Title', self.__title)
     snapshot.edge_builder.make(

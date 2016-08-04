@@ -17,13 +17,13 @@
 
 import collections
 
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 from . import predicate
 
 
 class ObjectResultMapAttempt(
     collections.namedtuple('ObjectResultMapAttempt', ['obj', 'result']),
-    JsonSnapshotable):
+    JsonSnapshotableEntity):
   """Holds a individual value and its result."""
 
   @property
@@ -40,7 +40,7 @@ class ObjectResultMapAttempt(
             and self.result == attempt.result)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     result_summary = '{name} {valid}'.format(
         name=self.obj.__class__.__name__, valid=self.result.valid)
@@ -117,7 +117,7 @@ class MapPredicateResult(predicate.CompositePredicateResult):
     return attempt_entity
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     func = lambda l: [self.__map_attempt_to_entity(e, snapshot) for e in l]
     builder = snapshot.edge_builder
     builder.make_input(entity, 'Object List', self.__obj_list,
@@ -213,7 +213,7 @@ class MapPredicate(predicate.ValuePredicate):
         bad_map=bad_map)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     builder.make_mechanism(entity, 'Mapped Predicate', self.__pred,
                            summary=self.__pred.__class__)

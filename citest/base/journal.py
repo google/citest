@@ -151,7 +151,7 @@ class Journal(object):
       metadata: [kwargs] Additional metadata for the entry.
     """
     snapshot = JsonSnapshot(**metadata)
-    snapshot.add_data(obj)
+    snapshot.add_object(obj)
     self.__write_json_object(snapshot.to_json_object())
 
   def _do_close(self):

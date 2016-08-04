@@ -31,15 +31,15 @@ import sys
 import time
 
 from ..base import JsonScrubber
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 from ..base import JournalLogger
 
 
-class AgentError(Exception, JsonSnapshotable):
+class AgentError(Exception, JsonSnapshotableEntity):
   """Denotes an error reported by a BaseAgent."""
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_error(entity, 'Message', self.message)
 
   def __init__(self, message):
@@ -53,7 +53,7 @@ class AgentError(Exception, JsonSnapshotable):
             and self.message == error.message)
 
 
-class BaseAgent(JsonSnapshotable):
+class BaseAgent(JsonSnapshotableEntity):
   """Base class for adapting services and observers into the citest framework.
 
   The base class does not introduce any significant behavior, but the intent
@@ -103,7 +103,7 @@ class BaseAgent(JsonSnapshotable):
     builder.make_control(entity, 'Configuration', scrubbed_config)
 
 
-class AgentOperationStatus(JsonSnapshotable):
+class AgentOperationStatus(JsonSnapshotableEntity):
   """Base class for current Status on AgentOperation.
 
   The operations performed by base agents have disparate results depending
@@ -175,7 +175,7 @@ class AgentOperationStatus(JsonSnapshotable):
     return self.__operation.agent
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     builder.make(entity, 'ID', self.id)
     builder.make_output(entity, 'Finished', self.finished)
@@ -298,7 +298,7 @@ class AgentOperationStatus(JsonSnapshotable):
     time.sleep(secs)
 
 
-class AgentOperation(JsonSnapshotable):
+class AgentOperation(JsonSnapshotableEntity):
   """Base class abstraction for a testable operation executed through an agent.
 
   AgentOperation is a first-class operation that can be executed at some point
@@ -357,7 +357,7 @@ class AgentOperation(JsonSnapshotable):
     self.__max_wait_secs = max_wait_secs
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     builder.make(entity, 'Title', self.title)
     builder.make_mechanism(

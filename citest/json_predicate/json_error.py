@@ -16,14 +16,14 @@
 """Common errors the the citest.json_contract package."""
 
 
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 
 
-class JsonError(ValueError, JsonSnapshotable):
+class JsonError(ValueError, JsonSnapshotableEntity):
   """Denotes an error relatived to invalid JSON."""
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make(entity, 'Message', self.message)
     if self.__cause:
       snapshot.edge_builder.make(entity, 'CausedBy', str(self.__cause))

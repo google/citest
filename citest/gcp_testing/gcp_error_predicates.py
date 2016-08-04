@@ -40,7 +40,7 @@ class HttpErrorPredicateResult(jp.PredicateResult):
             and self.__value == result.value)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     builder.make_output(entity, 'Error Value', self.__value)
     super(HttpErrorPredicateResult, self).export_to_json_snapshot(snapshot,
@@ -103,7 +103,7 @@ class HttpErrorPredicate(jp.ValuePredicate):
     return HttpErrorPredicateResult(True, value, comment=' '.join(message))
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     if self.__http_code:
       snapshot.edge_builder.make_control(entity, 'HTTP Code', self.__http_code)
     if self.__content_regex:
@@ -140,7 +140,7 @@ class GoogleAgentObservationFailureVerifier(jc.ObservationVerifier):
     self.__pred = HttpErrorPredicate(http_code, content_regex)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Expect', self.__pred)
     super(GoogleAgentObservationFailureVerifier, self).export_to_json_snapshot(
         snapshot, entity)

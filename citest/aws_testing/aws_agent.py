@@ -57,7 +57,7 @@ class AwsAgent(st.CliAgent):
     self.logger = logging.getLogger(__name__)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     builder.make_control(entity, 'Profile', self.__profile)
     builder.make_control(entity, 'Region', self.__region)

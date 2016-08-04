@@ -248,7 +248,7 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
     return self.__transform
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Path', self.__path)
     snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.__pred)
     if self.__transform:

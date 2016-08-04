@@ -98,7 +98,35 @@ def _normalize_metadata_kwargs(metadata):
 class JsonSnapshotable(object):
   """Interface for storing an object into a JsonSnapshot."""
 
-  # pylint: disable=too-few-public-methods
+  def to_snapshot_value(self, snapshot):
+    """Convert this instance into the value to write into the snapshot.
+
+    Args:
+      snapshot: [Snapshot] The snapshot that the value will be stored in.
+          This is intended for reference, not necessarily to write the value
+          into the snapshot. For some specialized classes (entity), the value
+          to write into the snapshot may wish to reference existing entities
+          or require side effects into the snapshot in order to produce the
+          value.
+
+    Returns:
+      Object that JsonSnapshot knows how to render.
+    """
+    raise NotImplementedError('{0}.to_snapshot_value'.format(self.__class__))
+
+
+class JsonSnapshotableEntity(JsonSnapshotable):
+  """Interface for storing a composite object into a JsonSnapshot."""
+
+  def to_snapshot_value(self, snapshot):
+    """Convert this instance into the value to write into the snapshot.
+
+    This will create an entity in the snapshot and encode this
+    instance into the entity using the export_to_json_snapshot method. If
+    the entity already exists then it will return the existing entity.
+    """
+    return snapshot.make_entity_for_object(self)
+
   def export_to_json_snapshot(self, snapshot, entity):
     """Store this object state into the snapshot.
 
@@ -188,7 +216,7 @@ class Edge(object):
     self.__metadata[key] = value
 
   def to_json_object(self):
-    """Returns a json object for this edge."""
+    """Serializes this edge into a object that is json encodable."""
     return self.__to_json_object(self)
 
 
@@ -302,7 +330,7 @@ class SnapshotEntity(object):
     return edge
 
   def to_json_object(self):
-    """Returns entity as a dictionary that is json encodable."""
+    """Serializes this entity into a object that is json encodable."""
     result = {'_id': self.__id}
 
     edges = []
@@ -330,15 +358,22 @@ class JsonSnapshotHelper(object):
     """
     # pylint: disable=invalid-name
     # pylint: disable=unused-argument
+    # pylint: disable=too-many-return-statements
+
+    if isinstance(value, JsonSnapshotable):
+      # Turn value into the snapshot value (which might be an entity
+      # or wrapped value) and continue the method depending on the new
+      # value type returned.
+      value = value.to_snapshot_value(snapshot)
+
     if isinstance(value, (basestring, bool, int, long, float, None.__class__)):
       return value
 
-    if isinstance(value, JsonSnapshotable):
-      # Turn value into an entity within the snapshot,
-      # and continue the method as if we got the entity.
-      value = snapshot.make_entity_for_data(value)
-
     if isinstance(value, SnapshotEntity):
+      # The entity already exists in the snapshot. Presumably this
+      # entity was the result of to_snapshot_value above (or in an earlier
+      # call), which wrote the entity into the snapshot so here we merely
+      # need to reference the existing entity within the snapshot.
       return {'_type': 'EntityReference', '_id': value.id}
 
     if isinstance(value, list):
@@ -465,12 +500,11 @@ class JsonSnapshotEdgeBuilder(object):
     Returns:
       A snapshot edge.
     """
+    if isinstance(_value, JsonSnapshotable):
+      _value = _value.to_snapshot_value(self.__snapshot)
+
     if isinstance(_value, SnapshotEntity):
       return self.__new_entity_edge(_value, label=_label, **metadata)
-
-    if isinstance(_value, JsonSnapshotable):
-      entity = self.__snapshot.make_entity_for_data(_value)
-      return self.__new_entity_edge(entity, label=_label, **metadata)
 
     value = self.__value_helper.ToJsonSnapshotValue(_value, self.__snapshot)
     return self.__new_value_edge(value, label=_label, **metadata)
@@ -478,7 +512,7 @@ class JsonSnapshotEdgeBuilder(object):
   @staticmethod
   def  __new_entity_edge(_entity, **metadata):
     def to_json_object(edge):
-      """Returns a json object for this edge."""
+      """Serializes the edge into a object that is json encodable."""
       result = {}
       result['_to'] = edge.target.id
       result.update(edge.metadata)
@@ -488,7 +522,7 @@ class JsonSnapshotEdgeBuilder(object):
   @staticmethod
   def  __new_value_edge(_value, **metadata):
     def to_json_object(edge):
-      """Convert the edge into a dictionary that can be encoded as JSON."""
+      """Serializes the edge into a object that is json encodable."""
       result = {}
       if _value is not None:
         result['_value'] = _value
@@ -638,15 +672,15 @@ class JsonSnapshot(object):
     value = _normalize_metadata_value(value)
     self.__metadata[key] = value
 
-  def add_data(self, snapshotable):
+  def add_object(self, snapshotable_entity):
     """Adds snapshotable data into the snapshot.
 
     Args:
-      snapshotable: [JsonSnapshotable] Data to add to snapshot.
+      snapshotable_entity: [JsonSnapshotableEntity] Entity to add to snapshot.
     """
-    self.make_entity_for_data(snapshotable)
+    self.make_entity_for_object(snapshotable_entity)
 
-  def make_entity_for_data(self, snapshotable):
+  def make_entity_for_object(self, snapshotable):
     """Returns a possibly shared node for |snapshotable|.
 
     Args:
@@ -657,7 +691,8 @@ class JsonSnapshot(object):
     if not isinstance(snapshotable, JsonSnapshotable):
       raise TypeError(
           '{0} is not JsonSnapshotable'.format(snapshotable.__class__))
-    entity = self.find_entity_for_data(snapshotable)
+
+    entity = self.find_entity_for_object(snapshotable)
     if entity is None:
       entity = self.new_entity()
       entity.add_metadata('class', snapshotable.__class__)
@@ -678,7 +713,7 @@ class JsonSnapshot(object):
       self.__subject_entity = entity
     return entity
 
-  def find_entity_for_data(self, snapshotable):
+  def find_entity_for_object(self, snapshotable):
     """Find a entity containing data, if any.
 
     Args:
@@ -701,7 +736,7 @@ class JsonSnapshot(object):
     return self.__entities[entity_id]
 
   def to_json_object(self):
-    """Returns snapshot as a dictionary that is json encodable."""
+    """Serializes this snapshot into a object that is json encodable."""
     result = {'_type': 'JsonSnapshot'}
     if self.__entities:
       result['_subject_id'] = self.__subject_entity.id

@@ -62,7 +62,7 @@ class BinaryPredicate(predicate.ValuePredicate):
             and self.__operand == pred.operand)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make(entity, 'Name', self.__name)
     snapshot.edge_builder.make_control(entity, 'Operand', self.__operand)
 

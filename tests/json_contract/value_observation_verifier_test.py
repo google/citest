@@ -18,7 +18,7 @@
 
 import unittest
 
-from citest.base import JsonSnapshotable
+from citest.base import JsonSnapshotableEntity
 from citest.base import JsonSnapshotHelper
 import citest.json_contract as jc
 import citest.json_predicate as jp
@@ -37,7 +37,7 @@ _MULTI_ARRAY = [_LETTER_DICT, _NUMBER_DICT, _LETTER_DICT, _NUMBER_DICT]
 
 class JsonValueObservationVerifierTest(unittest.TestCase):
   def assertEqual(self, expect, have, msg=''):
-    if not isinstance(expect, JsonSnapshotable):
+    if not isinstance(expect, JsonSnapshotableEntity):
       super(JsonValueObservationVerifierTest, self).assertEqual(expect, have, msg)
       return
     try:

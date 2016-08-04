@@ -27,7 +27,7 @@ import logging
 import time
 
 from ..base import JournalLogger
-from ..base import JsonSnapshotable
+from ..base import JsonSnapshotableEntity
 from ..json_predicate import predicate
 from . import observer as ob
 from . import observation_verifier as ov
@@ -89,7 +89,7 @@ class ContractClauseVerifyResult(predicate.PredicateResult):
         self.__clause, self.__verify_results)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     entity.add_metadata('_title',
                         'Verification of "{0}"'.format(self.__clause.title))
@@ -126,7 +126,7 @@ class ContractClause(predicate.ValuePredicate):
         super(ContractClause, self).__repr__(), self.__title, self.__verifier)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     entity.add_metadata('_title', self.__title)
     snapshot.edge_builder.make(entity, 'Title', self.__title)
     snapshot.edge_builder.make_mechanism(entity, 'Observer', self.__observer)
@@ -348,14 +348,14 @@ class ContractVerifyResult(predicate.PredicateResult):
         super(ContractVerifyResult, self).__repr__(), self.__clause_results)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     relation = snapshot.edge_builder.determine_valid_relation(self)
     snapshot.edge_builder.make(
         entity, 'Clause Results', self.__clause_results, relation=relation)
     super(ContractVerifyResult, self).export_to_json_snapshot(snapshot, entity)
 
 
-class Contract(JsonSnapshotable):
+class Contract(JsonSnapshotableEntity):
   """A contract holds a collection of ContractClause.
 
   Attributes:
@@ -370,7 +370,7 @@ class Contract(JsonSnapshotable):
     self.__clauses = []
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Clauses', self.__clauses)
 
   def add_clause(self, clause):

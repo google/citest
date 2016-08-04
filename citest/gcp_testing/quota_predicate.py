@@ -140,7 +140,7 @@ class QuotaPredicate(ValuePredicate):
     return builder.build(valid)
 
   def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotable interface."""
+    """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(
         entity, 'Minimum', self.__minimum_quota)
 
