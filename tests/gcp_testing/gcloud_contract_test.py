@@ -23,13 +23,13 @@ import citest.service_testing as st
 import fake_gcloud_agent
 
 
-class GceContractTest(unittest.TestCase):
+class GCloudContractTest(unittest.TestCase):
 
   def test_empty_builder(self):
     default_response = st.CliResponseType(0, '', '')
     gcloud = fake_gcloud_agent.FakeGCloudAgent(
         'PROJECT', 'ZONE', default_response=default_response)
-    contract_builder = gt.GceContractBuilder(gcloud)
+    contract_builder = gt.GCloudContractBuilder(gcloud)
     contract = contract_builder.build()
     results = contract.verify()
     self.assertTrue(results)
@@ -40,7 +40,7 @@ class GceContractTest(unittest.TestCase):
 
     gcloud = fake_gcloud_agent.FakeGCloudAgent(
         'PROJECT', 'ZONE', default_response=default_response)
-    contract_builder = gt.GceContractBuilder(gcloud)
+    contract_builder = gt.GCloudContractBuilder(gcloud)
 
     c1 = contract_builder.new_clause_builder('TITLE')
     extra_args=['arg1', 'arg2', 'arg3']
@@ -72,7 +72,7 @@ class GceContractTest(unittest.TestCase):
 
     gcloud = fake_gcloud_agent.FakeGCloudAgent(
         'PROJECT', 'ZONE', default_response=error_response)
-    contract_builder = gt.GceContractBuilder(gcloud)
+    contract_builder = gt.GCloudContractBuilder(gcloud)
 
     extra_args=['arg1', 'arg2', 'arg3']
 
@@ -96,5 +96,5 @@ class GceContractTest(unittest.TestCase):
 
 if __name__ == '__main__':
   loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(GceContractTest)
+  suite = loader.loadTestsFromTestCase(GCloudContractTest)
   unittest.TextTestRunner(verbosity=2).run(suite)
