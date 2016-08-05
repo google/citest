@@ -14,120 +14,40 @@
 
 # pylint: disable=missing-docstring
 
-import json
 import unittest
-from mock import patch, Mock
-from citest.gcp_testing.gcp_agent import GcpAgent
+from mock import patch
 
-def method_spec(parameterOrder, optional=None):
-    parameters = {key: {'required': True} for key in parameterOrder}
-    parameters.update({key: {} for key in optional or []})
-    return {'parameters': parameters, 'parameterOrder': parameterOrder}
-
-class TestAgent(GcpAgent):
-  @classmethod
-  def default_discovery_name_and_version(cls):
-    return  'TEST_API', 'TEST_VERSION'
-
-  @staticmethod
-  def generate_discovery_document(version='TEST_VERSION'):
-    if version != 'TEST_VERSION':
-        raise ValueError()
-    req = {'required': True}
-
-    return {
-        'title': 'MockCompute',
-        'name': 'mock-compute',
-        'resources' : {
-            'projects': {
-                'methods': {'get': method_spec(['project'])}},
-            'regions': {
-                'methods': {'get': method_spec(['project', 'region'])}},
-            'my_test': {
-                'methods': {'get': method_spec(['r'], ['o']),
-                            'list': method_spec([], ['o'])}}
-        }}
+from .test_gcp_agent import (
+    FakeGcpDiscovery,
+    FakeGcpService,
+    TestGcpAgent)
 
 
-class FakeDiscovery(object):
-  @property
-  def calls(self):
-    return self.__calls
-
-  def __init__(self, doc):
-    self.__doc = doc
-    self.__calls = []
-
-  def apis(self):
-    self.__calls.append('apis')
-    return self
-
-  def getRest(self, api, version):
-    self.__calls.append('getRest')
-    return self
-
-  def execute(self):
-    self.__calls.append('execute')
-    return self.__doc
-
-
-class FakeService(object):
-  @property
-  def calls(self):
-    return self.__calls
-
-  def __init__(self, execute_response_list):
-    self.__calls = []
-    self.__execute_response_list = list(execute_response_list)
-    self.__execute_response_list.reverse()
-    self.my_test = self._my_test  # needs to be a variable
-
-  def _my_test(self):
-    self.__calls.append('my_test')
-    return self
-
-  def get(self, **kwargs):
-    self.__calls.append('get({0})'.format(kwargs))
-    return self
-
-  def list(self, **kwargs):
-    self.__calls.append('list({0})'.format(kwargs))
-    return self
-
-  def execute(self):
-    self.__calls.append('execute')
-    return self.__execute_response_list.pop()
-
-  def list_next(self, request, response):
-    self.__calls.append('list_next')
-    return request if self.__execute_response_list else None
-
-      
 class GcpAgentTest(unittest.TestCase):
   @patch('apiclient.discovery.build')
   def test_download(self, mock_discovery):
     doc = 'HELLO, WORLD!'
-    fake_discovery = FakeDiscovery(doc)
+    fake_discovery = FakeGcpDiscovery(doc)
     mock_discovery.return_value = fake_discovery
-    found = TestAgent.download_discovery_document()
+    found = TestGcpAgent.download_discovery_document()
     self.assertEqual(doc, found)
     self.assertEqual(['apis', 'getRest', 'execute'], fake_discovery.calls)
 
   @patch('apiclient.discovery.build')
   def test_make_agent(self, mock_discovery):
-    doc = TestAgent.generate_discovery_document()
-    fake_discovery = FakeDiscovery(doc)
+    doc = TestGcpAgent.generate_discovery_document()
+    fake_discovery = FakeGcpDiscovery(doc)
     mock_discovery.return_value = fake_discovery
-    agent = TestAgent.make_agent()
-
-    self.assertEqual(['apis', 'getRest', 'execute'], fake_discovery.calls)
+    agent = TestGcpAgent.make_agent()
+    self.assertEqual(['apis', 'getRest', 'execute'],
+                     fake_discovery.calls)
     self.assertEqual(doc, agent.discovery_document)
     self.assertEqual({}, agent.default_variables)
-    
+
   def test_resource_method_to_variables_no_defaults(self):
     service = None
-    discovery_doc = TestAgent.generate_discovery_document()
-    agent = TestAgent(service, discovery_doc)
+    discovery_doc = TestGcpAgent.generate_discovery_document()
+    agent = TestGcpAgent(service, discovery_doc)
 
     got = agent.resource_method_to_variables(
         'get', 'my_test', r='R')
@@ -143,9 +63,9 @@ class GcpAgentTest(unittest.TestCase):
 
   def test_resource_method_to_variables_with_defaults(self):
     service = None
-    discovery_doc = TestAgent.generate_discovery_document()
-    agent = TestAgent(service, discovery_doc,
-                      default_variables={'r': 'defR', 'o': 'defO'})
+    discovery_doc = TestGcpAgent.generate_discovery_document()
+    agent = TestGcpAgent(service, discovery_doc,
+                         default_variables={'r': 'defR', 'o': 'defO'})
     got = agent.resource_method_to_variables(
         'get', 'my_test', r='R', o='O')
     self.assertEqual({'r': 'R', 'o': 'O'}, got)
@@ -167,9 +87,9 @@ class GcpAgentTest(unittest.TestCase):
     self.assertEqual({'r': 'defR'}, got)
 
   def test_invoke(self):
-    doc = TestAgent.generate_discovery_document()
-    service = FakeService(['HELLO'])
-    agent = TestAgent(service, doc)
+    doc = TestGcpAgent.generate_discovery_document()
+    service = FakeGcpService(['HELLO'])
+    agent = TestGcpAgent(service, doc)
 
     got = agent.invoke_resource('get', 'my_test', 'MY_ID')
     args = {'r': 'MY_ID'}
@@ -178,10 +98,9 @@ class GcpAgentTest(unittest.TestCase):
     self.assertEqual('HELLO', got)
 
   def test_list(self):
-    doc = TestAgent.generate_discovery_document()
-    service = FakeService([{'items': [1, 2, 3]},
-                           {'items': [4, 5, 6]}])
-    agent = TestAgent(service, doc)
+    service = FakeGcpService([{'items': [1, 2, 3]},
+                              {'items': [4, 5, 6]}])
+    agent = TestGcpAgent.make_test_agent(service=service)
 
     got = agent.list_resource('my_test')
     self.assertEqual(['my_test', 'list({})', 'execute',
