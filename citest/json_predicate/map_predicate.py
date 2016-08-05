@@ -139,12 +139,12 @@ class MapPredicateResult(predicate.CompositePredicateResult):
     super(MapPredicateResult, self).export_to_json_snapshot(snapshot, entity)
 
   def __init__(self, valid, pred, obj_list, all_results,
-               good_map, bad_map, comment=None):
-    super(MapPredicateResult, self).__init__(
-        valid=valid, pred=pred, results=all_results, comment=comment)
+               good_map, bad_map, **kwargs):
     self.__obj_list = obj_list
     self.__good_map = good_map
     self.__bad_map = bad_map
+    super(MapPredicateResult, self).__init__(
+        valid=valid, pred=pred, results=all_results, **kwargs)
 
   def __eq__(self, result):
     return (super(MapPredicateResult, self).__eq__(result)
@@ -163,11 +163,23 @@ class MapPredicate(predicate.ValuePredicate):
     """The predicate to map over the individual values."""
     return self.__pred
 
-  def __init__(self, pred, min=1, max=None):
+  def __init__(self, pred, min=1, max=None, **kwargs):
+    """Constructor.
+
+    Args:
+      pred: [ValuePredicate] The predicate to map.
+      min: [int] The minimum number of values the predicate is expected
+         to return true for.
+      max: [int] The maximum number of values the predicate is expected
+         to return true for (or None for no upper bound).
+
+      See base class (ValuePredicate) for additional kwargs.
+    """
     # pylint: disable=redefined-builtin
     self.__pred = pred
     self.__min = min
     self.__max = max
+    super(MapPredicate, self).__init__(**kwargs)
 
   def __str__(self):
     return 'Map({0!r})'.format(self.__pred)

@@ -41,6 +41,7 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
 
   def __eq__(self, builder):
     """Specializes interface."""
+    # pylint: disable=protected-access
     return (super(ValueObservationVerifierBuilder, self).__eq__(builder)
             and self.__strict == builder.__strict
             and self.__constraints == builder.__constraints)
@@ -140,10 +141,7 @@ class ValueObservationVerifier(ov.ObservationVerifier):
         [str(x) for x in self.__constraints],
         self.__strict)
 
-  def __init__(self,
-               title, dnf_verifiers=None,
-               constraints=None,
-               strict=False):
+  def __init__(self, title, **kwargs):
     """Construct instance.
 
     Args:
@@ -158,10 +156,12 @@ class ValueObservationVerifier(ov.ObservationVerifier):
           Otherwise if False then the verifier requires each of the constraints
           to be satisfied by at least one object. Not necessarily the same
           object, nor does any object have to satisfy even one constraint.
+
+       See base class (ObservationVerifier) for additional kwargs.
     """
-    super(ValueObservationVerifier, self).__init__(title, dnf_verifiers)
-    self.__strict = strict
-    self.__constraints = constraints
+    self.__strict = kwargs.pop('strict', False)
+    self.__constraints = kwargs.pop('constraints', None)
+    super(ValueObservationVerifier, self).__init__(title, **kwargs)
 
   def __call__(self, observation):
     if observation.errors:

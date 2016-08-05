@@ -68,7 +68,3 @@ class FieldDifference(JsonSnapshotableEntity):
       Value of minuend - subtractend
     """
     return source[self.__minuend] - source[self.__subtractend]
-
-
-
-

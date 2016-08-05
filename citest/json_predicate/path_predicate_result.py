@@ -193,8 +193,7 @@ class PathPredicateResult(predicate.PredicateResult, HasPathPredicateResult):
     """
     return self.__invalid_candidates
 
-  def __init__(self, valid, pred, source, path_failures=None,
-               valid_candidates=None, invalid_candidates=None):
+  def __init__(self, valid, pred, source, **kwargs):
     """Constructor.
 
     Args:
@@ -204,9 +203,13 @@ class PathPredicateResult(predicate.PredicateResult, HasPathPredicateResult):
       path_failures: [list of PredicateResult] The pruned paths.
       valid_candidates: [list of PathPredicateResultCandidate]
       invalid_candidates: [list of PathPredicateResultCandidate]
+
+      See base class (PredicateResult) for additional kwargs.
     """
-    # pylint: disable=too-many-arguments
-    super(PathPredicateResult, self).__init__(valid)
+    path_failures = kwargs.pop('path_failures', None)
+    valid_candidates = kwargs.pop('valid_candidates', None)
+    invalid_candidates = kwargs.pop('invalid_candidates', None)
+    super(PathPredicateResult, self).__init__(valid, **kwargs)
     self.__pred = pred
     self.__source = source
     self.__path_values = [candidate.path_value

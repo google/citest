@@ -187,13 +187,12 @@ class ObservationVerifyResult(predicate.PredicateResult):
 
   def __init__(self, valid, observation,
                good_results, bad_results, failed_constraints,
-               comment=None):
-    super(ObservationVerifyResult, self).__init__(valid, comment=comment)
-
+               **kwargs):
     self.__observation = observation
     self.__good_results = good_results
     self.__bad_results = bad_results
     self.__failed_constraints = failed_constraints
+    super(ObservationVerifyResult, self).__init__(valid, **kwargs)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
@@ -276,7 +275,7 @@ class ObservationVerifier(predicate.ValuePredicate):
 
     builder.make_control(entity, 'Verifiers', disjunction_entity)
 
-  def __init__(self, title, dnf_verifiers=None):
+  def __init__(self, title, **kwargs):
     """Construct instance.
 
     Args:
@@ -286,7 +285,8 @@ class ObservationVerifier(predicate.ValuePredicate):
           (i.e. disjunctive normal form).
     """
     self.__title = title
-    self.__dnf_verifiers = dnf_verifiers or []
+    self.__dnf_verifiers = kwargs.pop('dnf_verifiers', None) or []
+    super(ObservationVerifier, self).__init__(**kwargs)
 
   def __eq__(self, verifier):
     return (self.__class__ == verifier.__class__
@@ -344,6 +344,7 @@ class ObservationVerifierBuilder(JsonSnapshotableEntity):
     return self.__title
 
   def __eq__(self, builder):
+    # pylint: disable=protected-access
     return (self.__class__ == builder.__class__
             and self.__title == builder.title
             and self.__dnf_verifier_builders

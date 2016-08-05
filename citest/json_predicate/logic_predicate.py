@@ -26,7 +26,8 @@ class ConjunctivePredicate(predicate.ValuePredicate):
     """The list of predicates that are ANDed together."""
     return self.__conjunction
 
-  def __init__(self, conjunction):
+  def __init__(self, conjunction, **kwargs):
+    super(ConjunctivePredicate, self).__init__(**kwargs)
     self.__conjunction = [] + conjunction # Elements are ValuePredicate
 
   def append(self, pred):
@@ -69,7 +70,8 @@ class DisjunctivePredicate(predicate.ValuePredicate):
     """The list of predicates that are ORed together."""
     return self.__disjunction
 
-  def __init__(self, disjunction):
+  def __init__(self, disjunction, **kwargs):
+    super(DisjunctivePredicate, self).__init__(**kwargs)
     self.__disjunction = [] + disjunction # Elements are ValuePredicate
 
   def __str__(self):
@@ -112,7 +114,8 @@ class NegationPredicate(predicate.ValuePredicate):
     """The list of predicates that are NOTed together."""
     return self.__pred
 
-  def __init__(self, pred):
+  def __init__(self, pred, **kwargs):
+    super(NegationPredicate, self).__init__(**kwargs)
     self.__pred = pred
 
   def __str__(self):
@@ -163,12 +166,18 @@ class ConditionalPredicate(predicate.ValuePredicate):
     """The predicate forming the ELSE clause."""
     return self.__then_pred
 
-  def __init__(self, if_predicate, then_predicate, else_predicate=None):
+  def __init__(self, if_predicate, then_predicate, else_predicate=None,
+               **kwargs):
     """Constructs an if/then clause.
 
     Args:
       if_predicate: The ValuePredicate acting as the antecedent
       then_predicate: The ValuePredicate acting as the consequent
+         is only executed when the if_predicate returns true.
+      else_predicate: The ValuePredicate is only executed when the
+         if_predicate returns false, if any is provided.
+
+      See the base class (ValuePredicate) for additional kwargs.
     """
     self.__if_pred = if_predicate
     self.__then_pred = then_predicate
@@ -179,6 +188,7 @@ class ConditionalPredicate(predicate.ValuePredicate):
       # The clause is implemented using DeMorgan's law.
       self.__demorgan_pred = DisjunctivePredicate(
           [NegationPredicate(if_predicate), then_predicate])
+    super(ConditionalPredicate, self).__init__(**kwargs)
 
   def __str__(self):
     return 'IF ({0}) THEN ({1})'.format(self.__if_pred, self.__then_pred)

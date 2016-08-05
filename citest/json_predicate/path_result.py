@@ -77,9 +77,8 @@ class PathResult(PredicateResult, CloneableWithContext):
         source=source, target_path=final_path, path_value=final_path_value,
         valid=self.valid, comment=self.comment, cause=self.cause)
 
-  def __init__(self, valid, source, target_path, path_value,
-               comment=None, cause=None):
-    super(PathResult, self).__init__(valid, comment=comment, cause=cause)
+  def __init__(self, valid, source, target_path, path_value, **kwargs):
+    super(PathResult, self).__init__(valid, **kwargs)
     self.__source = source
     self.__target_path = target_path
     self.__path_value = (PathValue(target_path, source)
@@ -114,8 +113,7 @@ class PathValueResult(PathResult):
     """The predicate used to filter the value, if any."""
     return self.__pred
 
-  def __init__(self, source, target_path, path_value, valid=False, pred=None,
-               comment=None, cause=None):
+  def __init__(self, source, target_path, path_value, **kwargs):
     # pylint: disable=redefined-builtin
     """Constructor.
 
@@ -125,14 +123,16 @@ class PathValueResult(PathResult):
       target_path: [string] The desired path (relative to source) that
          we were looking for. NOTE: This is probably path_value.path.
       path_value: [PathValue] The path value the filter was applied to.
-      pred: [ValuePredicate] The predicate applied as the filter, if any.
       valid: [bool] Whether the PredicateResult indicates success.
-      comment: [string] Optional comment for reporting.
-      cause: [Error or PredicateResult] Optional for reporting.
+      pred: [ValuePredicate] The predicate applied as the filter, if any.
+
+      See base class (PathResult) for additional kwargs.
     """
+    valid = kwargs.pop('valid', False)
+    pred = kwargs.pop('pred', None)
     super(PathValueResult, self).__init__(
-        source=source, target_path=target_path, path_value=path_value,
-        valid=valid, comment=comment, cause=cause)
+        valid=valid, source=source,
+        target_path=target_path, path_value=path_value, **kwargs)
     self.__pred = pred
 
   def __eq__(self, result):
@@ -162,8 +162,7 @@ class PathValueResult(PathResult):
 class MissingPathError(PathResult):
   """A PathResult indicating the desired path did not exist."""
 
-  def __init__(self, source, target_path, path_value=None,
-               valid=False, comment=None, cause=None):
+  def __init__(self, source, target_path, path_value=None, **kwargs):
     """Constructor.
 
     Args:
@@ -173,12 +172,13 @@ class MissingPathError(PathResult):
          we were looking for. NOTE: This is probably path_value.path.
       path_value: [PathValue] The path value as far along as we could go.
       valid: [bool] Whether the PredicateResult indicates success.
-      comment: [string] Optional comment for reporting.
-      cause: [Error or PredicateResult] Optional for reporting.
+
+      See base class (PathResult) for additional kwargs.
     """
+    valid = kwargs.pop('valid', False)
     super(MissingPathError, self).__init__(
         valid=valid, source=source, target_path=target_path,
-        path_value=path_value, comment=comment, cause=cause)
+        path_value=path_value, **kwargs)
 
 
 class TypeMismatchError(PathResult):
@@ -204,8 +204,7 @@ class TypeMismatchError(PathResult):
         comment=self.comment, cause=self.cause)
 
   def __init__(self, expect_type, got_type,
-               source, target_path=None, path_value=None,
-               valid=False, comment=None, cause=None):
+               source, target_path=None, path_value=None, **kwargs):
     """Constructor.
 
     Args:
@@ -217,12 +216,13 @@ class TypeMismatchError(PathResult):
          we were looking for. NOTE: This is probably path_value.path.
       path_value: [PathValue] The path value as far along as we could go.
       valid: [bool] Whether the PredicateResult indicates success.
-      comment: [string] Optional comment for reporting.
-      cause: [Error or PredicateResult] Optional for reporting.
+
+      See base class (PathResult) for additional kwargs.
     """
+    valid = kwargs.pop('valid', False)
     super(TypeMismatchError, self).__init__(
         valid=valid, source=source, target_path=target_path,
-        path_value=path_value, comment=comment, cause=cause)
+        path_value=path_value)
     self.__expect_type = expect_type
     self.__got_type = got_type
 
@@ -252,8 +252,7 @@ class IndexBoundsError(PathResult):
     """The index we asked for."""
     return self.__index
 
-  def __init__(self, index, source, target_path, path_value,
-               valid=False, comment=None, cause=None):
+  def __init__(self, index, source, target_path, path_value, **kwargs):
     """Constructor.
 
     Args:
@@ -264,12 +263,12 @@ class IndexBoundsError(PathResult):
          we were looking for.
       path_value: [PathValue] The path value we attempted to index into.
       valid: [bool] Whether the PredicateResult indicates success.
-      comment: [string] Optional comment for reporting.
-      cause: [Error or PredicateResult] Optional for reporting.
+
+      See base class (PathResult) for additional kwargs.
     """
+    valid = kwargs.pop('valid', False)
     super(IndexBoundsError, self).__init__(
-        valid=valid, source=source, target_path=target_path,
-        path_value=path_value, comment=comment)
+        valid=valid, source=source, target_path=target_path)
     if not isinstance(path_value.value, list):
       raise TypeError('{0} is not a list', path_value.value.__class__)
     self.__index = index

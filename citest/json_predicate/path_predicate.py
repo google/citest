@@ -255,17 +255,19 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
       snapshot.edge_builder.make_mechanism(
           entity, 'Transform', self.__transform)
 
-  def __init__(self, path, pred=None, transform=None):
+  def __init__(self, path, pred=None, **kwargs):
     """Construct finder instance.
     Args:
       path: The path to the field that we would like to find.
       pred: The ValuePredicate to apply to the field we find.
          This can be None indicating to just find the value at the field.
       transform: An optional transformation function to apply to the path value.
+      See base class (ValuePredicate) for additional kwargs.
     """
     self.__pred = pred
+    self.__transform = kwargs.pop('transform', None)
     self.__path = path or ''
-    self.__transform = transform
+    super(PathPredicate, self).__init__(**kwargs)
 
   def __eq__(self, finder):
     return (self.__class__ == finder.__class__
