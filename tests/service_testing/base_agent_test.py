@@ -16,65 +16,9 @@
 import unittest
 import citest.service_testing as st
 
-
-class FakeAgent(st.BaseAgent):
-   @property
-   def time_series(self):
-      return self._time_series
-
-   @time_series.setter
-   def time_series(self, time_series):
-      self._time_series = time_series
-
-   def next_time(self):
-     next_time = self._time_series[0]
-     self._time_series = self._time_series[1:]
-     return next_time
-      
-   def __init__(self, time_series=None):
-     super(FakeAgent, self).__init__()
-     self._time_series = time_series or [0] * 100
-
-
-class FakeStatus(st.AgentOperationStatus):
-  @property
-  def id(self):
-    return "test-id"
-
-  @property
-  def finished(self):
-    return self.__finished
-
-  @property
-  def finished_ok(self):
-     return self.__finished
-
-  def __init__(self, operation):
-    super(FakeStatus, self).__init__(operation)
-    self.__finished = False
-    self.calls_remaining = 0
-    self.got_refresh_count = 0
-    self.got_sleep_count = 0
-
-  def set_expected_iterations(self, n):
-    self.__finished = False
-    self.calls_remaining = n
-    self.got_refresh_count = 0
-    self.got_sleep_count = 0
-
-  def _now(self):
-     return self.operation.agent.next_time()
-
-  def _do_sleep(self, secs):
-    self.got_sleep_secs = secs
-    self.got_sleep_count += 1
-
-  def refresh(self, trace):
-    self.got_refresh_count += 1
-    if self.calls_remaining >= 0:
-      self.calls_remaining -= 1
-      if self.calls_remaining < 0:
-        self.__finished = True
+from .fake_agent import (
+    FakeAgent,
+    FakeStatus)
 
 
 class BaseAgentTest(unittest.TestCase):

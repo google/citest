@@ -36,11 +36,13 @@ import time
 import traceback as traceback_module
 
 # Our modules.
-from ..base import args_util
-from ..base import BaseTestCase
-from ..base import JournalLogger
-from ..base import JsonSnapshotableEntity
-from ..base import TestRunner
+
+from ..base import (
+    args_util,
+    BaseTestCase,
+    JournalLogger,
+    JsonSnapshotableEntity,
+    TestRunner)
 
 
 _DEFAULT_TEST_ID = time.strftime('%H%M%S')
@@ -319,7 +321,7 @@ class AgentTestCase(BaseTestCase):
 
   def report(self, obj):
     """Write the object state into the test report."""
-    TestRunner.global_runner().report(obj)
+    JournalLogger.store_or_log(obj)
 
   @property
   def scenario(self):

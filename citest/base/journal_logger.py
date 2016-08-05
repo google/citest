@@ -65,6 +65,26 @@ class JournalLogger(logging.Logger):
     getattr(journal, method)(*positional_args, **kwargs)
 
   @staticmethod
+  def store_or_log(_obj, levelno=logging.INFO,
+                   _module=None, _alwayslog=False, **kwargs):
+    """Store the object into the underlying journal, or log it if no journal.
+
+    Args:
+      _obj: The JsonSnapshotable object to store.
+      levelno: [int] The logging debug level.
+      _module: [string] The logging module name, or none for this.
+      _alwayslog [bool] If True then always log.
+          Otherwise only journal but only log if there is no journal.
+      kwargs: Additional metadata to pass through to the journal.
+   """
+    journal = get_global_journal()
+    if journal is not None:
+      journal.store(_obj)
+    if _alwayslog or journal is None:
+      logging.getLogger(_module or __name__).log(
+          levelno, repr(_obj), extra={'citest_journal': kwargs})
+
+  @staticmethod
   def journal_or_log(_msg, levelno=logging.DEBUG,
                      _module=None, _alwayslog=False, **kwargs):
     """Writes a log message into the journal (if there is one) or logging API.
@@ -81,7 +101,7 @@ class JournalLogger(logging.Logger):
           Otherwise only journal but only log if there is no journal.
       kwargs: Additional metadata to pass through to the journal.
     """
-    if not 'format' in kwargs:
+    if 'format' not in kwargs:
       # If a format was not specified, then default to 'pre'
       kwargs = dict(kwargs)
       kwargs['format'] = 'pre'
@@ -117,15 +137,6 @@ class JournalLogger(logging.Logger):
           Otherwise only journal but only log if there is no journal.
       kwargs: Additional metadata to pass through to the journal.
     """
-    # It would be nice to just write json into the file here, especially so
-    # we dont need to format it now and can leave it to the renderer.
-    # However we'd like to add a message and complement it with the json data.
-    # We dont want the renderer on the other side to see an aggregated json.
-    #
-    # TODO(ewiseblatt): 20160125
-    # Ideally we need to add a metadata attribute for the message and make the
-    # renderer aware, but that requires some more thought about how to
-    # standardize and will have other impact, so putting it off for now.
     json_text = _to_json_if_possible(_detail)
     JournalLogger.journal_or_log(
         _msg='{0}\n{1}'.format(_msg, json_text), levelno=levelno,
