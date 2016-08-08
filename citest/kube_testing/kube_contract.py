@@ -60,7 +60,7 @@ class KubeObjectObserver(jc.ObjectObserver):
       doc = decoder.decode(kube_response.output)
       if not isinstance(doc, list):
         doc = [doc]
-      observation.add_all_objects(doc)
+      self.filter_all_objects_to_observation(context, doc, observation)
     except ValueError as vex:
       error = 'Invalid JSON in response: %s' % str(kube_response)
       logging.getLogger(__name__).info('%s\n%s\n----------------\n',

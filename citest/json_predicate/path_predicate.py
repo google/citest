@@ -66,7 +66,7 @@ from .path_value import (
     PathValue)
 
 from .predicate import (
-    CloneableWithContext,
+    CloneableWithNewSource,
     ValuePredicate)
 
 from .path_predicate_result import PathPredicateResultBuilder
@@ -280,7 +280,7 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
     return '"{path}" {xform}{pred}'.format(
         path=self.__path, xform=xform, pred=self.__pred)
 
-  def __call__(self, source):
+  def __call__(self, context, source):
     """Attempt to lookup the field in a JSON object.
     Args:
       source: JSON object to lookup within.
@@ -290,7 +290,7 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
         (i.e. pred(lookup(source, path)))
     """
 
-    path = self.__path
+    path = context.eval(self.__path)
 
     builder = PathPredicateResultBuilder(pred=self, source=source)
     enumerate_terminal = True
@@ -300,7 +300,8 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
 
     queue = [_QueueElement(0, PathValue('', source))]
     if not path and not (enumerate_terminal and isinstance(source, list)):
-      return self.__add_queue_to_builder(builder, queue, enumerate_terminal)
+      return self.__add_queue_to_builder(
+          context, builder, queue, enumerate_terminal)
 
     final_queue = []
     while queue:
@@ -313,9 +314,11 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
       queue.extend(candidates)
       builder.add_all_path_failures(fails)
 
-    return self.__add_queue_to_builder(builder, final_queue, enumerate_terminal)
+    return self.__add_queue_to_builder(
+        context, builder, final_queue, enumerate_terminal)
 
-  def __add_queue_to_builder(self, builder, final_queue, enumerate_terminal):
+  def __add_queue_to_builder(
+      self, context, builder, final_queue, enumerate_terminal):
     """Helper method for processing the final candidates from the queue.
 
     Apply the filter bound to this predicate, if any, to determine whether
@@ -345,7 +348,7 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
       if self.__pred is None:
         for trial in candidates:
           if self.__transform:
-            xformed = self.__transform(trial.path_value.value)
+            xformed = self.__transform(context, trial.path_value.value)
             transformed_path_value = PathValue(trial.path_value.path, xformed)
           else:
             transformed_path_value = trial.path_value
@@ -362,14 +365,14 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
         for trial in candidates:
           path_value = trial.path_value
           if self.__transform:
-            xformed = self.__transform(path_value.value)
+            xformed = self.__transform(context, path_value.value)
           else:
             xformed = path_value.value
 
-          pred_result = self.__pred(xformed)
-          if isinstance(pred_result, CloneableWithContext):
+          pred_result = self.__pred(context, xformed)
+          if isinstance(pred_result, CloneableWithNewSource):
             base_path = path_value.path
-            pred_result = pred_result.clone_in_context(
+            pred_result = pred_result.clone_with_source(
                 source=builder.source,
                 base_target_path=self.__path,
                 base_value_path=base_path)

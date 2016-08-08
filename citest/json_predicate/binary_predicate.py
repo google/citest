@@ -48,19 +48,45 @@ class BinaryPredicate(predicate.ValuePredicate):
     """The fixed operand argument."""
     return self.__operand
 
+  @property
+  def operand_type(self):
+    """The expected type of the operand."""
+    return self.__operand_type
+
+  def eval_context_operand(self, context):
+    """Determine the operand type for the given evaluation context."""
+    operand = context.eval(self.__operand)
+    if self.__operand_type and not isinstance(operand, self.__operand_type):
+      raise TypeError(
+          '{0} is not {1}: {2!r}',
+          operand.__class__, self.__operand_type, operand)
+    return operand
+
   def __str__(self):
-    return '{0}({1} {2!r})'.format(
-        self.__class__.__name__, self.__name, self.__operand)
+    if self.__operand_type is None:
+      type_name = 'Any'
+    if inspect.isclass(self.__operand_type):
+      type_name = self.__operand_type.__name__
+    else:
+      type_name = str(self.__operand_type)
+    return '{0}{1}({2!r})'.format(type_name, self.name, self.operand)
 
   def __init__(self, name, operand, **kwargs):
-    super(BinaryPredicate, self).__init__(**kwargs)
+    self.__operand_type = kwargs.pop('operand_type', None)
     self.__name = name
     self.__operand = operand
+    if self.__operand_type is not None and not callable(self.__operand):
+      if not isinstance(self.__operand, self.__operand_type):
+        raise TypeError(
+            '{0} is not {1}: {2!r}',
+            operand.__class__, self.__operand_type, operand)
+    super(BinaryPredicate, self).__init__(**kwargs)
 
   def __eq__(self, pred):
     return (self.__class__ == pred.__class__
             and self.__name == pred.name
-            and self.__operand == pred.operand)
+            and self.__operand == pred.operand
+            and self.__operand_type == pred.operand_type)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
@@ -104,33 +130,18 @@ class StandardBinaryPredicate(BinaryPredicate):
       name: Name of predicate
       comparison_op: Implements bool predicate
       operand: Value to bind to predicate.
-      operand_type: Class to enforce for operands, or None to not enforce.
 
       See base class (BinaryPredicate) for additional kwargs.
     """
-    operand_type = kwargs.pop('operand_type', None)
-    if operand_type and not isinstance(operand, operand_type):
-      raise TypeError(
-          '{0} is not {1}: {1!r}', operand.__class__, operand_type, operand)
-
-    self.__type = operand_type
-    self.__comparison_op = comparison_op
     super(StandardBinaryPredicate, self).__init__(name, operand, **kwargs)
+    self.__comparison_op = comparison_op
 
-  def __str__(self):
-    if self.__type is None:
-      type_name = 'Any'
-    if inspect.isclass(self.__type):
-      type_name = self.__type.__name__
-    else:
-      type_name = str(self.__type)
-    return '{0}{1}({2!r})'.format(type_name, self.name, self.operand)
+  def __call__(self, context, value):
+    operand = self.eval_context_operand(context)
+    if self.operand_type and not isinstance(value, self.operand_type):
+      return TypeMismatchError(self.operand_type, value.__class__, value)
 
-  def __call__(self, value):
-    if self.__type and not isinstance(value, self.__type):
-      return TypeMismatchError(self.__type, value.__class__, value)
-
-    valid = self.__comparison_op(value, self.operand)
+    valid = self.__comparison_op(value, operand)
     return PathValueResult(pred=self, source=value, target_path='',
                            path_value=PathValue('', value), valid=valid)
 
@@ -139,20 +150,23 @@ class DictSubsetPredicate(BinaryPredicate):
   """Implements binary predicate comparison predicates against dict values."""
 
   def __init__(self, operand, **kwargs):
-    if not isinstance(operand, dict):
+    if not (isinstance(operand, dict) or callable(operand)):
       raise TypeError(
           '{0} is not a dict: {1!r}'.format(operand.__class__, operand))
-    super(DictSubsetPredicate, self).__init__('has-subset', operand, **kwargs)
+    super(DictSubsetPredicate, self).__init__('has-subset', operand,
+                                              operand_type=dict, **kwargs)
 
-  def __call__(self, value):
+  def __call__(self, context, value):
     if not isinstance(value, dict):
       return TypeMismatchError(dict, value.__class__, value)
-    return self._is_subset(value, '', self.operand, value)
+    operand = self.eval_context_operand(context)
+    return self._is_subset(context, value, '', operand, value)
 
-  def _is_subset(self, source, path, a, b):
+  def _is_subset(self, context, source, path, a, b):
     """Determine if |a| is a subset of |b|.
 
     Args:
+      context: [ExecutionContext]
       source: [obj] The JSON object containing |a|.
       path: [string] The path to |a| from |source|.
       a: |obj| The JSON object that should be a subset of |b|.
@@ -173,7 +187,7 @@ class DictSubsetPredicate(BinaryPredicate):
       # IF the element is itself a dictionary
       # THEN recurse to ensure |a_item| is a subset of |b_item|.
       if isinstance(b_value, dict):
-        result = self._is_subset(source, namepath, a_value, b_value)
+        result = self._is_subset(context, source, namepath, a_value, b_value)
         if not result:
           return result
         continue
@@ -182,16 +196,20 @@ class DictSubsetPredicate(BinaryPredicate):
       # THEN ensure that |a_item| is a subset of |b_item|.
       if isinstance(b_value, list):
         elem_pred = LIST_SUBSET if isinstance(a_value, list) else CONTAINS
-        result = elem_pred(a_value)(b_value)
+        result = elem_pred(a_value)(context, b_value)
         if not result:
-          return result.clone_in_context(source, namepath)
+          return result.clone_with_source(source, namepath)
         continue
+
+      # Up until now we never used a_value directly.
+      a_value = context.eval(a_value)
 
       # Otherwise, we want an exact match.
       # Seems practical for what's intended.
       # If individual fields want different types of matches,
       # then they can call themselves out into a different PathFinder
       # that specifies the individual fields rather than a container.
+
       if a_value != b_value:
         # pylint: disable=redefined-variable-type
         if isinstance(b_value, basestring):
@@ -230,7 +248,7 @@ class _BaseListMembershipPredicate(BinaryPredicate):
     self.__strict = kwargs.pop('strict', False)
     super(_BaseListMembershipPredicate, self).__init__(name, operand, **kwargs)
 
-  def _verify_elem(self, elem, the_list):
+  def _verify_elem(self, context, elem, the_list):
     """Verify if |elem| is in |the_list|
 
     Args:
@@ -243,7 +261,7 @@ class _BaseListMembershipPredicate(BinaryPredicate):
       False otherwise.
     """
     if self.__strict or isinstance(elem, (int, long, float, basestring)):
-      return elem in the_list
+      return elem in context.eval(the_list)
 
     if self.__strict:
       return False
@@ -258,7 +276,7 @@ class _BaseListMembershipPredicate(BinaryPredicate):
       raise TypeError('Unhandled type {0}'.format(elem.__class__))
 
     for value in the_list:
-      if pred(value):
+      if pred(context, value):
         return True
 
     return False
@@ -273,13 +291,13 @@ class ListSubsetPredicate(_BaseListMembershipPredicate):
           '{0} is not a list: {1!r}'.format(operand.__class__, operand))
     super(ListSubsetPredicate, self).__init__('has-subset', operand, **kwargs)
 
-  def __call__(self, value):
+  def __call__(self, context, value):
     """Determine if |operand| is a subset of |value|."""
     if not isinstance(value, list):
       return TypeMismatchError(list, value.__class__, value)
 
-    for elem in self.operand:
-      if not self._verify_elem(elem, the_list=value):
+    for elem in self.eval_context_operand(context):
+      if not self._verify_elem(context, elem, the_list=value):
         return PathValueResult(pred=self, valid=False,
                                path_value=PathValue('', value),
                                source=value, target_path='')
@@ -296,9 +314,9 @@ class ListMembershipPredicate(_BaseListMembershipPredicate):
     super(ListMembershipPredicate, self).__init__(
         'has-elem', operand, **kwargs)
 
-  def __call__(self, value):
+  def __call__(self, context, value):
     """Determine if |operand| is a member of |value|."""
-    valid = self._verify_elem(self.operand, the_list=value)
+    valid = self._verify_elem(context, self.operand, the_list=value)
     return PathValueResult(
         pred=self, valid=valid, source=value, target_path='',
         path_value=PathValue('', value))
@@ -320,18 +338,18 @@ class ContainsPredicate(BinaryPredicate):
   def __init__(self, operand, **kwargs):
     super(ContainsPredicate, self).__init__('Contains', operand, **kwargs)
 
-  def __call__(self, value):
+  def __call__(self, context, value):
     if isinstance(value, basestring):
-      return STR_SUBSTR(self.operand)(value)
+      return STR_SUBSTR(self.operand)(context, value)
     if isinstance(value, dict):
-      return DICT_SUBSET(self.operand)(value)
+      return DICT_SUBSET(self.operand)(context, value)
     if isinstance(value, int or long or float):
-      return NUM_EQ(self.operand)(value)
+      return NUM_EQ(self.operand)(context, value)
     if not isinstance(value, list):
       raise NotImplementedError(
           'Unhandled value class {0}'.format(value.__class__))
     if isinstance(self.operand, list):
-      return LIST_SUBSET(self.operand)(value)
+      return LIST_SUBSET(self.operand)(context, value)
 
     # The value is a list but operand is not a list.
     # So we'll look for existance of the operand in the list
@@ -339,7 +357,7 @@ class ContainsPredicate(BinaryPredicate):
     # or exhaust the list.
     bad_values = []
     for elem in value:
-      result = self(elem)
+      result = self(context, elem)
       if result:
         return result
       bad_values.append(elem)
@@ -365,7 +383,8 @@ class EquivalentPredicate(BinaryPredicate):
     """
     super(EquivalentPredicate, self).__init__('Equivalent', operand, **kwargs)
 
-  def __check_operand_and_call(self, operand_type, value, pred_factory):
+  def __check_operand_and_call(self, context, operand_type,
+                               value, pred_factory):
     """Ensure the operand is of the expected type and apply the predicate.
 
     Args:
@@ -376,20 +395,22 @@ class EquivalentPredicate(BinaryPredicate):
     Returns
       PredicateResult might be JsonTypeMismatchResult if operand_type is wrong.
     """
-    if not isinstance(self.operand, operand_type):
-      return TypeMismatchError(operand_type, self.operand.__class__, value)
-    return pred_factory(self.operand)(value)
+    operand = context.eval(self.operand)
+    if not isinstance(operand, operand_type):
+      return TypeMismatchError(operand_type, operand.__class__, value)
+    return pred_factory(operand)(context, value)
 
-  def __call__(self, value):
+  def __call__(self, context, value):
     """Implements the predicate by determining if value == operand."""
     if isinstance(value, basestring):
-      return self.__check_operand_and_call(basestring, value, STR_EQ)
+      return self.__check_operand_and_call(context, basestring, value, STR_EQ)
     if isinstance(value, dict):
-      return self.__check_operand_and_call(dict, value, DICT_EQ)
+      return self.__check_operand_and_call(context, dict, value, DICT_EQ)
     if isinstance(value, list):
-      return self.__check_operand_and_call(list, value, LIST_SIMILAR)
+      return self.__check_operand_and_call(context, list, value, LIST_SIMILAR)
     if isinstance(value, int or long or float):
-      return self.__check_operand_and_call((int, long, float), value, NUM_EQ)
+      return self.__check_operand_and_call(context, (int, long, float),
+                                           value, NUM_EQ)
     raise NotImplementedError(
         'Unhandled value class {0}'.format(value.__class__))
 
@@ -410,7 +431,8 @@ class DifferentPredicate(BinaryPredicate):
     """
     super(DifferentPredicate, self).__init__('Different', operand, **kwargs)
 
-  def __check_operand_and_call(self, operand_type, value, pred_factory):
+  def __check_operand_and_call(self, context, operand_type,
+                               value, pred_factory):
     """Ensure the operand is of the expected type and apply the predicate.
 
     Args:
@@ -421,21 +443,23 @@ class DifferentPredicate(BinaryPredicate):
     Returns
       PredicateResult might be JsonTypeMismatchResult if operand_type is wrong.
     """
-    if not isinstance(self.operand, operand_type):
+    operand = context.eval(self.operand)
+    if not isinstance(operand, operand_type):
       return TypeMismatchError(
-          operand_type, self.operand.__class__, value)
-    return pred_factory(self.operand)(value)
+          operand_type, operand.__class__, value)
+    return pred_factory(operand)(context, value)
 
-  def __call__(self, value):
+  def __call__(self, context, value):
     """Implements the predicate by determining if value != operand."""
     if isinstance(value, basestring):
-      return self.__check_operand_and_call(basestring, value, STR_NE)
+      return self.__check_operand_and_call(context, basestring, value, STR_NE)
     if isinstance(value, dict):
-      return self.__check_operand_and_call(dict, value, DICT_NE)
+      return self.__check_operand_and_call(context, dict, value, DICT_NE)
     if isinstance(value, list):
-      return self.__check_operand_and_call(list, value, LIST_NE)
+      return self.__check_operand_and_call(context, list, value, LIST_NE)
     if isinstance(value, int or long or float):
-      return self.__check_operand_and_call((int, long, float), value, NUM_NE)
+      return self.__check_operand_and_call(
+          context, (int, long, float), value, NUM_NE)
     raise NotImplementedError(
         'Unhandled value class {0}'.format(value.__class__))
 

@@ -57,6 +57,7 @@ class ObservationVerifierTest(unittest.TestCase):
     JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
 
   def test_result_builder_add_good_result(self):
+    context = ExecutionContext()
     observation = jc.Observation()
     observation.add_object('A')
 
@@ -64,7 +65,7 @@ class ObservationVerifierTest(unittest.TestCase):
     builder = jc.ObservationVerifyResultBuilder(observation)
 
     map_pred = jp.MapPredicate(pred)
-    map_result = map_pred(observation.objects)
+    map_result = map_pred(context, observation.objects)
     builder.add_map_result(map_result)
     verify_results = builder.build(True)
 
@@ -77,6 +78,7 @@ class ObservationVerifierTest(unittest.TestCase):
 
 
   def test_result_builder_add_bad_result(self):
+    context = ExecutionContext()
     observation = jc.Observation()
     observation.add_object('A')
 
@@ -84,7 +86,7 @@ class ObservationVerifierTest(unittest.TestCase):
     builder = jc.ObservationVerifyResultBuilder(observation)
 
     map_pred = jp.MapPredicate(pred)
-    map_result = map_pred(observation.objects)
+    map_result = map_pred(context, observation.objects)
     builder.add_map_result(map_result)
     verify_results = builder.build(False)
 
@@ -96,6 +98,7 @@ class ObservationVerifierTest(unittest.TestCase):
                      verify_results.bad_results)
 
   def test_result_builder_add_mixed_results(self):
+    context = ExecutionContext()
     observation = jc.Observation()
     observation.add_object('GOOD')
     observation.add_object('BAD')
@@ -104,7 +107,7 @@ class ObservationVerifierTest(unittest.TestCase):
     builder = jc.ObservationVerifyResultBuilder(observation)
 
     map_pred = jp.MapPredicate(pred)
-    map_result = map_pred(observation.objects)
+    map_result = map_pred(context, observation.objects)
     builder.add_map_result(map_result)
     verify_results = builder.build(False)
 

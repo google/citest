@@ -136,5 +136,3 @@ class ExecutionContext(JsonSnapshotable):
       return value(self)
     else:
       return value
-
-      

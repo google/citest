@@ -255,7 +255,7 @@ class CardinalityPredicate(predicate.ValuePredicate,
     return 'Cardinality({0}) {1}..{2}'.format(
         self.__path_pred, self.__min, self.__max)
 
-  def __call__(self, obj):
+  def __call__(self, context, obj):
     """Attempt to match object.
 
     Args:
@@ -264,22 +264,24 @@ class CardinalityPredicate(predicate.ValuePredicate,
     Returns:
       PredicateResponse
     """
-    collected_result = self.__path_pred(obj)
+    collected_result = self.__path_pred(context, obj)
     count = len(collected_result.path_values)
 
+    the_max = context.eval(self.__max)
+    the_min = context.eval(self.__min)
     if not count:
-      if self.__max != 0:
+      if the_max != 0:
         return MissingValueCardinalityResult(
             obj, valid=False,
             cardinality_pred=self, path_pred_result=collected_result)
       else:
         result_type = ConfirmedCardinalityResult
 
-    elif self.__max == 0:
+    elif the_max == 0:
       result_type = UnexpectedValueCardinalityResult
 
-    elif (count >= self.__min
-          and (self.__max is None or count <= self.__max)):
+    elif (count >= the_min
+          and (the_max is None or count <= the_max)):
       result_type = ConfirmedCardinalityResult
 
     else:

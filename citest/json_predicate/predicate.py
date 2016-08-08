@@ -30,10 +30,11 @@ class ValuePredicate(JsonSnapshotableEntity):
   """
   # pylint: disable=too-few-public-methods
 
-  def __call__(self, value):
+  def __call__(self, context, value):
     """Apply this predicate against the provided value.
 
     Args:
+      context: The evaluation context to consider within.
       value: The value to consider.
 
     Returns:
@@ -143,29 +144,29 @@ class PredicateResult(JsonSnapshotableEntity):
     return not self.__eq__(result)
 
 
-class CloneableWithContext(object):
-  """Indicates that a PredicateResult can be cloned with a new context.
+class CloneableWithNewSource(object):
+  """Indicates that a PredicateResult can be cloned with a new source context.
 
-  Some PredicateResult type contain context information about where the
+  Some PredicateResult type contain source information about where the
   internal values came from (e.g. the path to the value). When these are
-  constructed, they contain the local context information. Sometimes there
+  constructed, they contain the local source information. Sometimes there
   are higher level predicates that are using these, then propagating the
   results back. These higher level predicates contain additional scope
   that should be "injected" into the lower level result details. Since
   results are immutable, we will clone them. This interface allows
-  results with context to clone a copy of themself and inject the additional
-  context into the newly cloned instance.
+  results with additional pedigree to clone a copy of themself and inject
+  the additional source origin into the newly cloned instance.
   """
   # pylint: disable=too-few-public-methods
 
-  def clone_in_context(self, source, base_target_path, base_value_path):
+  def clone_with_source(self, source, base_target_path, base_value_path):
     """Clone the instance with a new context.
 
     Args:
-      source: [obj] JSON object for the new context.
-      base_target_path: [string] The additional context path relative to
-         |source| to get at the desired result context.
-      base_value_path: [string] The additional context path relative to
+      source: [obj] JSON object denoting the desired origin source.
+      base_target_path: [string] The additional source path relative to
+         |source| to get at the desired result.
+      base_value_path: [string] The additional path relative to
          |source| to get at the actual values found. This is similar to
          the base_target_path but may have further refinements for path
          elements (e.g. array indecies taken).
@@ -173,7 +174,7 @@ class CloneableWithContext(object):
     raise NotImplementedError()
 
 
-class CompositePredicateResult(PredicateResult, CloneableWithContext):
+class CompositePredicateResult(PredicateResult, CloneableWithNewSource):
   """Aggregates a collection of predicate results into a single response.
 
   Attributes:
@@ -221,18 +222,18 @@ class CompositePredicateResult(PredicateResult, CloneableWithContext):
             and self.__pred == result.pred
             and self.__results == result.results)
 
-  def clone_in_context(self, source, base_target_path, base_value_path):
-    """Implements CloneableWithContext interface.
+  def clone_with_source(self, source, base_target_path, base_value_path):
+    """Implements CloneableWithNewSource interface.
 
     A composite result has no context, but its components may.
     """
     results = []
     for orig in self.__results:
-      if isinstance(orig, CloneableWithContext):
+      if isinstance(orig, CloneableWithNewSource):
         results.append(
-            orig.clone_in_context(source=source,
-                                  base_target_path=base_target_path,
-                                  base_value_path=base_value_path))
+            orig.clone_with_source(source=source,
+                                   base_target_path=base_target_path,
+                                   base_value_path=base_value_path))
       else:
         results.append(orig)
 

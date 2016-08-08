@@ -22,11 +22,11 @@ from .path_value import (
     PathValue)
 
 from .predicate import (
-    CloneableWithContext,
+    CloneableWithNewSource,
     PredicateResult)
 
 
-class PathResult(PredicateResult, CloneableWithContext):
+class PathResult(PredicateResult, CloneableWithNewSource):
   """Common base class for results whose subject is a field within a composite.
 
   Attributes:
@@ -61,8 +61,8 @@ class PathResult(PredicateResult, CloneableWithContext):
     builder.make_output(entity, 'PathValue', self.__path_value)
     super(PathResult, self).export_to_json_snapshot(snapshot, entity)
 
-  def clone_in_context(self, source, base_target_path, base_value_path):
-    """Implements CloneableWithContext interface."""
+  def clone_with_source(self, source, base_target_path, base_value_path):
+    """Implements CloneableWithNewSource interface."""
     target_path = (base_target_path if not self.__target_path
                    else PATH_SEP.join([base_target_path, self.__target_path]))
     value_path = (base_value_path if not self.__path_value.path
@@ -70,9 +70,9 @@ class PathResult(PredicateResult, CloneableWithContext):
                                       self.__path_value.path]))
     path_value = PathValue(value_path, self.__path_value.value)
 
-    return self._do_clone_in_context(source, target_path, path_value)
+    return self._do_clone_with_source(source, target_path, path_value)
 
-  def _do_clone_in_context(self, source, final_path, final_path_value):
+  def _do_clone_with_source(self, source, final_path, final_path_value):
     return self.__class__(
         source=source, target_path=final_path, path_value=final_path_value,
         valid=self.valid, comment=self.comment, cause=self.cause)
@@ -144,7 +144,7 @@ class PathValueResult(PathResult):
     return '{0} pred={1}'.format(super(PathValueResult, self).__repr__(),
                                  self.__pred)
 
-  def _do_clone_in_context(self, source, final_path, final_path_value):
+  def _do_clone_with_source(self, source, final_path, final_path_value):
     """Specializes interface to pass through filter."""
     return self.__class__(
         source=source, target_path=final_path, path_value=final_path_value,
@@ -194,7 +194,7 @@ class TypeMismatchError(PathResult):
     """The value type we found."""
     return self.__got_type
 
-  def _do_clone_in_context(self, source, final_path, final_path_value):
+  def _do_clone_with_source(self, source, final_path, final_path_value):
     """Specializes interface to pass through types."""
 
     return self.__class__(

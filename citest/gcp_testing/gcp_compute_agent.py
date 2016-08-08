@@ -70,6 +70,6 @@ class GcpComputeAgent(GcpAgent):
           result.extend(data_values)
       return result
 
-    return self.list_resource(context, esource_type,
+    return self.list_resource(context, resource_type,
                               method_variant='aggregatedList',
                               item_list_transform=transform, **kwargs)

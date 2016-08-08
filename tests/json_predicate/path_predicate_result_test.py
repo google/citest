@@ -20,6 +20,7 @@
 
 import unittest
 
+from citest.base import ExecutionContext
 from citest.json_predicate import (
     PathPredicate,
     PathPredicateResult,
@@ -50,9 +51,10 @@ class JsonPathPredicateResultTest(unittest.TestCase):
     self.assertEqual(pred_a, pred_b)
 
   def test_path_predicate_result_eq(self):
+    context = ExecutionContext()
     source = {}
     path_pred = PathPredicate('x')
-    a_result = path_pred(source)  # dont care, just something well formed.
+    a_result = path_pred(context, source)  # this is just something well formed.
 
     result_a = PathPredicateResult(
         True, path_pred, source,

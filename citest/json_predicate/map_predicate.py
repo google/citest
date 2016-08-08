@@ -188,7 +188,7 @@ class MapPredicate(predicate.ValuePredicate):
     return (self.__class__ == pred.__class__
             and self.__pred == pred.pred)
 
-  def __call__(self, obj):
+  def __call__(self, context, obj):
     """Determine if object or its members match the expected fields.
 
     Args:
@@ -208,15 +208,17 @@ class MapPredicate(predicate.ValuePredicate):
 
     if obj_list != None:
       for elem in obj_list:
-        result = self.__pred(elem)
+        result = self.__pred(context, elem)
         all_results.append(result)
         if result:
           good_map.append(ObjectResultMapAttempt(elem, result))
         else:
           bad_map.append(ObjectResultMapAttempt(elem, result))
 
-    valid = not (self.__min != None and len(good_map) < self.__min
-                 or self.__max != None and len(good_map) > self.__max)
+    the_min = context.eval(self.__min)
+    the_max = context.eval(self.__max)
+    valid = not (the_min != None and len(good_map) < the_min
+                 or the_max != None and len(good_map) > the_max)
     return MapPredicateResult(
         valid=valid, pred=self.__pred,
         obj_list=obj_list,

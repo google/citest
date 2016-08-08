@@ -36,6 +36,7 @@ from .path_value import (
 # to validate a a value. It is used to support the finder
 # module to specify how to determine the values we are trying to find.
 from .predicate import (
+    CloneableWithNewSource,
     CompositePredicateResult,
     CompositePredicateResultBuilder,
     PredicateResult,

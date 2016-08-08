@@ -58,7 +58,7 @@ class AwsObjectObserver(jc.ObjectObserver):
 
     if not isinstance(doc, list):
       doc = [doc]
-    self.filter_all_objects_to_observation(doc, observation)
+    self.filter_all_objects_to_observation(context, doc, observation)
 
     return observation.objects
 
