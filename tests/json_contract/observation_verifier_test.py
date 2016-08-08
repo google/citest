@@ -18,7 +18,10 @@
 
 import unittest
 
-from citest.base import JsonSnapshotHelper
+from citest.base import (
+  ExecutionContext,
+  JsonSnapshotHelper)
+
 import citest.json_contract as jc
 import citest.json_predicate as jp
 
@@ -42,7 +45,7 @@ class FakeObservationVerifier(jc.ObservationVerifier):
         title=title, dnf_verifiers=dnf_verifier)
     self.__result = result
 
-  def __call__(self, observation):
+  def __call__(self, context, observation):
     _called_verifiers.append(self)
     return self.__result
 
@@ -114,6 +117,7 @@ class ObservationVerifierTest(unittest.TestCase):
                      verify_results.bad_results)
 
   def test_result_observation_verifier_conjunction_ok(self):
+    context = ExecutionContext()
     builder = jc.ObservationVerifierBuilder(title='Test')
     verifiers = []
     results = []
@@ -134,12 +138,13 @@ class ObservationVerifierTest(unittest.TestCase):
 
     global _called_verifiers
     _called_verifiers = []
-    got = verifier(jc.Observation())
+    got = verifier(context, jc.Observation())
 
     self.assertEqual(expect, got)
     self.assertEqual(verifiers, _called_verifiers)
 
   def test_result_observation_verifier_conjunction_failure_aborts_early(self):
+    context = ExecutionContext()
     builder = jc.ObservationVerifierBuilder(title='Test')
     verifiers = []
     results = []
@@ -160,12 +165,13 @@ class ObservationVerifierTest(unittest.TestCase):
 
     global _called_verifiers
     _called_verifiers = []
-    got = verifier(jc.Observation())
+    got = verifier(context, jc.Observation())
 
     self.assertEqual(expect, got)
     self.assertEqual(verifiers[:1], _called_verifiers)
 
   def test_result_observation_verifier_disjunction_success_aborts_early(self):
+    context = ExecutionContext()
     builder = jc.ObservationVerifierBuilder(title='Test')
     verifiers = []
     results = []
@@ -184,12 +190,13 @@ class ObservationVerifierTest(unittest.TestCase):
 
     global _called_verifiers
     _called_verifiers = []
-    got = verifier(jc.Observation())
+    got = verifier(context, jc.Observation())
 
     self.assertEqual(expect, got)
     self.assertEqual(verifiers[:1], _called_verifiers)
 
   def test_result_observation_verifier_disjunction_failure(self):
+    context = ExecutionContext()
     builder = jc.ObservationVerifierBuilder(title='Test')
     verifiers = []
     results = []
@@ -208,7 +215,7 @@ class ObservationVerifierTest(unittest.TestCase):
 
     global _called_verifiers
     _called_verifiers = []
-    got = verifier(jc.Observation())
+    got = verifier(context, jc.Observation())
 
     self.assertEqual(expect, got)
     self.assertEqual(verifiers, _called_verifiers)

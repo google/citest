@@ -13,7 +13,6 @@
 # limitations under the License.
 
 # pylint: disable=missing-docstring
-
 """Helper classes for writing unit tests."""
 
 import citest.service_testing as st

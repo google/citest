@@ -112,13 +112,15 @@ class AwsAgent(st.CliAgent):
     doc = decoder.decode(aws_response.output)
     return doc[root_key] if root_key else doc
 
-  def get_resource_list(self, root_key, aws_command, args, aws_module='ec2',
+  def get_resource_list(self, context, root_key, aws_command, args,
+                        aws_module='ec2',
                         profile=None, region=None, trace=True):
     """Returns a resource list returned when executing the aws commandline.
 
     This is a combination of build_aws_command_args and
     run_resource_list_commandline.
     """
+    args = context.eval(args)
     args = self.build_aws_command_args(aws_command=aws_command, args=args,
                                        aws_module=aws_module, profile=profile,
                                        region=region)

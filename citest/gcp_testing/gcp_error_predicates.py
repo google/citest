@@ -148,11 +148,12 @@ class GoogleAgentObservationFailureVerifier(jc.ObservationVerifier):
     super(GoogleAgentObservationFailureVerifier, self).export_to_json_snapshot(
         snapshot, entity)
 
-  def __call__(self, observation):
+  def __call__(self, context, observation):
     """Check if observation contains the expected HTTP error.
 
     Args:
-      observation: [Observation] The observation
+      observation: [Observation] The observation.
+      context: [ExecutionContext] The execution context.
     """
     good_results = []
     bad_results = []

@@ -29,6 +29,8 @@ import socket
 import time
 import urllib2
 
+from ..base import ExecutionContext
+
 
 def _unused_port():
   sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -169,7 +171,8 @@ def _network_interfaces_for_instance(gcloud, instance):
   """
   logger = logging.getLogger(__name__)
   logger.debug('Testing locating test project instance=%s', instance)
-  gcloud_response = gcloud.describe_resource('instances', instance)
+  context = ExecutionContext()
+  gcloud_response = gcloud.describe_resource(context, 'instances', instance)
   if not gcloud_response.ok():
     logger.error(
         'Could not find instance=%s in project=%s, zone=%s: %s',

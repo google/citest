@@ -316,7 +316,7 @@ class GCloudAgent(cli_agent.CliAgent):
       return cli_agent.CliResponseType(0, output, '')
     return cli_agent.CliResponseType(exit_code, '', output)
 
-  def list_resources(self, gce_type, format='json', extra_args=None):
+  def list_resources(self, context, gce_type, format='json', extra_args=None):
     """Obtain a list of references to all the GCE resources of a given type.
 
     Args:
@@ -329,13 +329,14 @@ class GCloudAgent(cli_agent.CliAgent):
       cli.CliRunStatus with execution results.
     """
     needs_zone = gce_type in self.__LIST_NEEDS_ZONE
-    args = ['list'] + (extra_args or [])
+    args = ['list'] + (context.eval(extra_args) or [])
     cmdline = self.build_gcloud_command_args(
         gce_type, args, format=format, project=self.__project,
         zone=self.__zone if needs_zone else None)
     return self.run(cmdline, trace=self.trace)
 
-  def describe_resource(self, gce_type, name, format='json', extra_args=None):
+  def describe_resource(self, context, gce_type, name,
+                        format='json', extra_args=None):
     """Obtain a description of a GCE resource instance.
     Args:
       gce_type: The type of resource to describe.
@@ -349,6 +350,7 @@ class GCloudAgent(cli_agent.CliAgent):
     """
     needs_zone = gce_type in self.__DESCRIBE_NEEDS_ZONE
     args = ['describe', name] + (extra_args or [])
+    args = context.eval(args)
     cmdline = self.build_gcloud_command_args(
         gce_type, args, format=format, project=self.__project,
         zone=self.__zone if needs_zone else None)

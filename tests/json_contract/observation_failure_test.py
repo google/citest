@@ -14,10 +14,12 @@
 
 # pylint: disable=missing-docstring
 
-
 import unittest
 
-from citest.base import JsonSnapshotHelper
+from citest.base import (
+  ExecutionContext,
+  JsonSnapshotHelper)
+
 import citest.json_contract as jc
 import citest.json_predicate as jp
 
@@ -48,13 +50,14 @@ class ObservationFailureTest(unittest.TestCase):
         jc.ObservationFailedError([TypeError('blah')], valid=True))
 
   def __do_test_observation_failure_verifier_with_error(self, klass):
+    context = ExecutionContext()
     valid = klass == IOError
     error = klass('Could not connect')
     observation = jc.Observation()
     observation.add_error(error)
 
     verifier = TestIoErrorFailureVerifier('Test')
-    result = verifier(observation)
+    result = verifier(context, observation)
     self.assertEqual(valid, result.valid)
 
     if valid:
@@ -79,10 +82,11 @@ class ObservationFailureTest(unittest.TestCase):
     self.__do_test_observation_failure_verifier_with_error(Exception)
 
   def test_observation_failure_verifier_without_error(self):
+    context = ExecutionContext()
     observation = jc.Observation()
 
     verifier = TestIoErrorFailureVerifier('Test')
-    result = verifier(observation)
+    result = verifier(context, observation)
     self.assertFalse(result.valid)  # Because has no error
     self.assertFalse(result.good_results)
     attempt_list = result.bad_results

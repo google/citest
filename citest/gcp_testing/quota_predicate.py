@@ -19,6 +19,7 @@ import logging
 from .gcp_contract import GcpContractBuilder
 
 from ..base import (
+    ExecutionContext,
     JournalLogger,
     get_global_journal)
 
@@ -193,13 +194,14 @@ def verify_quota(title, gcp_agent, project_quota, regions):
   Returns:
     json_contract.ContractVerifyResult against the quota check.
   """
+  execution_context = ExecutionContext()
   contract = make_quota_contract(gcp_agent, project_quota, regions)
   verify_results = None
   context_relation = 'ERROR'
 
   try:
     JournalLogger.begin_context(title)
-    verify_results = contract.verify()
+    verify_results = contract.verify(execution_context)
     context_relation = 'VALID' if verify_results else 'INVALID'
   finally:
     if verify_results is not None:

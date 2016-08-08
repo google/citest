@@ -36,10 +36,10 @@ import time
 import traceback as traceback_module
 
 # Our modules.
-
 from ..base import (
     args_util,
     BaseTestCase,
+    ExecutionContext,
     JournalLogger,
     JsonSnapshotableEntity,
     TestRunner)
@@ -345,10 +345,10 @@ class AgentTestCase(BaseTestCase):
     super(AgentTestCase, self).__init__(methodName=methodName)
     self.__testing_agent = None
 
-  def assertContract(self, contract):
+  def assertContract(self, context, contract):
     """Verify the specified contract holds, raise and exception if not."""
     # pylint: disable=invalid-name
-    verify_results = contract.verify()
+    verify_results = contract.verify(context)
     self.assertVerifyResults(verify_results)
 
   def assertVerifyResults(self, verify_results):
@@ -432,12 +432,13 @@ class AgentTestCase(BaseTestCase):
         status.exception_details, str(status)))
 
   def run_test_case_list(
-      self, test_case_list, max_concurrent, timeout_ok=False,
+      self, context, test_case_list, max_concurrent, timeout_ok=False,
       max_retries=0, retry_interval_secs=5, full_trace=False):
     """Run a list of test cases.
 
     Args:
       test_case_list: [list of OperationContract] Specifies the tests to run.
+      context: [ExecutionContext] The citest execution context to run in.
       max_concurrent: [int] The number of cases that can be run concurrently.
       timeout_ok: [bool] If True then individual tests can timeout and still
          be considered having a successful AgentOperationStatus.
@@ -451,10 +452,9 @@ class AgentTestCase(BaseTestCase):
     pool = ThreadPool(processes=num_threads)
     def run_one(test_case):
       """Helper function to run individual tests."""
+      kwargs_copy = dict(kwargs)
       self.run_test_case(
-          test_case=test_case, timeout_ok=timeout_ok,
-          max_retries=max_retries, retry_interval_secs=retry_interval_secs,
-          full_trace=full_trace)
+          test_case=test_case, context=context, **kwargs_copy)
 
     self.logger.info(
         'Running %d tests across %d threads.',
@@ -462,12 +462,14 @@ class AgentTestCase(BaseTestCase):
     pool.map(run_one, test_case_list)
     self.logger.info('Finished %d tests.', len(test_case_list))
 
-  def run_test_case(self, test_case, timeout_ok=False,
-                    max_retries=0, retry_interval_secs=5, full_trace=False):
+  # context will be required later, but for transition period
+  # keep it optional so that we dont need to update all the tests yet.
+  def run_test_case(self, test_case, context=None, **kwargs):
     """Run the specified test operation from start to finish.
 
     Args:
       test_case: [OperationContract] To test.
+      context: [ExecutionContext] The citest execution context to run in.
       timeout_ok: [bool] Whether an AgentOperationStatus timeout implies
           a test failure. If it is ok to timeout, then we'll still verify the
           contracts, but skip the final status check if there is no final
@@ -481,6 +483,15 @@ class AgentTestCase(BaseTestCase):
           the tracing when needed but not be overwhelmed by data when the
           default tracing is typically sufficient.
     """
+    if context is None:
+      context = ExecutionContext()
+    timeout_ok = kwargs.pop('timeout_ok', False)
+    max_retries = kwargs.pop('max_retries', 0)
+    retry_interval_secs = kwargs.pop('retry_interval_secs', 5)
+    full_trace = kwargs.pop('full_trace', False)
+    if kwargs:
+      raise TypeError('Unrecognized arguments {0}'.format(kwargs.keys()))
+
     self.log_start_test(test_case.title)
     if max_retries < 0:
       raise ValueError(
@@ -495,6 +506,7 @@ class AgentTestCase(BaseTestCase):
     final_status_ok = None
     context_relation = None
     attempt_info = None
+    status = None
     try:
       JournalLogger.begin_context('Test "{0}"'.format(test_case.title))
       JournalLogger.delegate(
@@ -508,6 +520,8 @@ class AgentTestCase(BaseTestCase):
       # it succeeded. We do not give multiple chances to satisfy the
       # verification.
       for i in range(max_tries):
+        context.clear_key('operation_status')
+        context.clear_key('attempt_info')
         attempt_info = execution_trace.new_attempt()
         status = None
         status = test_case.operation.execute(agent=self.testing_agent)
@@ -515,6 +529,13 @@ class AgentTestCase(BaseTestCase):
 
         summary = status.error or ('Operation status OK' if status.finished_ok
                                    else 'Operation status Unknown')
+        # Write the status (and attempt_info) into the execution_context
+        # to make it available to contract verifiers. For example, to
+        # make specific details in the status (e.g. new resource names)
+        # available to downstream validators for their consideration.
+        context.set_internal('attempt_info', attempt_info)
+        context.set_internal('operation_status', status)
+
         attempt_info.set_status(status, summary)
         if test_case.status_collector:
           test_case.status_collector(status)
@@ -534,7 +555,7 @@ class AgentTestCase(BaseTestCase):
       # We're always going to verify the contract, even if the request itself
       # failed. We set the verification on the attempt here, but do not assert
       # anything. We'll assert below outside this try/catch handler.
-      verify_results = test_case.contract.verify()
+      verify_results = test_case.contract.verify(context)
       execution_trace.set_verify_results(verify_results)
       final_status_ok = self.verify_final_status_ok(
           status, timeout_ok=timeout_ok,

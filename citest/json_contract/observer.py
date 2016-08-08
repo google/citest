@@ -165,11 +165,12 @@ class ObjectObserver(JsonSnapshotableEntity):
       if obj_result:
         observation.add_object(obj)
 
-  def collect_observation(self, observation, trace=True):
+  def collect_observation(self, context, observation, trace=True):
     """Collect an Observation.
 
     Args:
       observation: The Observation to collect into.
+      context: Runtime execution context.
       trace: If true then debug the details producing the observation.
     """
     raise NotImplementedError('Needs Specialized in ' + self.__class__)

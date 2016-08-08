@@ -296,11 +296,13 @@ class ObservationVerifier(predicate.ValuePredicate):
   def __str__(self):
     return 'ObservationVerifier {0!r}'.format(self.__dnf_verifiers)
 
-  def __call__(self, observation):
+  def __call__(self, context, observation):
     """Verify the observation.
 
     Args:
       observation: The observation to verify.
+      context: The execution context containing additional runtime data
+         accumulated from the operation and test.
 
     Returns:
       ObservationVerifyResult containing the verification results.
@@ -318,7 +320,7 @@ class ObservationVerifier(predicate.ValuePredicate):
        term_valid = True
        # Inner terms are and'd together.
        for v in term:
-          result = v(observation)
+          result = v(context, observation)
           builder.add_observation_verify_result(result)
           if not result:
             term_valid = False

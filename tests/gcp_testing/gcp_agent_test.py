@@ -17,7 +17,9 @@
 import unittest
 from mock import patch
 
-from .test_gcp_agent import (
+from citest.base import ExecutionContext
+
+from test_gcp_agent import (
     FakeGcpDiscovery,
     FakeGcpService,
     TestGcpAgent)
@@ -87,22 +89,24 @@ class GcpAgentTest(unittest.TestCase):
     self.assertEqual({'r': 'defR'}, got)
 
   def test_invoke(self):
+    context = ExecutionContext()
     doc = TestGcpAgent.generate_discovery_document()
     service = FakeGcpService(['HELLO'])
     agent = TestGcpAgent(service, doc)
 
-    got = agent.invoke_resource('get', 'my_test', 'MY_ID')
+    got = agent.invoke_resource(context, 'get', 'my_test', 'MY_ID')
     args = {'r': 'MY_ID'}
     self.assertEqual(['my_test', 'get({0})'.format(args), 'execute'],
                      service.calls)
     self.assertEqual('HELLO', got)
 
   def test_list(self):
+    context = ExecutionContext()
     service = FakeGcpService([{'items': [1, 2, 3]},
                               {'items': [4, 5, 6]}])
     agent = TestGcpAgent.make_test_agent(service=service)
 
-    got = agent.list_resource('my_test')
+    got = agent.list_resource(context, 'my_test')
     self.assertEqual(['my_test', 'list({})', 'execute',
                       'list_next', 'execute', 'list_next'],
                      service.calls)

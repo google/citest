@@ -151,12 +151,16 @@ class ContractClause(predicate.ValuePredicate):
     self.__verifier = verifier
     super(ContractClause, self).__init__(**kwargs)
 
-  def verify(self):
+  def verify(self, context):
     """Attempt to make an observation and verify it.
 
     This call will repeatedly attempt to observe new data and verify it
     until either the verification passes, or it times out base on
     the retryable_for_secs specified in the constructor.
+
+    Args:
+      context: Runtime citest execution context may contain operation status
+         and other testing parameters used by downstream verifiers.
 
     Returns:
       ContractClauseVerifyResult with details.
@@ -168,19 +172,21 @@ class ContractClause(predicate.ValuePredicate):
     try:
       JournalLogger.delegate("store", self, _title='Clause Specification')
 
-      result = self.__do_verify()
+      result = self.__do_verify(context)
       context_relation = 'VALID' if result else 'INVALID'
     finally:
       JournalLogger.end_context(relation=context_relation)
     return result
 
-  def __do_verify(self):
+  def __do_verify(self, context):
     """Helper function that implements the clause verification policy.
 
     We will periodically attempt to verify the clause until we succeed
     or give up trying. Each individual iteration attempt is performed
     by the verify_once method.
 
+    Args:
+      context: Runtime citest execution context.
     Returns:
       VerifyClauseResult specifying the final outcome.
     """
@@ -190,7 +196,7 @@ class ContractClause(predicate.ValuePredicate):
     end_time = start_time + self.__retryable_for_secs
 
     while True:
-      clause_result = self.verify_once()
+      clause_result = self.verify_once(context)
       if clause_result:
         break
 
@@ -218,8 +224,11 @@ class ContractClause(predicate.ValuePredicate):
                       ok_str, self.__title, summary)
     return clause_result
 
-  def verify_once(self):
+  def verify_once(self, context):
     """Make a single attempt to collect an observation and verify it.
+
+    Args:
+      context: Runtime citest execution context.
 
     Raises:
       ValueError of the clause is not yet fully specified.
@@ -235,9 +244,9 @@ class ContractClause(predicate.ValuePredicate):
           'No ObservationVerifier bound to clause {0!r}'.format(self.__title))
 
     observation = ob.Observation()
-    self.__observer.collect_observation(observation)
+    self.__observer.collect_observation(context, observation)
 
-    verify_result = self.__verifier(observation)
+    verify_result = self.__verifier(context, observation)
     return ContractClauseVerifyResult(
         verify_result.__nonzero__(), self, verify_result)
 
@@ -386,7 +395,7 @@ class Contract(JsonSnapshotableEntity):
     """
     self.__clauses.append(clause)
 
-  def verify(self):
+  def verify(self, context):
     """Verify the clauses in the contract are currently satisified.
 
     Returns:
@@ -395,7 +404,7 @@ class Contract(JsonSnapshotableEntity):
     valid = True
     all_results = []
     for clause in self.__clauses:
-      clause_results = clause.verify()
+      clause_results = clause.verify(context)
       all_results.append(clause_results)
       if not clause_results:
         valid = False

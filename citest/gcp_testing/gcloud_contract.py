@@ -47,8 +47,9 @@ class GCloudObjectObserver(jc.ObjectObserver):
   def __str__(self):
     return 'GCloudObjectObserver({0})'.format(self.__args)
 
-  def collect_observation(self, observation, trace=True):
-    gcloud_response = self.__gcloud.run(self.__args, trace=trace)
+  def collect_observation(self, context, observation, trace=True):
+    args = context.eval(self.__args)
+    gcloud_response = self.__gcloud.run(args, trace=trace)
     if not gcloud_response.ok():
       observation.add_error(
           cli_agent.CliAgentRunError(self.__gcloud, gcloud_response))

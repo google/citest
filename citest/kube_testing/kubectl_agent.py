@@ -48,7 +48,7 @@ class KubeCtlAgent(cli_agent.CliAgent):
     """
     return [action] + ([resource] if resource else []) + (args if args else [])
 
-  def list_resources(self, kube_type, format='json', extra_args=None):
+  def list_resources(self, context, kube_type, format='json', extra_args=None):
     """Obtain a list of references to all Kubernetes resources of a given type.
 
     Args:
@@ -61,6 +61,7 @@ class KubeCtlAgent(cli_agent.CliAgent):
       cli.CliRunStatus with execution results.
     """
     args = ['--output', format] + (extra_args or [])
+    args = context.eval(args)
     cmdline = self.build_kubectl_command_args(
         action='get', resource=kube_type, args=args)
     return self.run(cmdline, trace=self.trace)

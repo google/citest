@@ -83,7 +83,7 @@ class ObservationFailureVerifier(ov.ObservationVerifier):
     return ("Observation had no errors."
             if not observation.errors else "Expected error was not found.""")
 
-  def __call__(self, observation):
+  def __call__(self, context, observation):
     valid = False
     error = None
     for error in observation.errors:

@@ -21,7 +21,7 @@ import citest.service_testing.agent_test_case as agent_test_case
 import citest.service_testing as st
 import citest.json_contract as jc
 
-
+from citest.base import ExecutionContext
 from .fake_agent import (
     FakeAgent,
     FakeOperation,
@@ -29,7 +29,7 @@ from .fake_agent import (
 
 
 class FakeObserver(jc.ObjectObserver):
-  def collect_observation(self, observation, trace=True):
+  def collect_observation(self, context, observation, trace=True):
     pass
 
 
@@ -38,7 +38,7 @@ class FakeVerifier(jc.ObservationVerifier):
     super(FakeVerifier, self).__init__('TestVerifier')
     self.__valid = valid
 
-  def __call__(self, observation):
+  def __call__(self, context, observation):
     return jc.ObservationVerifyResult(
         valid=self.__valid, observation=observation,
         good_results=[], bad_results=[], failed_constraints=[])
@@ -47,6 +47,9 @@ class FakeVerifier(jc.ObservationVerifier):
 class AgentTestCaseTest(st.AgentTestCase):
   def setUp(self):
     self.testing_agent = FakeAgent()
+
+  def test_pass(self):
+    pass
 
   def test_raise_final_status_not_ok(self):
     attempt = agent_test_case.OperationContractExecutionAttempt('TestOp')
@@ -57,20 +60,22 @@ class AgentTestCaseTest(st.AgentTestCase):
         self.raise_final_status_not_ok, status, attempt)
 
   def test_assertContract_ok(self):
+    context = ExecutionContext()
     verifier = FakeVerifier(True)
     clause = jc.ContractClause(
         'TestClause', observer=FakeObserver(), verifier=verifier)
     contract = jc.Contract()
     contract.add_clause(clause)
-    self.assertContract(contract)
+    self.assertContract(context, contract)
 
   def test_assertContract_failed(self):
+    context = ExecutionContext()
     verifier = FakeVerifier(False)
     clause = jc.ContractClause(
         'TestClause', observer=FakeObserver(), verifier=verifier)
     contract = jc.Contract()
     contract.add_clause(clause)
-    self.assertRaises(AssertionError, self.assertContract, contract)
+    self.assertRaises(AssertionError, self.assertContract, context, contract)
 
   def test_assertVerifyResults_ok(self):
     observation = jc.Observation()
@@ -99,6 +104,7 @@ class AgentTestCaseTest(st.AgentTestCase):
     self.run_test_case(operation_contract)
 
   def test_run_test_case_failed(self):
+    context = ExecutionContext()
     operation = FakeOperation('TestOperation', self.testing_agent)
 
     verifier = FakeVerifier(False)
@@ -108,7 +114,8 @@ class AgentTestCaseTest(st.AgentTestCase):
     contract.add_clause(clause)
 
     operation_contract = st.OperationContract(operation, contract)
-    self.assertRaises(AssertionError, self.run_test_case, operation_contract)
+    self.assertRaises(AssertionError,
+                      self.run_test_case, operation_contract, context=context)
 
 
 if __name__ == '__main__':

@@ -50,9 +50,9 @@ class GcpObjectObserver(jc.ObjectObserver):
   def __str__(self):
     return 'GcpObjectObserver({0})'.format(self.__kwargs)
 
-  def collect_observation(self, observation, trace=True):
+  def collect_observation(self, context, observation, trace=True):
     try:
-      result = self.__method(**self.__kwargs)
+      result = self.__method(context, **self.__kwargs)
       if isinstance(result, list):
         observation.add_all_objects(result)
       else:
