@@ -270,7 +270,7 @@ class JsonBinaryPredicateTest(unittest.TestCase):
             target_path=jp.PATH_SEP.join(['outer', 'first'])),
         subset_pred(context, small_nested))
 
-  def test_dict_subset_with_array_values(self):
+  def test_dict_subset_with_array_values_ok(self):
     context = ExecutionContext()
     small = {'a':['A'], 'b':[1, 2]}
     big = {'a':['A', 'B', 'C'], 'b':[1, 2, 3], 'c':['red', 'yellow']}
@@ -287,6 +287,23 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     self.assertGoodResult(
         PathValue('', big_nested), nested_subset_pred,
         nested_subset_pred(context, big_nested))
+
+  def test_dict_subset_with_array_values_bad(self):
+    context = ExecutionContext()
+    small = {'a':['A'], 'b':[1, 2]}
+    big = {'a':['A', 'B', 'C'], 'b':[1, 2]}
+    small_nested = {'first':small}
+    big_nested = {'first':big, 'second':big}
+
+    big_subset_pred = jp.DICT_SUBSET(big)
+    nested_subset_pred = jp.DICT_SUBSET(big_nested)
+    list_subset_pred = jp.LIST_SUBSET(big['a'])
+
+    self.assertBadResult(
+        expect_value=PathValue('a', small['a']),
+        pred=list_subset_pred,
+        got_result=big_subset_pred(context, small),
+        source=small, target_path='a')
 
   def test_standard_dict_operator_type_mismatch(self):
     context = ExecutionContext()
@@ -396,6 +413,28 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     self.assertBadResult(
         PathValue('', source), common_subset_pred,
         common_subset_pred(context, source))
+
+  def test_list_subset_nested_good(self):
+    context = ExecutionContext()
+    letters = {'a':'A', 'b':'B', 'c':'C'}
+    numbers = {'a':1, 'b':2, 'c':'C'}
+    source = [letters, [numbers]]
+
+    pred = jp.LIST_SUBSET([[{'b':2}]])
+    self.assertGoodResult(
+        PathValue('', source), pred,
+        pred(context, source))
+
+  def test_list_subset_nested_bad(self):
+    context = ExecutionContext()
+    letters = {'a':'A', 'b':'B', 'c':'C'}
+    numbers = {'a':1, 'b':2, 'c':'C'}
+    source = [numbers, [letters]]
+
+    pred = jp.LIST_SUBSET([[{'b':2}]])
+    self.assertBadResult(
+        PathValue('', source), pred,
+        pred(context, source))
 
   def test_list_equivalent(self):
     context = ExecutionContext()
