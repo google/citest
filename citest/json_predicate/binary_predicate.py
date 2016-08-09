@@ -65,11 +65,11 @@ class BinaryPredicate(predicate.ValuePredicate):
   def __str__(self):
     if self.__operand_type is None:
       type_name = 'Any'
-    if inspect.isclass(self.__operand_type):
+    elif inspect.isclass(self.__operand_type):
       type_name = self.__operand_type.__name__
     else:
       type_name = str(self.__operand_type)
-    return '{0}{1}({2!r})'.format(type_name, self.name, self.operand)
+    return '{0}({1!r})->{2}'.format(self.name, self.operand, type_name)
 
   def __init__(self, name, operand, **kwargs):
     self.__operand_type = kwargs.pop('operand_type', None)
@@ -198,7 +198,8 @@ class DictSubsetPredicate(BinaryPredicate):
         elem_pred = LIST_SUBSET if isinstance(a_value, list) else CONTAINS
         result = elem_pred(a_value)(context, b_value)
         if not result:
-          return result.clone_with_source(source, namepath)
+          return result.clone_with_source(
+              source=source, base_target_path=namepath, base_value_path=name)
         continue
 
       # Up until now we never used a_value directly.
