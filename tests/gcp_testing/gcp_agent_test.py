@@ -13,13 +13,16 @@
 # limitations under the License.
 
 # pylint: disable=missing-docstring
+# pylint: disable=invalid-name
 
 import unittest
+
 from mock import patch
 
+from citest.gcp_testing import gcp_agent
 from citest.base import ExecutionContext
 
-from test_gcp_agent import (
+from .test_gcp_agent import (
     FakeGcpDiscovery,
     FakeGcpService,
     TestGcpAgent)
@@ -111,6 +114,46 @@ class GcpAgentTest(unittest.TestCase):
                       'list_next', 'execute', 'list_next'],
                      service.calls)
     self.assertEqual([1, 2, 3, 4, 5, 6], got)
+
+  def test_resource_type_to_info(self):
+    # Verify we can traverse a [nested] discovery document.
+    doc = TestGcpAgent.load_discovery_document(
+        'container_discovery_document.json')
+    service = FakeGcpService([])
+    agent = gcp_agent.GcpAgent(service, doc)
+
+    info = agent.resource_type_to_discovery_info('projects.zones.clusters')
+    self.assertIsNotNone(info)
+    methods = info['methods']
+    get = methods['get']
+    self.assertEqual(
+        'v1/projects/{projectId}/zones/{zone}/clusters/{clusterId}',
+        get['path'])
+
+  def test_resource_type_to_variables(self):
+    doc = TestGcpAgent.load_discovery_document(
+        'container_discovery_document.json')
+    service = FakeGcpService([])
+    default_vars = {'projectId': 'DEFAULT_PID', 'zone':'MYZONE'}
+    agent = gcp_agent.GcpAgent(service, doc, default_variables=default_vars)
+    got = agent.resource_method_to_variables('get', 'projects.zones.clusters',
+                                             'MYCLUSTER', projectId='MYPID')
+    expect = {'projectId': 'MYPID', 'zone': 'MYZONE', 'clusterId': 'MYCLUSTER'}
+    self.assertEqual(expect, got)
+
+    got = agent.resource_method_to_variables('get', 'projects.zones.clusters',
+                                             clusterId='MYCLUSTER',
+                                             projectId='MYPID')
+    self.assertEqual(expect, got)
+
+  def test_resource_type_to_variables_missing(self):
+    doc = TestGcpAgent.load_discovery_document(
+        'container_discovery_document.json')
+    service = FakeGcpService([])
+    default_vars = {'projectId': 'DEFAULT_PID', 'zone':'MYZONE'}
+    agent = gcp_agent.GcpAgent(service, doc, default_variables=default_vars)
+    self.assertRaises(ValueError, agent.resource_method_to_variables,
+                      'get', 'projects.zones.clusters', projectId='MYPID')
 
 
 if __name__ == '__main__':

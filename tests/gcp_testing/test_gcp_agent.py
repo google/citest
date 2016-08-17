@@ -15,6 +15,9 @@
 # pylint: disable=missing-docstring
 # pylint: disable=invalid-name
 
+import json
+import os
+
 from mock import patch
 from citest.gcp_testing import GcpAgent
 
@@ -40,6 +43,13 @@ class TestGcpAgent(GcpAgent):
   @classmethod
   def default_discovery_name_and_version(cls):
     return  'TEST_API', 'TEST_VERSION'
+
+  @staticmethod
+  def load_discovery_document(filename):
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(base_dir, filename)) as f:
+      doc = f.read()
+    return json.JSONDecoder().decode(doc)
 
   @staticmethod
   def generate_discovery_document(version='TEST_VERSION'):

@@ -168,11 +168,7 @@ class GcpAgent(BaseAgent):
     Returns
       kwargs ammended with additional default variables, if applicable.
     """
-    discovery_doc = self.discovery_document
-    resource_info = discovery_doc.get('resources', {}).get(resource_type, None)
-    if resource_info is None:
-      raise KeyError('Unknown {0} Resource type={1}'
-                     .format(discovery_doc['name'].title(), resource_type))
+    resource_info = self.resource_type_to_discovery_info(resource_type)
     method_spec = resource_info.get('methods', {}).get(method, None)
     if method_spec is None:
       raise KeyError('Unknown method={0} on resource={1}'
@@ -228,11 +224,7 @@ class GcpAgent(BaseAgent):
         method, resource_type, resource_id=resource_id, **kwargs)
     variables = context.eval(variables)
 
-    resource_obj = vars(self.__service).get(resource_type, None)
-    if resource_obj is None:
-      raise KeyError('Unknown {api} Resource type={type}'
-                     .format(api=self.__api_title, type=resource_type))
-
+    resource_obj = self.resource_type_to_resource_obj(resource_type)
     JournalLogger.begin_context('Invoke "{method}" {type}'
                                 .format(method=method, type=resource_type))
     try:
@@ -269,11 +261,7 @@ class GcpAgent(BaseAgent):
     Returns:
       A list of resources.
     """
-    resource_obj = vars(self.__service).get(resource_type, None)
-    if resource_obj is None:
-      raise KeyError('Unknown {api} Resource type={type}'
-                     .format(api=self.__api_title, type=resource_type))
-
+    resource_obj = self.resource_type_to_resource_obj(resource_type)
     method_container = resource_obj()
     variables = self.resource_method_to_variables(
         method_variant, resource_type, **kwargs)
@@ -295,7 +283,11 @@ class GcpAgent(BaseAgent):
             _module=self.logger.name, _context='response',
             format='json')
 
-        response_items = response.get('items', [])
+        response_items = response.get('items', None)
+        if response_items is None:
+          # Assume item reponse is named by the type being listed.
+          response_items = response.get(resource_type.split('.')[-1], [])
+
         all_items = (item_list_transform(response_items)
                      if item_list_transform
                      else response_items)
@@ -308,3 +300,43 @@ class GcpAgent(BaseAgent):
       JournalLogger.end_context()
 
     return all_objects
+
+  def resource_type_to_discovery_info(self, resource_type):
+    parts = resource_type.split('.')
+    node = self.discovery_document
+    found = [self.__api_name]
+
+    while parts:
+      name = parts.pop(0)
+      node = node.get('resources', {}).get(name, None)
+      if node is None:
+        details = '{path} does not have {name}'.format(
+            path='.'.join(found), name=name)
+        raise KeyError('Unknown {api} Resource type={type}: {details}'
+                       .format(api=self.__api_title, type=resource_type,
+                               details=details))
+      found.append(name)
+
+    return node
+
+  def resource_type_to_resource_obj(self, resource_type):
+    parts = resource_type.split('.')
+    name = parts.pop(0)
+    resource_obj = vars(self.__service).get(name, None)
+    if resource_obj is None:
+      raise KeyError('Unknown {api} Resource type={type}'
+                     .format(api=self.__api_title, type=name))
+
+    found = [self.__api_name, name]
+    while parts:
+      name = parts.pop(0)
+      resource_obj = vars(resource_obj()).get(name, None)
+      if resource_obj is None:
+        details = '{path} does not have {name}'.format(
+            path='.'.join(found), name=name)
+        raise KeyError('Unknown {api} Resource type={type}: {details}'
+                       .format(api=self.__api_title, type=resource_type,
+                               details=details))
+      found.append(name)
+
+    return resource_obj
