@@ -217,7 +217,7 @@ class ContractClause(predicate.ValuePredicate):
       #
       # 1/10 total time or 5 seconds if that is pretty long,
       # but no less than 1 second unless there is less than 1 second left.
-      sleep = min(secs_remaining, min(5, min(1, self.__retryable_for_secs / 10)))
+      sleep = min(secs_remaining, min(5, max(1, self.__retryable_for_secs / 10)))
       self.logger.debug(
           '%s not yet satisfied with secs_remaining=%r. Retry in %r\n%s',
           self.__title, secs_remaining, sleep, clause_result)
