@@ -209,7 +209,15 @@ class ContractClause(predicate.ValuePredicate):
         break
 
       secs_remaining = end_time - now
-      sleep = min(secs_remaining, min(5, self.__retryable_for_secs / 10))
+
+      # This could be a bounded exponential backoff, but we probably
+      # want to have an idea of when it actually becomes available so keep low.
+      # But if we are going to wait a long time, then dont poll very frequently.
+      # The numbers here are arbitrary otherwise.
+      #
+      # 1/10 total time or 5 seconds if that is pretty long,
+      # but no less than 1 second unless there is less than 1 second left.
+      sleep = min(secs_remaining, min(5, min(1, self.__retryable_for_secs / 10)))
       self.logger.debug(
           '%s not yet satisfied with secs_remaining=%r. Retry in %r\n%s',
           self.__title, secs_remaining, sleep, clause_result)
