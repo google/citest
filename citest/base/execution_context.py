@@ -47,6 +47,9 @@ class ExecutionContext(JsonSnapshotable):
     elif key in self.__external:
       del self.__external[key]
 
+  def __setitem__(self, key, value):
+    self.set_snapshotable(key, value)
+
   def __getitem__(self, key):
     return (self.__internal[key]
             if key in self.__internal
