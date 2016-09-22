@@ -11,3 +11,6 @@ build/
 #*
 *.html
 *.log
+*.journal
+*.egg-info/
+venv/

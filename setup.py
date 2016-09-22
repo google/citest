@@ -11,7 +11,8 @@ setup(
     "google-api-python-client",
     "mock",
     "oauth2client",
-    "pyyaml"
+    "pyyaml",
+    "pyopenssl"
   ],
   long_description = open('README.md').read()
 )
