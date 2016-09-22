@@ -450,7 +450,7 @@ class AgentTestCase(BaseTestCase):
     """
     num_threads = min(max_concurrent, len(test_case_list))
     pool = ThreadPool(processes=num_threads)
-    def run_one(test_case):
+    def run_one(test_case, **kwargs):
       """Helper function to run individual tests."""
       kwargs_copy = dict(kwargs)
       self.run_test_case(
@@ -520,8 +520,8 @@ class AgentTestCase(BaseTestCase):
       # it succeeded. We do not give multiple chances to satisfy the
       # verification.
       for i in range(max_tries):
-        context.clear_key('operation_status')
-        context.clear_key('attempt_info')
+        context.clear_key('OperationStatus')
+        context.clear_key('AttemptInfo')
         attempt_info = execution_trace.new_attempt()
         status = None
         status = test_case.operation.execute(agent=self.testing_agent)
@@ -533,12 +533,12 @@ class AgentTestCase(BaseTestCase):
         # to make it available to contract verifiers. For example, to
         # make specific details in the status (e.g. new resource names)
         # available to downstream validators for their consideration.
-        context.set_internal('attempt_info', attempt_info)
-        context.set_internal('operation_status', status)
+        context.set_internal('AttemptInfo', attempt_info)
+        context.set_internal('OperationStatus', status)
 
         attempt_info.set_status(status, summary)
-        if test_case.status_collector:
-          test_case.status_collector(status)
+        if test_case.status_extractor:
+          test_case.status_extractor(status, context)
 
         if not status.exception_details:
           execution_trace.set_operation_summary('Completed test.')
@@ -586,6 +586,7 @@ class AgentTestCase(BaseTestCase):
                           traceback_module.format_exc())
       raise
     finally:
+      context.set_internal('ContractVerifyResults', verify_results)
       self.log_end_test(test_case.title)
       self.report(execution_trace)
       try:
@@ -595,7 +596,7 @@ class AgentTestCase(BaseTestCase):
                              ' operation could not be performed at all.')
           else:
             self.logger.info('Invoking injected operation cleanup.')
-            test_case.cleanup(status, verify_results)
+            test_case.cleanup(context)
       finally:
         JournalLogger.end_context(relation=context_relation)
 

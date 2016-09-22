@@ -22,7 +22,7 @@ import citest.service_testing as st
 import citest.json_contract as jc
 
 from citest.base import ExecutionContext
-from .fake_agent import (
+from fake_agent import (
     FakeAgent,
     FakeOperation,
     FakeStatus)
@@ -91,31 +91,79 @@ class AgentTestCaseTest(st.AgentTestCase):
         good_results=[], bad_results=[], failed_constraints=[])
     self.assertRaises(AssertionError, self.assertVerifyResults, verify_results)
 
-  def test_run_test_case_ok(self):
+  def _do_run_test_case(self, succeed, with_callbacks, with_context):
+    # pylint: disable=unused-argument
     operation = FakeOperation('TestOperation', self.testing_agent)
 
-    verifier = FakeVerifier(True)
+    verifier = FakeVerifier(succeed)
     clause = jc.ContractClause(
         'TestClause', observer=FakeObserver(), verifier=verifier)
     contract = jc.Contract()
     contract.add_clause(clause)
 
-    operation_contract = st.OperationContract(operation, contract)
-    self.run_test_case(operation_contract)
+    class HelperClass(object):
+      """Need to share state between these helper methods and outer scope.
 
-  def test_run_test_case_failed(self):
-    context = ExecutionContext()
-    operation = FakeOperation('TestOperation', self.testing_agent)
+      This class provides the functions we are going to inject, along
+      with state we can check in the outer scope.
+      """
+      cleanup_calls = 0
+      execution_context = ExecutionContext() if with_context else None
 
-    verifier = FakeVerifier(False)
-    clause = jc.ContractClause(
-        'TestClause', observer=FakeObserver(), verifier=verifier)
-    contract = jc.Contract()
-    contract.add_clause(clause)
+      @staticmethod
+      def status_extractor(status, context):
+        if with_context:
+          # Verify this is the context we injected.
+          self.assertEquals(HelperClass.execution_context, context)
+        self.assertIsNotNone(context.get('OperationStatus', None))
+        self.assertIsNone(context.get('GOT_STATUS', None))
+        context['GOT_STATUS'] = status
 
-    operation_contract = st.OperationContract(operation, contract)
-    self.assertRaises(AssertionError,
-                      self.run_test_case, operation_contract, context=context)
+      @staticmethod
+      def cleanup(context):
+        self.assertIsNotNone(context.get('OperationStatus', None))
+        self.assertEquals(context.get('OperationStatus', None),
+                          context.get('GOT_STATUS', None))
+        HelperClass.cleanup_calls += 1
+
+    status_extractor = HelperClass.status_extractor
+    cleanup = HelperClass.cleanup
+
+    operation_contract = st.OperationContract(
+        operation, contract, status_extractor=status_extractor, cleanup=cleanup)
+    if succeed:
+      self.run_test_case(
+          operation_contract, context=HelperClass.execution_context)
+    else:
+      self.assertRaises(
+          AssertionError,
+          self.run_test_case,
+          operation_contract, context=HelperClass.execution_context)
+    self.assertEquals(1, HelperClass.cleanup_calls)
+
+  def test_run_test_simple_ok(self):
+    self._do_run_test_case(
+        succeed=True, with_callbacks=False, with_context=False)
+
+  def test_run_test_simple_fail(self):
+    self._do_run_test_case(
+        succeed=False, with_callbacks=False, with_context=False)
+
+  def test_run_test_with_context_ok(self):
+    self._do_run_test_case(
+        succeed=True, with_callbacks=False, with_context=True)
+
+  def test_run_test_with_context_fail(self):
+    self._do_run_test_case(
+        succeed=False, with_callbacks=False, with_context=True)
+
+  def test_run_test_with_callbacks_ok(self):
+    self._do_run_test_case(
+        succeed=True, with_callbacks=True, with_context=False)
+
+  def test_run_test_with_callbacks_fail(self):
+    self._do_run_test_case(
+        succeed=False, with_callbacks=True, with_context=False)
 
 
 if __name__ == '__main__':

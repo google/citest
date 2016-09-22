@@ -39,17 +39,29 @@ class OperationContract(JsonSnapshotableEntity):
     return self.__contract
 
   @property
-  def status_collector(self):
-    """The callable(OperationStatus) if any was bound.
+  def status_extractor(self):
+    """The callable(OperationStatus, ExecutionContext) if any was bound.
 
-    The StatusCollector can be used to observe the operation status
-    and collect any information from it.
+    The status extractor can be used to observe the operation status
+    and collect any information from it to populate the execution context with
+    values obtained from the operation's result status. This is only useful
+    if the contract contains clauses that use callable parameters that need
+    information from result status, such as the identity of resources that
+    were created.
+
+    Typically this function is called by AgentTestCase fixture.run_test_case
+    after the operation status completed and before the contract is verified.
+    The AgentTestCase will populate the context with 'OperationStatus'.
     """
-    return self.__status_collector
+    return self.__status_extractor
 
   @property
   def cleanup(self):
-    """The callable(OperationStatus, ContractVerifyResult) if any was bound.
+    """An option cleanup method for the AgentTestCase to call when done.
+
+    If not null, this is a callable(ExecutionContext). The
+    AgentTestCase.run_test_case will add an 'OperationStatus' and
+    'ContractVerifyResults' to the context before calling the cleanup.
 
     The cleanup can be used to perform any post-operation cleanup
     after the contract has been verified. It is called regardless of
@@ -63,17 +75,18 @@ class OperationContract(JsonSnapshotableEntity):
     snapshot.edge_builder.make(entity, 'Contract', self.__contract)
 
   def __init__(self, operation, contract,
-               status_collector=None, cleanup=None):
+               status_extractor=None, cleanup=None):
     """Construct instance.
 
     Args:
       operation: [AgentOperation] To be performed.
       contract: [JsonContract] To verify operation.
-      status_collector: [Callable(OperationStatus)] Takes OperationStatus.
-      cleanup: [Callable(OperationStatus, ContractVerifyResult)]
-          Perform any post-test cleanup.
+      status_extractor: [Callable(OperationStatus, ExecutionContext)]
+         See the status_extractor property for more information.
+      cleanup: [Callable(ExecutionContext)]
+         Perform any post-test cleanup.
     """
     self.__operation = operation
     self.__contract = contract
-    self.__status_collector = status_collector
+    self.__status_extractor = status_extractor
     self.__cleanup = cleanup
