@@ -276,7 +276,7 @@ class AgentOperationStatus(JsonSnapshotableEntity):
           else:
             logger.debug(
                 'Still waiting (approx %d left). Check in %r secs',
-                sleep_secs, secs_remaining)
+                secs_remaining, sleep_secs)
           # Hardcoded once-a-minute confirmation that we're still waiting.
           next_log_secs = now + 60
 
