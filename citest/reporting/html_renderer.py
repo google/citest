@@ -250,14 +250,15 @@ class ProcessToRenderInfo(object):
       else:
         raise ValueError()
 
-      escaped_text = '<pre>{0}</pre>'.format(cgi.escape(text))
+      escaped_body = cgi.escape(text)
+      escaped_text = '<pre>{0}</pre>'.format(escaped_body)
       num_lines = text.count('\n')
       if num_lines > self.max_uncollapsable_json_lines:
         summary = 'Json details'
       elif len(text) > 2 * self.max_message_summary_length:
         # If json is more than 2x normal log message, then truncate it.
         summary = '<ff>{0}...</ff>'.format(
-            escaped_text[0:self.max_message_summary_length - 2*len('expand')])
+            escaped_body[0:self.max_message_summary_length - 2*len('expand')])
       else:
         summary = None
     except (ValueError, UnicodeEncodeError):
