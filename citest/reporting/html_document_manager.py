@@ -93,7 +93,7 @@ _BUILTIN_CSS = """
       background-color:#FFFFFF;color:#000099 }
   a.toggle:hover, a.toggle:active {
       color:#FFFFFF;background-color:#000099 }
-  pre { margin: 0 }
+  pre { margin:0; background-color:inherit }
   div.valid, div.invalid, div.error,
   span.valid, span.invalid, span.error { padding:0.3em }
   div.title { font-weight:bold; font-size:14pt;
