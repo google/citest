@@ -181,6 +181,28 @@ class MissingPathError(PathResult):
         path_value=path_value, **kwargs)
 
 
+class UnexpectedPathError(PathResult):
+  """A PathResult indicating an object contained an unexpected attribute."""
+
+  def __init__(self, source, target_path, path_value, **kwargs):
+    """Constructor.
+
+    Args:
+      source: [dict] The original JSON object path_value is relative to.
+         This can be none if the path_value is the root path.
+      target_path: [string] The unexpected attribute path (relative to source)
+         that we found. NOTE: This is probably path_value.path.
+      path_value: [PathValue] The path value we found.
+      valid: [bool] Whether the PredicateResult indicates success.
+
+      See base class (PathResult) for additional kwargs.
+    """
+    valid = kwargs.pop('valid', False)
+    super(UnexpectedPathError, self).__init__(
+        valid=valid, source=source, target_path=target_path,
+        path_value=path_value, **kwargs)
+
+
 class TypeMismatchError(PathResult):
   """A PathResult indicating the field was not the expected type."""
 

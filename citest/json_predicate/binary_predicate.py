@@ -24,20 +24,45 @@ predicate to.
 import inspect
 
 from . import predicate
+from .keyed_predicate_result import KeyedPredicateResultBuilder
 from .path_value import PathValue
+from .path_predicate_result import PathPredicateResultBuilder
 from .path_result import (
     MissingPathError,
     PathValueResult,
-    TypeMismatchError)
+    TypeMismatchError,
+    UnexpectedPathError)
 
 
 class BinaryPredicate(predicate.ValuePredicate):
   """
+  The base class for standard binary predicates.
+
+  All the BinaryPredicates are constructed with an operand, which is the
+  "operand" in the binary operator that you want to compare against.
+  The other of operands is passed into the "__call__" method as a specific
+  "value" to run the predicate against.
+
+  For example, a predicate that checks for numbers < 10 would be constructed
+  with an operand of 10: pred = INT_LT(10)
+  Then to test a particular value, such as 5, you would pass 5 into the call
+  operator (along with an evaluation context): result = pred(context, 5)
+
+  Note that the operand bound into the predicate can itself be a callable if
+  the desired wont be known until later. In this case, the callable will be
+  invoked with an execution context which, presumably, will be populated using
+  a pre-negotiated key (e.g. hardcoded) with the actual value to use.
+     pred = INT_LT(lambda context: context['MyKey'])
+     context['MyKey'] = 10
+     result = pred(context, 5)
+
   Attributes:
     name: The name of the predicate is used to specify the particular
         comparison predicate to use. The supported names are:
     operand: The operand to compare against. This is the RHS of the predicate.
   """
+  # pylint: disable=abstract-method
+
   @property
   def name(self):
     """The predicate name."""
@@ -146,6 +171,96 @@ class StandardBinaryPredicate(BinaryPredicate):
                            path_value=PathValue('', value), valid=valid)
 
 
+class DictMatchesPredicate(BinaryPredicate):
+  """Implements binary predicate comparison predicates against dict values.
+
+  The dictionary value is in the form {field : pred} where each element
+  in the dictionary is a predicate for validating that particular field.
+  A strict predicate means that exactly all specified fields must be present.
+  Otherwise this permits additional fields with arbitrary values.
+
+  For example (using the json_predicate aliases EQUIVALENT and CONTAINS):
+      DictMatcherPredicate({'n' : EQUIVALENT(10), 's' : CONTAINS('text')})
+  would want a field with n=10 and s having 'text' as a substring.
+  """
+
+  @property
+  def strict(self):
+    """Whether only the specified fields may be present (True) or not."""
+    return self.__strict
+
+  def __init__(self, operand, **kwargs):
+    """Constructor."""
+    if not isinstance(operand, dict):
+      raise TypeError(
+          '{0} is not a dict: {1!r}'.format(operand.__class__, operand))
+    self.__strict = kwargs.pop('strict', False)
+    super(DictMatchesPredicate, self).__init__('Matches', operand, **kwargs)
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotableEntity interface."""
+    entity.add_metadata('strict', self.__strict)
+    for key, pred in self.operand.items():
+      snapshot.edge_builder.make_control(entity, key, pred)
+
+  def __call__(self, context, value):
+    """Implements Predicate interface.
+
+    context: [ExecutionContext] The execution context.
+    value: [dict] The dictionary to match against our operand.
+
+    Returns a KeyedPredicateResult indicating each of the fields.
+    """
+    if not isinstance(value, dict):
+      return TypeMismatchError(dict, value.__class__, value)
+
+    match_result_builder = KeyedPredicateResultBuilder(self)
+    valid = True
+    # pylint: disable=redefined-variable-type
+    for name, pred in self.operand.items():
+      name_value = value.get(name)
+      name_result = None
+      if name_value is None:
+        name_result = MissingPathError(value, name)
+      else:
+        path_result_builder = PathPredicateResultBuilder(
+            source=value, pred=pred)
+        path_result_builder.add_result_candidate(
+            PathValue(name, name_value), pred(context, value.get(name)))
+        name_result = path_result_builder.build()
+
+      if not name_result:
+        valid = False
+      match_result_builder.add_result(name, name_result)
+
+    if self.strict:
+      # Only consider and add strictness result if it fails
+      strictness_errors = self._find_unexpected_path_errors(context, value)
+      if strictness_errors:
+        valid = False
+        match_result_builder.update_results(strictness_errors)
+
+    return match_result_builder.build(valid)
+
+  def _find_unexpected_path_errors(self, context, source):
+    """Check value keys for unexpected ones.
+
+    Args:
+      context: [ExecutionContext] The execution context.
+      source: [dict] The dictionary to match against our operand.
+
+    Returns:
+      dictionary of errors keyed by unexpected path.
+    """
+    # pylint: disable=unused-argument
+    errors = {}
+    expect_keys = self.operand.keys()
+    for key, value in source.items():
+      if key not in expect_keys:
+        errors[key] = UnexpectedPathError(source=source, target_path=key,
+                                          path_value=PathValue(key, value))
+    return errors
+
 class DictSubsetPredicate(BinaryPredicate):
   """Implements binary predicate comparison predicates against dict values."""
 
@@ -238,6 +353,7 @@ class DictSubsetPredicate(BinaryPredicate):
 
 class _BaseListMembershipPredicate(BinaryPredicate):
   """Implements binary predicate comparison predicate for list membership."""
+  # pylint: disable=abstract-method
 
   @property
   def strict(self):
@@ -485,7 +601,8 @@ DICT_EQ = StandardBinaryPredicateFactory(
     '==', lambda a, b: a == b, operand_type=dict)
 DICT_NE = StandardBinaryPredicateFactory(
     '!=', lambda a, b: a != b, operand_type=dict)
-DICT_SUBSET = lambda operand: DictSubsetPredicate(operand)
+DICT_SUBSET = DictSubsetPredicate
+DICT_MATCHES = DictMatchesPredicate
 
 LIST_EQ = StandardBinaryPredicateFactory(
     '==', lambda a, b: a == b, operand_type=list)
@@ -494,6 +611,7 @@ LIST_NE = StandardBinaryPredicateFactory(
 
 def lists_equivalent(a, b):
   """Determine if two lists are equivalent without regard to order."""
+  # pylint: disable=invalid-name
   if len(a) != len(b):
     return False
   sorted_a = sorted(a)

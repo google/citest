@@ -195,6 +195,154 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     self.assertGoodResult(PathValue('', {'a': 'A'}),
                           ne_pred, ne_pred(context, {'a': 'A'}))
 
+  def test_dict_match_simple_ok(self):
+    context = ExecutionContext()
+    source = {'n' : 10}
+    want = {'n' : jp.NUM_LE(20)}
+    result = jp.DICT_MATCHES(want)(context, source)
+
+    expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
+              .add_result('n',
+                  jp.PathPredicateResultBuilder(
+                      source=source,
+                      pred=jp.NUM_LE(20))
+                  .add_result_candidate(
+                      jp.PathValue('n', 10), jp.NUM_LE(20)(context, 10))
+                  .build(True))
+              .build(True))
+
+    self.assertTrue(result)
+    self.assertEquals(expect, result)
+
+  def test_dict_match_simple_bad(self):
+    context = ExecutionContext()
+    source = {'n' : 10}
+    want = {'n' : jp.NUM_NE(10)}
+    result = jp.DICT_MATCHES(want)(context, source)
+
+    expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
+              .add_result('n',
+                  jp.PathPredicateResultBuilder(
+                      source=source,
+                      pred=jp.NUM_NE(10))
+                  .add_result_candidate(
+                      jp.PathValue('n', 10), jp.NUM_NE(10)(context, 10))
+                  .build(False))
+              .build(False))
+
+    self.assertFalse(result)
+    self.assertEquals(expect, result)
+
+  def test_dict_match_multi_ok(self):
+    context = ExecutionContext()
+    source = {'a' : 'testing', 'n' : 10}
+    want = {'n' : jp.NUM_LE(20), 'a' : jp.STR_SUBSTR('test')}
+    result = jp.DICT_MATCHES(want)(context, source)
+
+    expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
+              .add_result('a',
+                  jp.PathPredicateResultBuilder(
+                      source=source,
+                      pred=jp.STR_SUBSTR('test'))
+                  .add_result_candidate(
+                      path_value=jp.PathValue('a', 'testing'),
+                      final_result=jp.STR_SUBSTR('test')(context, 'testing'))
+                  .build(True))
+              .add_result('n',
+                  jp.PathPredicateResultBuilder(
+                      source=source,
+                      pred=jp.NUM_LE(20))
+                  .add_result_candidate(
+                      jp.PathValue('n', 10), jp.NUM_LE(20)(context, 10))
+                  .build(True))
+              .build(True))
+
+    self.assertTrue(result)
+    self.assertEquals(expect, result)
+
+  def test_dict_match_multi_bad(self):
+    context = ExecutionContext()
+    source = {'a' : 'testing', 'n' : 10}
+    want = {'n' : jp.NUM_NE(10), 'a' : jp.STR_SUBSTR('test')}
+    result = jp.DICT_MATCHES(want)(context, source)
+
+    expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
+              .add_result('a',
+                  jp.PathPredicateResultBuilder(
+                      source=source,
+                      pred=jp.STR_SUBSTR('test'))
+                  .add_result_candidate(
+                      path_value=jp.PathValue('a', 'testing'),
+                      final_result=jp.STR_SUBSTR('test')(context, 'testing'))
+                  .build(True))
+              .add_result('n',
+                  jp.PathPredicateResultBuilder(
+                      source=source,
+                      pred=jp.NUM_NE(10))
+                  .add_result_candidate(
+                      jp.PathValue('n', 10), jp.NUM_NE(10)(context, 10))
+                  .build(False))
+              .build(False))
+
+    self.assertFalse(result)
+    self.assertEquals(expect, result)
+
+  def test_dict_match_missing_path(self):
+    context = ExecutionContext()
+    source = {'n' : 10}
+    want = {'missing' : jp.NUM_EQ(10)}
+    result = jp.DICT_MATCHES(want)(context, source)
+
+    expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
+              .add_result('missing',
+                  jp.MissingPathError(source=source, target_path='missing'))
+              .build(False))
+
+    self.assertFalse(result)
+    self.assertEquals(expect, result)
+
+  def test_dict_match_strict_ok(self):
+    context = ExecutionContext()
+    source = {'n' : 10}
+    want = {'n' : jp.NUM_LE(20)}
+    result = jp.DICT_MATCHES(want, strict=True)(context, source)
+
+    expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
+              .add_result('n',
+                  jp.PathPredicateResultBuilder(
+                      source=source,
+                      pred=jp.NUM_LE(20))
+                  .add_result_candidate(
+                      jp.PathValue('n', 10), jp.NUM_LE(20)(context, 10))
+                  .build(True))
+              .build(True))
+
+    self.assertTrue(result)
+    self.assertEquals(expect, result)
+
+  def test_dict_match_strict_bad(self):
+    context = ExecutionContext()
+    source = {'n' : 10, 'extra' : 'EXTRA'}
+    want = {'n' : jp.NUM_LE(20)}
+    result = jp.DICT_MATCHES(want, strict=True)(context, source)
+
+    expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
+              .add_result('n',
+                  jp.PathPredicateResultBuilder(
+                      source=source,
+                      pred=jp.NUM_LE(20))
+                  .add_result_candidate(
+                      jp.PathValue('n', 10), jp.NUM_LE(20)(context, 10))
+                  .build(True))
+              .add_result('extra',
+                  jp.UnexpectedPathError(
+                      source=source, target_path='extra',
+                      path_value=jp.PathValue('extra', 'EXTRA')))
+              .build(False))
+
+    self.assertFalse(result)
+    self.assertEquals(expect, result)
+
   def test_dict_simple_subset(self):
     context = ExecutionContext()
     letters = {'a':'A', 'b':'B', 'c':'C'}
@@ -292,11 +440,8 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     context = ExecutionContext()
     small = {'a':['A'], 'b':[1, 2]}
     big = {'a':['A', 'B', 'C'], 'b':[1, 2]}
-    small_nested = {'first':small}
-    big_nested = {'first':big, 'second':big}
 
     big_subset_pred = jp.DICT_SUBSET(big)
-    nested_subset_pred = jp.DICT_SUBSET(big_nested)
     list_subset_pred = jp.LIST_SUBSET(big['a'])
 
     self.assertBadResult(

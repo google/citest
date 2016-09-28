@@ -53,7 +53,8 @@ from .path_result import (
     MissingPathError,
     PathResult,
     PathValueResult,
-    TypeMismatchError)
+    TypeMismatchError,
+    UnexpectedPathError)
 
 from .path_predicate_result import (
     PathPredicateResult,
@@ -70,6 +71,7 @@ from .path_transforms import (
 from .binary_predicate import (
     BinaryPredicate,
     ContainsPredicate,
+    DictMatchesPredicate,
     DictSubsetPredicate,
     DifferentPredicate,
     EquivalentPredicate,
@@ -84,6 +86,7 @@ from .binary_predicate import (
 
     DICT_EQ,
     DICT_NE,
+    DICT_MATCHES,
     DICT_SUBSET,
     LIST_EQ,
     LIST_MEMBER,

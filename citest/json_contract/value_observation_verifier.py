@@ -75,6 +75,10 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
     self.__constraints.append(constraint)
     return self
 
+  def contains_path_match(self, path, match_spec, min=1, max=None):
+    return self.contains_path_pred(
+        path, binary_predicate.DICT_MATCHES(match_spec), min, max)
+
   def contains_path_value(self, path, value, min=1, max=None):
     return self.contains_path_pred(
         path, binary_predicate.CONTAINS(value), min, max)
@@ -96,11 +100,21 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
             conjunction, min=min, max=max))
     return self
 
+  def contains_match(self, match_spec, min=1, max=None):
+    self.add_constraint(
+        cardinality_predicate.CardinalityPredicate(
+            binary_predicate.DICT_MATCHES(match_spec), min=min, max=max))
+    return self
+
   def excludes_path_pred(self, path, pred, max=0):
     self.add_constraint(
         cardinality_predicate.CardinalityPredicate(
             path_predicate.PathPredicate(path, pred), min=0, max=max))
     return self
+
+  def excludes_path_match(self, path, match_spec, max=0):
+    return self.excludes_path_pred(
+        path, binary_predicate.DICT_MATCHES(match_spec), max)
 
   def excludes_path_value(self, path, value, max=0):
     return self.excludes_path_pred(path, binary_predicate.CONTAINS(value),
@@ -109,6 +123,12 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
   def excludes_path_eq(self, path, value, max=0):
     return self.excludes_path_pred(
         path, binary_predicate.EQUIVALENT(value), max)
+
+  def excludes_match(self, match_spec, max=0):
+    self.add_constraint(
+        cardinality_predicate.CardinalityPredicate(
+            binary_predicate.DICT_MATCHES(match_spec), min=0, max=max))
+    return self
 
   def excludes_pred_list(self, pred_list, max=0):
     conjunction = logic_predicate.AND(pred_list)
