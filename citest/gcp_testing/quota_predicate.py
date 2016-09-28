@@ -24,7 +24,7 @@ from ..base import (
     get_global_journal)
 
 from ..json_predicate import (
-    CompositePredicateResultBuilder,
+    KeyedPredicateResultBuilder,
     DONT_ENUMERATE_TERMINAL,
     NUM_GE,
     EQUIVALENT,
@@ -114,7 +114,7 @@ class QuotaPredicate(ValuePredicate):
           following the format returned described by the "quotas" attribute of
           https://cloud.google.com/compute/docs/reference/latest/projects#resource
     """
-    builder = CompositePredicateResultBuilder(self)
+    builder = KeyedPredicateResultBuilder(self)
     dictified = {elem['metric']: elem for elem in value}
 
     bad_metrics = []
@@ -122,7 +122,8 @@ class QuotaPredicate(ValuePredicate):
       found = dictified.get(metric)
       if found is None:
         bad_metrics.append(metric)
-        builder.append_result(
+        builder.add_result(
+            metric,
             PathValueResult(source=None, target_path='metric',
                             path_value=PathValue('', value),
                             valid=False, pred=EQUIVALENT(metric),
@@ -130,7 +131,7 @@ class QuotaPredicate(ValuePredicate):
         continue
       pred = PathPredicate('', pred=NUM_GE(expect), transform=self.__diff)
       result = pred(context, found)
-      builder.append_result(result)
+      builder.add_result(metric, result)
       if not result:
         bad_metrics.append(metric)
 

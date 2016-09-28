@@ -37,10 +37,16 @@ from .path_value import (
 # module to specify how to determine the values we are trying to find.
 from .predicate import (
     CloneableWithNewSource,
-    CompositePredicateResult,
-    CompositePredicateResultBuilder,
     PredicateResult,
     ValuePredicate)
+
+from .sequenced_predicate_result import (
+    SequencedPredicateResult,
+    SequencedPredicateResultBuilder)
+
+from .keyed_predicate_result import (
+    KeyedPredicateResult,
+    KeyedPredicateResultBuilder)
 
 from .path_result import (
     IndexBoundsError,

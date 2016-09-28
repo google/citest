@@ -23,7 +23,7 @@ from citest.base import (
   JsonSnapshotHelper)
 
 from citest.json_predicate import (
-    CompositePredicateResultBuilder,
+    KeyedPredicateResultBuilder,
     FieldDifference,
     NUM_GE,
     PathPredicate,
@@ -81,9 +81,11 @@ class GcpQuotaPredicateTest(unittest.TestCase):
               {'metric': 'C', 'limit': 100.0, 'usage': 100.0}]
     require = {'A': 95.0, 'B': 10.0}
     pred = QuotaPredicate(require)
-    builder = CompositePredicateResultBuilder(pred)
-    builder.append_result(make_quota_result(context, True, source, require, 'A'))
-    builder.append_result(make_quota_result(context, True, source, require, 'B'))
+    builder = KeyedPredicateResultBuilder(pred)
+    builder.add_result(
+        'A', make_quota_result(context, True, source, require, 'A'))
+    builder.add_result(
+        'B', make_quota_result(context, True, source, require, 'B'))
     builder.comment = 'Satisfied all 2 metrics.'
 
     result = pred(context, source)
@@ -97,11 +99,11 @@ class GcpQuotaPredicateTest(unittest.TestCase):
               {'metric': 'C', 'limit': 100.0, 'usage': 100.0}]
     require = {'A': 95.0, 'B': 15.0}
     pred = QuotaPredicate(require)
-    builder = CompositePredicateResultBuilder(pred)
-    builder.append_result(
-        make_quota_result(context, True, source, require, 'A'))
-    builder.append_result(
-        make_quota_result(context, False, source, require, 'B'))
+    builder = KeyedPredicateResultBuilder(pred)
+    builder.add_result(
+        'A', make_quota_result(context, True, source, require, 'A'))
+    builder.add_result(
+        'B', make_quota_result(context, False, source, require, 'B'))
     builder.comment = 'Insufficient C.'
 
     result = pred(context, source)

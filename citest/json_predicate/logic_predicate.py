@@ -15,10 +15,11 @@
 """Declares some predicates useful for expressing IF/AND/OR conditions."""
 
 
-from . import predicate
+from .predicate import ValuePredicate
+from .sequenced_predicate_result import SequencedPredicateResult
 
 
-class ConjunctivePredicate(predicate.ValuePredicate):
+class ConjunctivePredicate(ValuePredicate):
   """A ValuePredicate that calls a sequence of predicates until one fails."""
 
   @property
@@ -58,11 +59,11 @@ class ConjunctivePredicate(predicate.ValuePredicate):
       if not result:
         valid = False
         break
-    return predicate.CompositePredicateResult(
+    return SequencedPredicateResult(
         valid=valid, pred=self, results=everything)
 
 
-class DisjunctivePredicate(predicate.ValuePredicate):
+class DisjunctivePredicate(ValuePredicate):
   """A ValuePredicate that calls a sequence of predicates until one succeeds."""
 
   @property
@@ -102,11 +103,11 @@ class DisjunctivePredicate(predicate.ValuePredicate):
       if result:
         valid = True
         break
-    return predicate.CompositePredicateResult(
+    return SequencedPredicateResult(
         valid=valid, pred=self, results=everything)
 
 
-class NegationPredicate(predicate.ValuePredicate):
+class NegationPredicate(ValuePredicate):
   """A ValuePredicate that negates another predicate."""
 
   @property
@@ -134,11 +135,11 @@ class NegationPredicate(predicate.ValuePredicate):
 
   def __call__(self, context, value):
     base_result = self.__pred(context, value)
-    return predicate.CompositePredicateResult(
+    return SequencedPredicateResult(
         valid=not base_result.valid, pred=self, results=[base_result])
 
 
-class ConditionalPredicate(predicate.ValuePredicate):
+class ConditionalPredicate(ValuePredicate):
   """A ValuePredicate that implements IF/THEN.
 
   A conditional has an optional ELSE clause.
@@ -223,7 +224,7 @@ class ConditionalPredicate(predicate.ValuePredicate):
       result = self.__else_pred(context, value)
     tried.append(result)
 
-    return predicate.CompositePredicateResult(
+    return SequencedPredicateResult(
         valid=result.valid, pred=self, results=tried)
 
 

@@ -36,7 +36,7 @@ class LogicPredicateTest(unittest.TestCase):
     aA = jp.PathEqPredicate('a', 'A')
     bB = jp.PathEqPredicate('b', 'B')
     conjunction = jc.AND([aA, bB])
-    expect = jc.CompositePredicateResult(
+    expect = jc.SequencedPredicateResult(
         valid=True, pred=conjunction,
         results=[aA(context, _LETTER_DICT), bB(context, _LETTER_DICT)])
 
@@ -50,7 +50,7 @@ class LogicPredicateTest(unittest.TestCase):
     b2 = jp.PathEqPredicate('b', 2)
     bB = jp.PathEqPredicate('b', 'B')
     conjunction = jc.AND([aA, b2, bB])
-    expect = jc.CompositePredicateResult(
+    expect = jc.SequencedPredicateResult(
         valid=False, pred=conjunction,
         results=[aA(context, _LETTER_DICT), b2(context, _LETTER_DICT)])
 
@@ -63,7 +63,7 @@ class LogicPredicateTest(unittest.TestCase):
     aA = jp.PathEqPredicate('a', 'A')
     bB = jp.PathEqPredicate('b', 'B')
     disjunction = jc.OR([aA, bB])
-    expect = jc.CompositePredicateResult(
+    expect = jc.SequencedPredicateResult(
         valid=True, pred=disjunction,
         results=[aA(context, _LETTER_DICT)])
 
@@ -76,7 +76,7 @@ class LogicPredicateTest(unittest.TestCase):
     a1 = jp.PathEqPredicate('a', 1)
     b2 = jp.PathEqPredicate('b', 2)
     disjunction = jc.OR([a1, b2])
-    expect = jc.CompositePredicateResult(
+    expect = jc.SequencedPredicateResult(
         valid=False, pred=disjunction,
         results=[a1(context, _LETTER_DICT), b2(context, _LETTER_DICT)])
 
@@ -89,7 +89,7 @@ class LogicPredicateTest(unittest.TestCase):
     a1 = jp.PathEqPredicate('a', '1')
     not_a1 = jc.NOT(a1)
 
-    expect = jc.CompositePredicateResult(
+    expect = jc.SequencedPredicateResult(
         valid=True, pred=not_a1, results=[a1(context, _LETTER_DICT)])
     result = not_a1(context, _LETTER_DICT)
     self.assertTrue(result)
@@ -98,7 +98,7 @@ class LogicPredicateTest(unittest.TestCase):
     b2 = jp.PathEqPredicate('b', '2')
     b2_or_a1 = jc.OR([b2, a1])
     not_b2_or_a1 = jc.NOT(b2_or_a1)
-    expect = jc.CompositePredicateResult(
+    expect = jc.SequencedPredicateResult(
         valid=True, pred=not_b2_or_a1,
         results=[b2_or_a1(context, _LETTER_DICT)])
     result = not_b2_or_a1(context, _LETTER_DICT)
@@ -110,7 +110,7 @@ class LogicPredicateTest(unittest.TestCase):
     aA = jp.PathEqPredicate('a', 'A')
     not_aA = jc.NOT(aA)
 
-    expect = jc.CompositePredicateResult(
+    expect = jc.SequencedPredicateResult(
         valid=False, pred=not_aA, results=[aA(context, _LETTER_DICT)])
     result = not_aA(context, _LETTER_DICT)
     self.assertFalse(result)
@@ -119,7 +119,7 @@ class LogicPredicateTest(unittest.TestCase):
     bB = jp.PathEqPredicate('b', 'B')
     bB_or_aA = jc.OR([bB, aA])
     not_bB_or_aA = jc.NOT(bB_or_aA)
-    expect = jc.CompositePredicateResult(
+    expect = jc.SequencedPredicateResult(
         valid=False, pred=not_bB_or_aA,
         results=[bB_or_aA(context, _LETTER_DICT)])
     result = not_bB_or_aA(context, _LETTER_DICT)
@@ -193,7 +193,7 @@ class LogicPredicateTest(unittest.TestCase):
         # Remainder have false IF to just execute ELSE
         tried.append(cC(context, test))
 
-      expect = jc.CompositePredicateResult(
+      expect = jc.SequencedPredicateResult(
           valid=True, pred=ifAthenBelseC, results=tried)
       result = ifAthenBelseC(context, test)
       self.assertTrue(result)
@@ -221,7 +221,7 @@ class LogicPredicateTest(unittest.TestCase):
         # Remainder has false IF so tries ELSE
         tried.append(cC(context, test))
 
-      expect = jc.CompositePredicateResult(
+      expect = jc.SequencedPredicateResult(
           valid=False, pred=ifAthenBelseC, results=tried)
       result = ifAthenBelseC(context, test)
       self.assertFalse(result)

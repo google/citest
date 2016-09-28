@@ -56,17 +56,17 @@ class CardinalityPredicateTest(unittest.TestCase):
         result = predicate(context, source)
 
         all_results = [
-            jp.CompositePredicateResult(
+            jp.SequencedPredicateResult(
                 False, _AorX,
                 [jp.PathValueResult(_CAB, '', PathValue('[0]', 'C'),
                                     valid=False, pred=_eq_A),
                  jp.PathValueResult(_CAB, '', PathValue('[0]', 'C'),
                                     valid=False, pred=_eq_X)]),
-            jp.CompositePredicateResult(
+            jp.SequencedPredicateResult(
                 True, _AorX,
                 [jp.PathValueResult(_CAB, '', PathValue('[1]', 'A'),
                                     valid=True, pred=_eq_A)]),
-            jp.CompositePredicateResult(
+            jp.SequencedPredicateResult(
                 False, _AorX,
                 [jp.PathValueResult(_CAB, '', PathValue('[2]', 'B'),
                                     valid=False, pred=_eq_A),
@@ -111,17 +111,17 @@ class CardinalityPredicateTest(unittest.TestCase):
         result = predicate(context, source)
 
         all_results = [
-            jp.CompositePredicateResult(
+            jp.SequencedPredicateResult(
                 False, _AorB,
                 [jp.PathValueResult(_CAB, '', PathValue('[0]', 'C'),
                                     valid=False, pred=_eq_A),
                  jp.PathValueResult(_CAB, '', PathValue('[0]', 'C'),
                                     valid=False, pred=_eq_B)]),
-            jp.CompositePredicateResult(
+            jp.SequencedPredicateResult(
                 True, _AorB,
                 [jp.PathValueResult(_CAB, '', PathValue('[1]', 'A'),
                                     valid=True, pred=_eq_A)]),
-            jp.CompositePredicateResult(
+            jp.SequencedPredicateResult(
                 True, _AorB,
                 [jp.PathValueResult(_CAB, '', PathValue('[2]', 'B'),
                                     valid=False, pred=_eq_A),

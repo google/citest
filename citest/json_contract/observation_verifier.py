@@ -157,17 +157,17 @@ class ObservationVerifyResult(predicate.PredicateResult):
 
   @property
   def good_results(self):
-    """List of (obj, CompositeResult)."""
+    """List of (obj, PredicateResult)."""
     return self.__good_results
 
   @property
   def bad_results(self):
-    """List of (obj, CompositeResult)."""
+    """List of (obj, PredicateResult)."""
     return self.__bad_results
 
   @property
   def failed_constraints(self):
-    """List of (constraint, CompositeResult) for constraints with no objects.
+    """List of (constraint, PredicateResult) for constraints with no objects.
     """
     return self.__failed_constraints
 

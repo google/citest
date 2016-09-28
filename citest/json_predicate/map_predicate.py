@@ -18,6 +18,7 @@
 import collections
 
 from ..base import JsonSnapshotableEntity
+from .sequenced_predicate_result import SequencedPredicateResult
 from . import predicate
 
 
@@ -83,7 +84,7 @@ class MapPredicateResultBuilder(object):
         good_map=self.__good_map, bad_map=self.__bad_map)
 
 
-class MapPredicateResult(predicate.CompositePredicateResult):
+class MapPredicateResult(SequencedPredicateResult):
   """PredicateResult when mapping a predicate over a collection of values."""
 
   @property
