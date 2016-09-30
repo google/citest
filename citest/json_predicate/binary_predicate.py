@@ -25,6 +25,7 @@ import inspect
 
 from . import predicate
 from .keyed_predicate_result import KeyedPredicateResultBuilder
+from .map_predicate import MapPredicate
 from .path_value import PathValue
 from .path_predicate_result import PathPredicateResultBuilder
 from .path_result import (
@@ -32,6 +33,7 @@ from .path_result import (
     PathValueResult,
     TypeMismatchError,
     UnexpectedPathError)
+from .sequenced_predicate_result import SequencedPredicateResultBuilder
 
 
 class BinaryPredicate(predicate.ValuePredicate):
@@ -203,6 +205,10 @@ class DictMatchesPredicate(BinaryPredicate):
     for key, pred in self.operand.items():
       snapshot.edge_builder.make_control(entity, key, pred)
 
+  def __eq__(self, obj):
+    return (super(DictMatchesPredicate, self).__eq__(obj)
+            and self.__strict == obj.strict)
+
   def __call__(self, context, value):
     """Implements Predicate interface.
 
@@ -259,6 +265,105 @@ class DictMatchesPredicate(BinaryPredicate):
       if key not in expect_keys:
         errors[key] = UnexpectedPathError(source=source, target_path=key,
                                           path_value=PathValue(key, value))
+    return errors
+
+class ListMatchesPredicate(BinaryPredicate):
+  """Implements binary predicate comparison predicates against list values.
+
+  Each element of the operand is a predicate that validates each element in the
+  called value list. If the predicate is strict, then each value must match a
+  predicate in the operand. If the predicate is unique then each value must only
+  match one predicate.
+  """
+
+  @property
+  def strict(self):
+    """Whether all the elements must satisfy a predicate (True) or not."""
+    return self.__strict
+
+  @property
+  def unique(self):
+    """Whether a given element complies with at most one (True) predicates."""
+    return self.__unique
+
+  def __init__(self, operand, **kwargs):
+    """Constructor."""
+    if not isinstance(operand, list):
+      raise TypeError(
+          '{0} is not a list: {1!r}'.format(operand.__class__, operand))
+    self.__strict = kwargs.pop('strict', False)
+    self.__unique = kwargs.pop('unique', False)
+    super(ListMatchesPredicate, self).__init__('Matches', operand, **kwargs)
+
+  def __eq__(self, obj):
+    return (super(ListMatchesPredicate, self).__eq__(obj)
+            and self.__unique == obj.unique
+            and self.__strict == obj.strict)
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotableEntity interface."""
+    entity.add_metadata('strict', self.__strict)
+    entity.add_metadata('unique', self.__unique)
+    for index, pred in enumerate(self.operand):
+      key = '[{0}]'.format(index)
+      snapshot.edge_builder.make_control(entity, key, pred)
+
+  def __call__(self, context, value):
+    """Implements Predicate interface.
+
+    context: [ExecutionContext] The execution context.
+    value: [list] The value list to match against our operand.
+
+    Returns a SequencedPredicateResult indicating each of the fields.
+    """
+    if not isinstance(value, list):
+      return TypeMismatchError(list, value.__class__, value)
+
+    if self.__unique:
+      max_count = 1
+    else:
+      max_count = None
+
+    match_result_builder = SequencedPredicateResultBuilder(self)
+    valid = True
+    matched_element_count = [0] * len(value)
+    # pylint: disable=redefined-variable-type
+    for match_pred in self.operand:
+      pred_result = MapPredicate(match_pred, max=max_count)(context, value)
+      match_result_builder.append_result(pred_result)
+      if not pred_result:
+        valid = False
+      for index in range(len(value)):
+        matched_element_count[index] += 1 if pred_result.results[index] else 0
+
+    if self.strict:
+      # Only consider and add strictness result if it fails
+      strictness_errors = self._find_strictness_errors(
+          matched_element_count, value)
+      if strictness_errors:
+        valid = False
+        match_result_builder.extend_results(strictness_errors)
+
+    return match_result_builder.build(valid)
+
+  def _find_strictness_errors(self, matched_element_count, source):
+    """Check for each element being matched
+
+    Args:
+      matched_element_count: [list] number of matched predicates in source.
+      source: [list] The list to match against our operand.
+
+    Returns:
+      list of unmatched source values.
+    """
+    # pylint: disable=unused-argument
+    errors = []
+    for index, count in enumerate(matched_element_count):
+      if count == 0:
+        path = '[{0}]'.format(index)
+        errors.append(
+            UnexpectedPathError(source=source, target_path=path,
+                                path_value=PathValue(path, source[index])))
     return errors
 
 class DictSubsetPredicate(BinaryPredicate):
@@ -608,6 +713,7 @@ LIST_EQ = StandardBinaryPredicateFactory(
     '==', lambda a, b: a == b, operand_type=list)
 LIST_NE = StandardBinaryPredicateFactory(
     '!=', lambda a, b: a != b, operand_type=list)
+LIST_MATCHES = ListMatchesPredicate
 
 def lists_equivalent(a, b):
   """Determine if two lists are equivalent without regard to order."""

@@ -195,6 +195,113 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     self.assertGoodResult(PathValue('', {'a': 'A'}),
                           ne_pred, ne_pred(context, {'a': 'A'}))
 
+  def test_list_match_defaults(self):
+    pred = jp.LIST_MATCHES([jp.NUM_EQ(1)])
+    self.assertFalse(pred.strict)
+    self.assertFalse(pred.unique)
+
+  def test_list_match_simple_ok(self):
+    context = ExecutionContext()
+    source = [1, 2]
+    want = [jp.NUM_EQ(1)]
+    result = jp.LIST_MATCHES(want)(context, source)
+
+    expect = (jp.SequencedPredicateResultBuilder(jp.LIST_MATCHES(want))
+              .append_result(jp.MapPredicate(jp.NUM_EQ(1))(context, source))
+              .build(True))
+
+    self.assertTrue(result)
+    self.assertEquals(expect, result)
+
+  def test_list_match_simple_bad(self):
+    context = ExecutionContext()
+    source = [1]
+    want = [jp.NUM_NE(1)]
+    result = jp.LIST_MATCHES(want)(context, source)
+
+    expect = (jp.SequencedPredicateResultBuilder(jp.LIST_MATCHES(want))
+              .append_result(jp.MapPredicate(jp.NUM_NE(1))(context, source))
+              .build(False))
+
+    self.assertFalse(result)
+    self.assertEquals(expect, result)
+
+  def test_list_match_ok_and_bad(self):
+    context = ExecutionContext()
+    source = [1, 2, 3]
+    want = [jp.NUM_EQ(1), jp.NUM_EQ(-1), jp.NUM_EQ(3)]
+    result = jp.LIST_MATCHES(want)(context, source)
+
+    expect = (jp.SequencedPredicateResultBuilder(jp.LIST_MATCHES(want))
+              .append_result(jp.MapPredicate(jp.NUM_EQ(1))(context, source))
+              .append_result(jp.MapPredicate(jp.NUM_EQ(-1))(context, source))
+              .append_result(jp.MapPredicate(jp.NUM_EQ(3))(context, source))
+              .build(False))
+
+    self.assertFalse(result)
+    self.assertEquals(expect, result)
+
+  def test_list_match_unique_ok(self):
+    context = ExecutionContext()
+    source = [1, 2]
+    want = [jp.NUM_EQ(1)]
+    match_pred = jp.LIST_MATCHES(want, unique=True)
+    result = match_pred(context, source)
+
+    expect = (jp.SequencedPredicateResultBuilder(match_pred)
+              .append_result(jp.MapPredicate(jp.NUM_EQ(1))(context, source))
+              .build(True))
+
+    self.assertTrue(result)
+    self.assertEquals(expect, result)
+
+  def test_list_match_unique_bad(self):
+    context = ExecutionContext()
+    source = [1, 2]
+    want = [jp.NUM_EQ(1), jp.NUM_NE(2)]
+    match_pred = jp.LIST_MATCHES(want, unique=True)
+    result = match_pred(context, source)
+
+    expect = (jp.SequencedPredicateResultBuilder(match_pred)
+              .append_result(jp.MapPredicate(jp.NUM_EQ(1))(context, source))
+              .append_result(jp.MapPredicate(jp.NUM_NE(2))(context, source))
+              .build(True))
+
+    self.assertTrue(result)
+    self.assertEquals(expect, result)
+
+  def test_list_match_strict_ok(self):
+    context = ExecutionContext()
+    source = [1, 2]
+    want = [jp.NUM_NE(0)]
+    match_pred = jp.LIST_MATCHES(want, strict=True)
+    result = match_pred(context, source)
+
+    expect = (jp.SequencedPredicateResultBuilder(match_pred)
+              .append_result(jp.MapPredicate(jp.NUM_NE(0))(context, source))
+              .build(True))
+
+    self.assertTrue(result)
+    self.assertEquals(expect, result)
+
+  def test_list_match_strict_bad(self):
+    context = ExecutionContext()
+    source = [1, 2]
+    want = [jp.NUM_NE(2)]
+    match_pred = jp.LIST_MATCHES(want, strict=True)
+    result = match_pred(context, source)
+
+    expect = (jp.SequencedPredicateResultBuilder(match_pred)
+              .append_result(jp.MapPredicate(jp.NUM_NE(2))(context, source))
+              .append_result(
+                  jp.UnexpectedPathError(
+                      source=source, target_path='[1]',
+                      path_value=jp.PathValue('[1]', 2)))
+              .build(False))
+
+    self.assertFalse(result)
+    self.assertEquals(expect, result)
+
   def test_dict_match_simple_ok(self):
     context = ExecutionContext()
     source = {'n' : 10}
@@ -202,7 +309,8 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     result = jp.DICT_MATCHES(want)(context, source)
 
     expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
-              .add_result('n',
+              .add_result(
+                  'n',
                   jp.PathPredicateResultBuilder(
                       source=source,
                       pred=jp.NUM_LE(20))
@@ -221,7 +329,8 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     result = jp.DICT_MATCHES(want)(context, source)
 
     expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
-              .add_result('n',
+              .add_result(
+                  'n',
                   jp.PathPredicateResultBuilder(
                       source=source,
                       pred=jp.NUM_NE(10))
@@ -240,7 +349,8 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     result = jp.DICT_MATCHES(want)(context, source)
 
     expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
-              .add_result('a',
+              .add_result(
+                  'a',
                   jp.PathPredicateResultBuilder(
                       source=source,
                       pred=jp.STR_SUBSTR('test'))
@@ -248,7 +358,8 @@ class JsonBinaryPredicateTest(unittest.TestCase):
                       path_value=jp.PathValue('a', 'testing'),
                       final_result=jp.STR_SUBSTR('test')(context, 'testing'))
                   .build(True))
-              .add_result('n',
+              .add_result(
+                  'n',
                   jp.PathPredicateResultBuilder(
                       source=source,
                       pred=jp.NUM_LE(20))
@@ -267,7 +378,8 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     result = jp.DICT_MATCHES(want)(context, source)
 
     expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
-              .add_result('a',
+              .add_result(
+                  'a',
                   jp.PathPredicateResultBuilder(
                       source=source,
                       pred=jp.STR_SUBSTR('test'))
@@ -275,7 +387,8 @@ class JsonBinaryPredicateTest(unittest.TestCase):
                       path_value=jp.PathValue('a', 'testing'),
                       final_result=jp.STR_SUBSTR('test')(context, 'testing'))
                   .build(True))
-              .add_result('n',
+              .add_result(
+                  'n',
                   jp.PathPredicateResultBuilder(
                       source=source,
                       pred=jp.NUM_NE(10))
@@ -294,7 +407,8 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     result = jp.DICT_MATCHES(want)(context, source)
 
     expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
-              .add_result('missing',
+              .add_result(
+                  'missing',
                   jp.MissingPathError(source=source, target_path='missing'))
               .build(False))
 
@@ -305,10 +419,12 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     context = ExecutionContext()
     source = {'n' : 10}
     want = {'n' : jp.NUM_LE(20)}
-    result = jp.DICT_MATCHES(want, strict=True)(context, source)
+    match_pred = jp.DICT_MATCHES(want, strict=True)
+    result = match_pred(context, source)
 
-    expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
-              .add_result('n',
+    expect = (jp.KeyedPredicateResultBuilder(match_pred)
+              .add_result(
+                  'n',
                   jp.PathPredicateResultBuilder(
                       source=source,
                       pred=jp.NUM_LE(20))
@@ -324,17 +440,20 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     context = ExecutionContext()
     source = {'n' : 10, 'extra' : 'EXTRA'}
     want = {'n' : jp.NUM_LE(20)}
-    result = jp.DICT_MATCHES(want, strict=True)(context, source)
+    match_pred = jp.DICT_MATCHES(want, strict=True)
+    result = match_pred(context, source)
 
-    expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
-              .add_result('n',
+    expect = (jp.KeyedPredicateResultBuilder(match_pred)
+              .add_result(
+                  'n',
                   jp.PathPredicateResultBuilder(
                       source=source,
                       pred=jp.NUM_LE(20))
                   .add_result_candidate(
                       jp.PathValue('n', 10), jp.NUM_LE(20)(context, 10))
                   .build(True))
-              .add_result('extra',
+              .add_result(
+                  'extra',
                   jp.UnexpectedPathError(
                       source=source, target_path='extra',
                       path_value=jp.PathValue('extra', 'EXTRA')))
