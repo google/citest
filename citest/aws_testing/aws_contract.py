@@ -108,7 +108,7 @@ class AwsClauseBuilder(jc.ContractClauseBuilder):
     if no_resources_ok:
       error_verifier = cli_agent.CliAgentObservationFailureVerifier(
           title='"Not Found" permitted.',
-          error_regex='.* operation: Cannot find .*')
+          error_regex='(?:.* operation: Cannot find .*)|(?:.*\(.*NotFound\).*)')
       disjunction_builder = jc.ObservationVerifierBuilder(
           'Collect {0} or Not Found'.format(command))
       disjunction_builder.append_verifier(error_verifier)
