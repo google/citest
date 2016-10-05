@@ -105,6 +105,8 @@ class GoogleHttpLoadBalancerTestScenario(sk.SpinnakerTestScenario):
       'region': bindings['TEST_GCE_REGION'],
       'loadBalancerType': 'HTTP',
       'loadBalancerName': self.__lb_name,
+      'urlMapName': self.__lb_name,
+      'listenersToDelete': [],
       'portRange': '80',
       'defaultService': {
         'name': 'default-' + self.TEST_APP,
