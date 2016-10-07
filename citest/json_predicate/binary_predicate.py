@@ -27,7 +27,7 @@ from . import predicate
 from .keyed_predicate_result import KeyedPredicateResultBuilder
 from .map_predicate import MapPredicate
 from .path_value import PathValue
-from .path_predicate_result import PathPredicateResultBuilder
+from .path_predicate import PathPredicate
 from .path_result import (
     MissingPathError,
     PathValueResult,
@@ -223,18 +223,10 @@ class DictMatchesPredicate(BinaryPredicate):
     match_result_builder = KeyedPredicateResultBuilder(self)
     valid = True
     # pylint: disable=redefined-variable-type
-    for name, pred in self.operand.items():
-      name_value = value.get(name)
-      name_result = None
-      if name_value is None:
-        name_result = MissingPathError(value, name)
-      else:
-        path_result_builder = PathPredicateResultBuilder(
-            source=value, pred=pred)
-        path_result_builder.add_result_candidate(
-            PathValue(name, name_value), pred(context, value.get(name)))
-        name_result = path_result_builder.build()
-
+    for key, pred in self.operand.items():
+      name = context.eval(key)
+      name_result = PathPredicate(key, pred, source_pred=pred,
+                                  enumerate_terminals=False)(context, value)
       if not name_result:
         valid = False
       match_result_builder.add_result(name, name_result)

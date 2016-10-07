@@ -243,9 +243,26 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
     return self.__pred
 
   @property
+  def source_pred(self):
+    """The ValuePredicate identifies the origin of PathPredicateResults."""
+    return self.__source_pred
+
+  @property
   def transform(self):
     """An optional function transforming the source value into a final value."""
     return self.__transform
+
+  @property
+  def enumerate_terminals(self):
+    """Affects the handling of paths that end with a list value.
+
+    If enumerate_terminals is True then the predicate will be applied to each
+    of the elements of the list. If it is False then the predicate will be
+    applied to the list itself. This property has no effect if the path
+    specifies a non-list element or lists that might be found inside composite
+    values.
+    """
+    return self.__enumerate_terminals
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
@@ -262,15 +279,22 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
       pred: The ValuePredicate to apply to the field we find.
          This can be None indicating to just find the value at the field.
       transform: An optional transformation function to apply to the path value.
+      source_pred: If specified, use this ValuePredicate as the originating
+         predicate in PathPredicateResults, otherwise use self. This allows
+         delegation to a PathPredicate as an implementation detail by other
+         predicates that need to ferret out path values.
       See base class (ValuePredicate) for additional kwargs.
     """
     self.__pred = pred
+    self.__source_pred = kwargs.pop('source_pred', None) or self
     self.__transform = kwargs.pop('transform', None)
+    self.__enumerate_terminals = kwargs.pop('enumerate_terminals', True)
     self.__path = path or ''
     super(PathPredicate, self).__init__(**kwargs)
 
   def __eq__(self, finder):
     return (self.__class__ == finder.__class__
+            and self.__enumerate_terminals == finder.enumerate_terminals
             and self.__path == finder.path
             and self.__pred == finder.pred
             and self.__transform == finder.transform)
@@ -292,8 +316,8 @@ class PathPredicate(ValuePredicate, ProducesPathPredicateResult):
 
     path = context.eval(self.__path)
 
-    builder = PathPredicateResultBuilder(pred=self, source=source)
-    enumerate_terminal = True
+    builder = PathPredicateResultBuilder(pred=self.source_pred, source=source)
+    enumerate_terminal = self.__enumerate_terminals
     if path and path[-1] in (PATH_SEP, DONT_ENUMERATE_TERMINAL):
       enumerate_terminal = path[-1] != DONT_ENUMERATE_TERMINAL
       path = path[:-1]

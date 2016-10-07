@@ -302,21 +302,21 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     self.assertFalse(result)
     self.assertEquals(expect, result)
 
+  def _match_dict_attribute_result(self, context, pred, key, value):
+    return jp.PathPredicate(key, pred, source_pred=pred,
+                            enumerate_terminals=False)(context, value)
+
   def test_dict_match_simple_ok(self):
     context = ExecutionContext()
     source = {'n' : 10}
-    want = {'n' : jp.NUM_LE(20)}
+    pred = jp.NUM_LE(20)
+    want = {'n' : pred}
     result = jp.DICT_MATCHES(want)(context, source)
-
     expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
               .add_result(
                   'n',
-                  jp.PathPredicateResultBuilder(
-                      source=source,
-                      pred=jp.NUM_LE(20))
-                  .add_result_candidate(
-                      jp.PathValue('n', 10), jp.NUM_LE(20)(context, 10))
-                  .build(True))
+                  self._match_dict_attribute_result(
+                      context, pred, 'n', source))
               .build(True))
 
     self.assertTrue(result)
@@ -325,18 +325,15 @@ class JsonBinaryPredicateTest(unittest.TestCase):
   def test_dict_match_simple_bad(self):
     context = ExecutionContext()
     source = {'n' : 10}
-    want = {'n' : jp.NUM_NE(10)}
+    pred = jp.NUM_NE(10)
+    want = {'n' : pred}
     result = jp.DICT_MATCHES(want)(context, source)
 
     expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
               .add_result(
                   'n',
-                  jp.PathPredicateResultBuilder(
-                      source=source,
-                      pred=jp.NUM_NE(10))
-                  .add_result_candidate(
-                      jp.PathValue('n', 10), jp.NUM_NE(10)(context, 10))
-                  .build(False))
+                  self._match_dict_attribute_result(
+                      context, pred, 'n', source))
               .build(False))
 
     self.assertFalse(result)
@@ -345,27 +342,20 @@ class JsonBinaryPredicateTest(unittest.TestCase):
   def test_dict_match_multi_ok(self):
     context = ExecutionContext()
     source = {'a' : 'testing', 'n' : 10}
-    want = {'n' : jp.NUM_LE(20), 'a' : jp.STR_SUBSTR('test')}
+    n_pred = jp.NUM_LE(20)
+    a_pred = jp.STR_SUBSTR('test')
+    want = {'n' : n_pred, 'a' : a_pred}
     result = jp.DICT_MATCHES(want)(context, source)
 
     expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
               .add_result(
-                  'a',
-                  jp.PathPredicateResultBuilder(
-                      source=source,
-                      pred=jp.STR_SUBSTR('test'))
-                  .add_result_candidate(
-                      path_value=jp.PathValue('a', 'testing'),
-                      final_result=jp.STR_SUBSTR('test')(context, 'testing'))
-                  .build(True))
-              .add_result(
                   'n',
-                  jp.PathPredicateResultBuilder(
-                      source=source,
-                      pred=jp.NUM_LE(20))
-                  .add_result_candidate(
-                      jp.PathValue('n', 10), jp.NUM_LE(20)(context, 10))
-                  .build(True))
+                  self._match_dict_attribute_result(
+                      context, n_pred, 'n', source))
+              .add_result(
+                  'a',
+                  self._match_dict_attribute_result(
+                      context, a_pred, 'a', source))
               .build(True))
 
     self.assertTrue(result)
@@ -374,42 +364,39 @@ class JsonBinaryPredicateTest(unittest.TestCase):
   def test_dict_match_multi_bad(self):
     context = ExecutionContext()
     source = {'a' : 'testing', 'n' : 10}
-    want = {'n' : jp.NUM_NE(10), 'a' : jp.STR_SUBSTR('test')}
+    n_pred = jp.NUM_NE(10)
+    a_pred = jp.STR_SUBSTR('test')
+    want = {'n' : n_pred, 'a' : a_pred}
     result = jp.DICT_MATCHES(want)(context, source)
 
     expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
               .add_result(
-                  'a',
-                  jp.PathPredicateResultBuilder(
-                      source=source,
-                      pred=jp.STR_SUBSTR('test'))
-                  .add_result_candidate(
-                      path_value=jp.PathValue('a', 'testing'),
-                      final_result=jp.STR_SUBSTR('test')(context, 'testing'))
-                  .build(True))
-              .add_result(
                   'n',
-                  jp.PathPredicateResultBuilder(
-                      source=source,
-                      pred=jp.NUM_NE(10))
-                  .add_result_candidate(
-                      jp.PathValue('n', 10), jp.NUM_NE(10)(context, 10))
-                  .build(False))
+                  self._match_dict_attribute_result(
+                      context, n_pred, 'n', source))
+              .add_result(
+                  'a',
+                  self._match_dict_attribute_result(
+                      context, a_pred, 'a', source))
               .build(False))
 
     self.assertFalse(result)
+    self.assertTrue(result.results['a'])
+    self.assertFalse(result.results['n'])
     self.assertEquals(expect, result)
 
   def test_dict_match_missing_path(self):
     context = ExecutionContext()
     source = {'n' : 10}
-    want = {'missing' : jp.NUM_EQ(10)}
+    pred = jp.NUM_EQ(10)
+    want = {'missing' : pred}
     result = jp.DICT_MATCHES(want)(context, source)
 
     expect = (jp.KeyedPredicateResultBuilder(jp.DICT_MATCHES(want))
               .add_result(
                   'missing',
-                  jp.MissingPathError(source=source, target_path='missing'))
+                  self._match_dict_attribute_result(
+                      context, pred, 'missing', source))
               .build(False))
 
     self.assertFalse(result)
@@ -418,19 +405,16 @@ class JsonBinaryPredicateTest(unittest.TestCase):
   def test_dict_match_strict_ok(self):
     context = ExecutionContext()
     source = {'n' : 10}
-    want = {'n' : jp.NUM_LE(20)}
+    pred = jp.NUM_LE(20)
+    want = {'n' : pred}
     match_pred = jp.DICT_MATCHES(want, strict=True)
     result = match_pred(context, source)
 
     expect = (jp.KeyedPredicateResultBuilder(match_pred)
               .add_result(
                   'n',
-                  jp.PathPredicateResultBuilder(
-                      source=source,
-                      pred=jp.NUM_LE(20))
-                  .add_result_candidate(
-                      jp.PathValue('n', 10), jp.NUM_LE(20)(context, 10))
-                  .build(True))
+                  self._match_dict_attribute_result(
+                      context, pred, 'n', source))
               .build(True))
 
     self.assertTrue(result)
@@ -439,19 +423,16 @@ class JsonBinaryPredicateTest(unittest.TestCase):
   def test_dict_match_strict_bad(self):
     context = ExecutionContext()
     source = {'n' : 10, 'extra' : 'EXTRA'}
-    want = {'n' : jp.NUM_LE(20)}
+    pred = jp.NUM_LE(20)
+    want = {'n' : pred}
     match_pred = jp.DICT_MATCHES(want, strict=True)
     result = match_pred(context, source)
 
     expect = (jp.KeyedPredicateResultBuilder(match_pred)
               .add_result(
                   'n',
-                  jp.PathPredicateResultBuilder(
-                      source=source,
-                      pred=jp.NUM_LE(20))
-                  .add_result_candidate(
-                      jp.PathValue('n', 10), jp.NUM_LE(20)(context, 10))
-                  .build(True))
+                  self._match_dict_attribute_result(
+                      context, pred, 'n', source))
               .add_result(
                   'extra',
                   jp.UnexpectedPathError(
