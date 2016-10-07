@@ -23,7 +23,7 @@ import datetime
 import json
 
 from .journal_processor import (JournalProcessor, ProcessedEntityManager)
-
+from .simplify_entity_transforms import get_edge_label_value_transformer
 
 class RenderedContext(
     collections.namedtuple('RenderedContext', ['control', 'html'])):
@@ -414,14 +414,17 @@ class ProcessToRenderInfo(object):
           self.__tr_for_html_info('<i>metadata</i>', meta_info,
                                   relation='meta',
                                   default_expanded=False)])
-
     num_rows = 0
+    edge_label_value_transformer = get_edge_label_value_transformer(
+        subject, self.__entity_manager)
     for edge in subject.get('_edges', []):
         # pylint: disable=bad-indentation
-        label = edge.get('label', '?unlabled')
+        label, value = edge_label_value_transformer(edge)
+        if label is None:
+          continue  # skip this edge
+
         target_id = None
         value_info = None
-        value = edge.get('_value', None)
         if value and edge.get('format', None) in ['json', 'pre']:
           formatter.push_level()
           value_info = self.process_edge_value(edge, value)
@@ -432,7 +435,7 @@ class ProcessToRenderInfo(object):
           formatter.pop_level()
         elif (isinstance(value, dict)
               and value.get('_type') == 'EntityReference'):
-          target_id = value.get['_id']
+          target_id = value.get('_id')
         elif value is not None:
           formatter.push_level()
           value_info = self.process_edge_value(edge, value)
