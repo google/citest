@@ -141,6 +141,7 @@ class MapPredicateResult(SequencedPredicateResult):
 
   def __init__(self, valid, pred, obj_list, all_results,
                good_map, bad_map, **kwargs):
+    # pylint: disable=too-many-arguments
     self.__obj_list = obj_list
     self.__good_map = good_map
     self.__bad_map = bad_map
@@ -152,6 +153,21 @@ class MapPredicateResult(SequencedPredicateResult):
             and self.__obj_list == result.obj_list
             and self.__good_map == result.good_object_result_mappings
             and self.__bad_map == result.bad_object_result_mappings)
+
+  def clone_with_source(self, source, base_target_path, base_value_path):
+    """Implements CloneableWithNewSource interface."""
+    builder = MapPredicateResultBuilder(self.pred)
+
+    for index, orig in enumerate(self.results):
+      if isinstance(orig, predicate.CloneableWithNewSource):
+        result = orig.clone_with_source(source=source,
+                                        base_target_path=base_target_path,
+                                        base_value_path=base_value_path)
+      else:
+        result = orig
+      builder.add_result(self.__obj_list[index], result)
+    return builder.build(self.valid)
+
 
 class MapPredicate(predicate.ValuePredicate):
   """Applies a predicate to all elements of a list or a non-list object.
