@@ -398,7 +398,8 @@ class JsonSnapshotHelper(object):
       return 'Lambda "{0}"'.format(value.func_name)
 
     raise TypeError(
-        '{0} is not implicitly JsonSnapshotable.'.format(value.__class__))
+        '{0} is not implicitly JsonSnapshotable: {1!r}'.format(
+            value.__class__, value))
 
   @staticmethod
   def AssertExpectedValue(expect, have, msg=None):

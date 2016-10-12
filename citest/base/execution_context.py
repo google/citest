@@ -21,6 +21,7 @@ The context can also be used to collect runtime state and information that is
 needed later in the tests execution or evaluation.
 """
 
+import logging
 from .snapshot import JsonSnapshotable
 
 
@@ -54,6 +55,10 @@ class ExecutionContext(JsonSnapshotable):
     return (self.__internal[key]
             if key in self.__internal
             else self.__external[key])
+
+  def __repr__(self):
+    return 'external={0!r}, internal={1!r}'.format(
+        self.__external, self.__internal)
 
   def clear_key(self, key):
     """Remove key whether or not it exists."""
@@ -136,6 +141,10 @@ class ExecutionContext(JsonSnapshotable):
     elif isinstance(value, dict):
       return {key: self.eval(data) for key, data in value.items()}
     elif callable(value):
-      return value(self)
+      try:
+        return value(self)
+      except TypeError as terr:
+        logging.getLogger(__name__).error('Error evaluating {0}'.format(value))
+        raise terr
     else:
       return value
