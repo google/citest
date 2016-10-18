@@ -528,35 +528,56 @@ class HtmlRenderer(JournalProcessor):
       raise ValueError(
           'Still have {0} open contexts'.format(len(self.__context_stack)))
 
+  def __render_context(self, end_control, rendered_context):
+    """Render the context into HTML now that we've terminated it.
+
+    Args:
+      end_control: [dict] JournalContextControl for end context record.
+      rendered_context: [RenderedContext] the context we just ended.
+    """
+    begin_control = rendered_context.control
+    if begin_control.get('_title') == 'Execute':
+      # If this context is "Execute", then unwrap this top context and the
+      # execute context to promote the actual thing executed to this level.
+      # This is a hack, but makes the reporting more readable.
+      if rendered_context.html:
+        if self.__context_stack:
+          self.__context_stack[-1].html.extend(rendered_context.html)
+      return
+
+    # Relation here is used to indicate the test status.
+    # Take that and turn it into a style.
+    relation = end_control.get('relation', None)
+    css = self.__document_manager.determine_attribute_css(relation)[0]
+    title_html = cgi.escape(begin_control.get('_title', ''))
+    if not rendered_context.html:
+      self.render_log_tr(begin_control['_timestamp'], None,
+                         title_html + ' (<i>empty</i>)', css=css)
+    else:
+      delta_time = end_control['_timestamp'] - begin_control['_timestamp']
+      if css:
+        title_html = '<span{css}>{title}</span>'.format(
+            css=css, title=title_html)
+      lvl = min(1, len(self.__context_stack))
+      title_html = '<context{n}>{title}</context{n}>'.format(
+          n=lvl, title=title_html)
+      html = '{title}\n<table>\n{rows}\n</table>\n'.format(
+          title=title_html, rows=''.join(rendered_context.html))
+      context_title = '%s <small>+%.3fs</small>' % (title_html, delta_time)
+      self.render_log_tr(begin_control['_timestamp'], context_title, html)
+
   def handle_context_control(self, control):
     """Begin or terminate contexts."""
     direction = control['control']
     if direction == 'BEGIN':
       self.__context_stack.append(RenderedContext(control, []))
     elif direction == 'END':
-      held = self.__context_stack[-1]
+      just_finished = self.__context_stack[-1]
       self.__context_stack.pop()
-
-      # Relation here is used to indicate the test status.
-      # Take that and turn it into a style.
-      relation = control.get('relation', None)
-      css = self.__document_manager.determine_attribute_css(relation)[0]
-      title_html = cgi.escape(held.control.get('_title', ''))
-      if not held.html:
-        self.render_log_tr(held.control['_timestamp'], None,
-                           title_html + ' (<i>empty</i>)', css=css)
-      else:
-        delta_time = control['_timestamp'] - held.control['_timestamp']
-        if css:
-          title_html = '<span{css}>{title}</span>'.format(
-              css=css, title=title_html)
-        lvl = min(1, len(self.__context_stack))
-        title_html = '<context{n}>{title}</context{n}>'.format(
-            n=lvl, title=title_html)
-        html = '{title}\n<table>\n{rows}\n</table>\n'.format(
-            title=title_html, rows=''.join(held.html))
-        context_title = '%s <small>+%.3fs</small>' % (title_html, delta_time)
-        self.render_log_tr(held.control['_timestamp'], context_title, html)
+      if (not just_finished.html
+          and just_finished.control.get('_title', '') in ['setUp', 'tearDown']):
+        return
+      self.__render_context(control, just_finished)
     else:
       raise ValueError(
           'Invalid JournalContextControl control={0}'.format(direction))
