@@ -21,6 +21,7 @@ import logging
 import apiclient
 import httplib2
 
+from oauth2client.client import GoogleCredentials
 from oauth2client.service_account import ServiceAccountCredentials
 
 from ..base import JournalLogger
@@ -78,8 +79,9 @@ class GcpAgent(BaseAgent):
     Returns:
       Service
     """
+    credentials_path = credentials_path or None
     logger = logging.getLogger(__name__)
-    if scopes is None != credentials_path is None:
+    if (scopes is None) != (credentials_path is None):
       raise ValueError(
           'Either provide both scopes and credentials_path or neither')
 
@@ -90,12 +92,15 @@ class GcpAgent(BaseAgent):
     http = httplib2.Http()
     http = apiclient.http.set_user_agent(
         http, 'citest/{version}'.format(version=citest.__version__))
+    credentials = None
     if scopes is not None:
       logger.info('Authenticating %s %s', api, version)
       credentials = ServiceAccountCredentials.from_json_keyfile_name(
           credentials_path, scopes=scopes)
-      http = credentials.authorize(http)
+    else:
+      credentials = GoogleCredentials.get_application_default()
 
+    http = credentials.authorize(http)
     logger.info('Constructing %s service...', api)
     return apiclient.discovery.build(api, version, http=http)
 
