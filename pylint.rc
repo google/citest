@@ -22,3 +22,6 @@ indent-after-paren=4
 
 variable-rgx=([a-z_][a-z0-9_]{2,30}$)|([fe]$)
 method-rgx=[a-z_][a-z0-9_]{2,40}$
+
+[DESIGN]
+max-attributes=12

@@ -17,7 +17,6 @@
 This is particular to the JSON emitted by the Journal.
 """
 
-import cgi
 import collections
 import datetime
 import json
@@ -38,51 +37,6 @@ def _to_string(value):
   return str(value)
 
 
-class HtmlFormatter(object):
-  """Object for helping format HTML"""
-
-  @property
-  def line_indent(self):
-    """Current indentation string."""
-    return ' ' * self.__level * self.indent_factor
-
-  @property
-  def indent_factor(self):
-    """Number of spaces to indent per level."""
-    return 2
-
-  @property
-  def level(self):
-    """Numeric 'depth' of indentation levels."""
-    return self.__level
-
-  def __init__(self):
-    """Constructor."""
-    self.__level = 0
-
-  def push_level(self, count=1):
-    """Increment indentation level.
-
-    Args:
-      count: [int] If specified, the number of levels to increment by.
-    """
-    if count < 0:
-      raise ValueError('count={0} cannot be negative'.format(count))
-    self.__level += count
-
-  def pop_level(self, count=1):
-    """Decrement indentation level.
-
-    Args:
-      count: [int] If specified, the number of levels to decrement by.
-    """
-    if count < 0:
-      raise ValueError('count={0} cannot be negative'.format(count))
-    if self.__level < count:
-      raise ValueError('Popped too far.')
-    self.__level -= count
-
-
 class HtmlInfo(object):
   """Specifies an HTML encoding of an object.
 
@@ -93,22 +47,22 @@ class HtmlInfo(object):
   """
 
   @property
-  def detail_html(self):
-    """The fully detailed HTML."""
-    return self.__detail_html
+  def detail_block(self):
+    """The fully detailed HTML block."""
+    return self.__detail_block
 
   @property
-  def summary_html(self):
-    """If non-empty then this is a summary of the detail_html.
+  def summary_block(self):
+    """If non-empty then this is a summary of the detail_block.
 
     The summary can be used to collapse the detail.
     """
-    return self.__summary_html
+    return self.__summary_block
 
-  def __init__(self, html='', summary_html=None):
+  def __init__(self, detail=None, summary=None):
     """Constructor."""
-    self.__detail_html = html
-    self.__summary_html = None if not summary_html else summary_html
+    self.__detail_block = detail
+    self.__summary_block = None if not summary else summary
 
 
 class ProcessToRenderInfo(object):
@@ -126,7 +80,6 @@ class ProcessToRenderInfo(object):
     """
     self.__document_manager = document_manager
     self.__entity_manager = entity_manager
-    self.__formatter = HtmlFormatter()
 
     # The following attributes are used to determine when to render collapsable
     # details vs inline expand for different types of data.
@@ -151,12 +104,12 @@ class ProcessToRenderInfo(object):
     # The default policy is to expand verification results and only those.
     return relation in ['VALID', 'INVALID']
 
-  def __tr_for_html_info(self, label_html, info,
-                         relation=None, default_expanded=None):
+  def __html_info_to_tr_tag(self, title_html, info,
+                            relation=None, default_expanded=None):
     """Constructs a table row from HtmlInfo.
 
     Args:
-      label_html: [string] The HTML for the row TH element.
+      title_html: [string] The title HTML for the row TH element.
       info: [HtmlInfo] Specifies the data we want to write into the row.
       relation: [string] The relation for the row to make CSS choices.
       default_expanded: [bool] Whether the detail is expanded by default
@@ -166,66 +119,41 @@ class ProcessToRenderInfo(object):
       HTML TR block.
     """
     # pylint: disable=too-many-locals
-    th_css, td_css = self.__document_manager.determine_attribute_css(relation)
-    formatter = self.__formatter
-    line_indent = formatter.line_indent
-    formatter.push_level()
-    cell_indent = formatter.line_indent
-    formatter.push_level()
-    span_indent = formatter.line_indent
-    formatter.push_level()
-    data_indent = formatter.line_indent
-    formatter.pop_level(3)
+    document_manager = self.__document_manager
+    th_css, td_css = self.__document_manager.determine_attribute_css_kwargs(
+        relation)
 
-    if not info.summary_html:
-      label = label_html
-      if info.detail_html:
-        if info.detail_html[-1] == '\n':
-          data_fragments = ['\n',  # end <td> line
-                            data_indent,
-                            info.detail_html]
-          maybe_td_indent = cell_indent
-        else:
-          data_fragments = info.detail_html
-          maybe_td_indent = ''
-      else:
-        data_fragments = []
-        maybe_td_indent = ''
+    data_tags = []
+    if not info.summary_block:
+      title_block = document_manager.make_html_block(title_html)
+      if info.detail_block:
+        data_tags = [info.detail_block]
     else:
-      document_manager = self.__document_manager
       if default_expanded is None:
         default_expanded = self.determine_default_expanded(relation)
       section_id = document_manager.new_section_id()
-      label = document_manager.make_expandable_control_for_section_id(
-          section_id, label_html)
-      summary = document_manager.make_expandable_control_for_section_id(
-          section_id, 'show {0}'.format(info.summary_html))
       detail_tag_attrs, summary_tag_attrs = (
-          self.__document_manager.make_expandable_tag_attr_pair(
+          self.__document_manager.make_expandable_tag_attr_kwargs_pair(
               section_id=section_id, default_expanded=default_expanded))
-      data_fragments = [
-          '\n',  # end <td> line
-          '{indent}<span {summary_tag_attrs}>{summary}</span>\n'.format(
-              indent=span_indent,
-              summary_tag_attrs=summary_tag_attrs,
-              summary=summary),
-          '{indent}<span {detail_tag_attrs}>{detail}'.format(
-              indent=span_indent,
-              detail_tag_attrs=detail_tag_attrs,
-              detail=info.detail_html),
-          '{indent}</span>\n'.format(indent=span_indent)
-          ]
-      maybe_td_indent = cell_indent
 
-    fragments = ['{indent}<tr>\n'.format(indent=line_indent),
-                 '{indent}<th{th_css}>{label}</th>\n'.format(
-                     indent=cell_indent, th_css=th_css, label=label),
-                 '{indent}<td{td_css}>'.format(
-                     td_css=td_css, indent=cell_indent)]
-    fragments.extend(data_fragments)
-    fragments.extend(['{indent}</td>\n'.format(indent=maybe_td_indent),
-                      '{indent}</tr>\n'.format(indent=line_indent)])
-    return ''.join(fragments)
+      title_block = document_manager.make_expandable_control_tag(
+          section_id, title_html)
+
+      summary = document_manager.make_expandable_control_tag(
+          section_id, 'show {0}'.format(info.summary_block))
+      data_tags = [
+          document_manager.make_tag_container(
+              'span', [summary], **summary_tag_attrs),
+          document_manager.make_tag_container(
+              'span', [info.detail_block], **detail_tag_attrs)
+          ]
+
+    tr = document_manager.make_tag_container(
+        'tr',
+        [document_manager.make_tag_container('th', [title_block], **th_css),
+         document_manager.make_tag_container('td', data_tags, **td_css)])
+    return tr
+
 
   def process_json_html_if_possible(self, value):
     """Render value as HTML. Indicate it is JSON if in fact it is.
@@ -237,37 +165,35 @@ class ProcessToRenderInfo(object):
       HtmlInfo encoding of value.
     """
     summary = ''
+    document_manager = self.__document_manager
     try:
       if isinstance(value, basestring):
         tmp = json.JSONDecoder(encoding='utf-8').decode(value)
-        text = json.JSONEncoder(indent=self.__formatter.indent_factor,
-                                encoding='utf-8',
+        text = json.JSONEncoder(encoding='utf-8',
                                 separators=(',', ': ')).encode(tmp)
       elif isinstance(value, (list, dict)):
-        text = json.JSONEncoder(indent=self.__formatter.indent_factor,
-                                encoding='utf-8',
+        text = json.JSONEncoder(encoding='utf-8',
                                 separators=(',', ': ')).encode(value)
       else:
-        raise ValueError()
+        raise ValueError('Invalid value={0!r}'.format(value))
 
-      escaped_body = cgi.escape(text)
-      escaped_text = '<pre>{0}</pre>'.format(escaped_body)
+      pre = document_manager.make_tag_text('pre', text)
       num_lines = text.count('\n')
+
       if num_lines > self.max_uncollapsable_json_lines:
-        summary = 'Json details'
+        summary = document_manager.make_text_block('Json details')
       elif len(text) > 2 * self.max_message_summary_length:
         # If json is more than 2x normal log message, then truncate it.
-        summary = '<ff>{0}...</ff>'.format(
-            escaped_body[0:self.max_message_summary_length - 2*len('expand')])
+        summary = document_manager.make_tag_text(
+            'ff', '{0}...',
+            text[0:self.max_message_summary_length - 2*len('expand')])
       else:
         summary = None
     except (ValueError, UnicodeEncodeError):
-      if isinstance(value, basestring):
-        escaped_text = '"{0}"'.format(cgi.escape(value, quote=True))
-      else:
-        escaped_text = cgi.escape(repr(value))
+      pre = document_manager.make_text_block(repr(value))
 
-    return HtmlInfo(escaped_text, summary)
+    return HtmlInfo(pre, summary)
+
 
   def process_edge_value(self, edge, value):
     """Render value as HTML.
@@ -290,9 +216,10 @@ class ProcessToRenderInfo(object):
                  else None)
       # The ff tag here is a custom tag for "Fixed Format"
       # It is like 'pre' but inline rather than block to be more compact.
-      return HtmlInfo('<ff>{0}</ff>'.format(value), summary)
+      return HtmlInfo(self.__document_manager.make_tag_text('ff', value),
+                      self.__document_manager.make_text_block(summary))
     else:
-      return HtmlInfo(cgi.escape(_to_string(value)))
+      return HtmlInfo(self.__document_manager.make_text_block(str(value)))
 
   def process_list(self, value, snapshot, edge_to_list, default_expanded=None):
     """Renders value as HTML.
@@ -309,12 +236,9 @@ class ProcessToRenderInfo(object):
       HtmlInfo encoding of value.
     """
     if not value:
-      return HtmlInfo('<i>Empty list</i>')
+      return HtmlInfo(self.__document_manager.make_tag_text('i', 'Empty list'))
 
-    list_indent = self.__formatter.line_indent
-    self.__formatter.push_level()
-
-    fragments = ['<table>\n']
+    table = self.__document_manager.new_tag('table')
     for index, elem in enumerate(value):
         # pylint: disable=bad-indentation
         elem_info = self.process_list_value(elem, snapshot, edge_to_list)
@@ -322,14 +246,12 @@ class ProcessToRenderInfo(object):
         if isinstance(elem, dict):
           elem_relation = elem.get('_default_relation') or elem_relation
 
-        fragments.extend([
-            self.__tr_for_html_info('[{0}]'.format(index), elem_info,
-                                    relation=elem_relation,
-                                    default_expanded=default_expanded)])
-    fragments.append('{indent}</table>\n'.format(indent=list_indent))
-    self.__formatter.pop_level()
+        table.append(self.__html_info_to_tr_tag(
+            '[{0}]'.format(index), elem_info,
+            relation=elem_relation, default_expanded=default_expanded))
+
     summary = '{0} item{1}'.format(len(value), 's' if len(value) != 1 else '')
-    return HtmlInfo(''.join(fragments), summary)
+    return HtmlInfo(table, self.__document_manager.make_text_block(summary))
 
   def process_list_value(self, value, snapshot, edge_to_list):
     """Renders value from within a list as HTML.
@@ -345,15 +267,13 @@ class ProcessToRenderInfo(object):
     if isinstance(value, list):
       value_info = self.process_list(value, snapshot, edge_to_list)
     elif isinstance(value, dict) and value.get('_type') == 'EntityReference':
-      self.__formatter.push_level()
       value_info = self.process_entity_id(value['_id'], snapshot)
-      self.__formatter.pop_level()
     else:
       value_info = self.process_edge_value(edge_to_list, value)
 
     return value_info
 
-  def process_metadata(self, obj, blacklist=[]):
+  def process_metadata(self, obj, blacklist=None):
     """Renders object metadata as an HTML table
 
     Args:
@@ -362,30 +282,24 @@ class ProcessToRenderInfo(object):
     Returns:
       HtmlInfo encoding of the metadata table.
     """
-    # pylint: disable=dangerous-default-value
-    formatter = self.__formatter
-    table_indent = formatter.line_indent
-    fragments = ['<table>\n']
-    formatter.push_level()
-    line_indent = formatter.line_indent
+    table = self.__document_manager.new_tag('table')
     row_count = 0
     for name, value in obj.items():
-      if name not in blacklist:
+      if name not in blacklist or []:
         row_count += 1
-        fragments.append(
-            '{indent}<tr><th>{name}</th><td>{value}</td></tr>\n'
-            .format(indent=line_indent, name=name,
-                    value=cgi.escape(_to_string(value))))
+        table.append(self.__document_manager.make_tag_container(
+            'tr', [self.__document_manager.make_tag_text('th', name),
+                   self.__document_manager.make_tag_text('td', str(value))]))
 
-    formatter.pop_level() # both data and table
     if row_count == 0:
       return HtmlInfo()
 
-    fragments.append('{indent}</table>\n'.format(indent=table_indent))
-    return HtmlInfo(''.join(fragments),
-                    ('metadata'
-                     if row_count > self.max_uncollapsable_metadata_rows
-                     else ''))
+    return HtmlInfo(
+        table,
+        self.__document_manager.make_text_block(
+            'metadata'
+            if row_count > self.max_uncollapsable_metadata_rows
+            else ''))
 
   def process_entity(self, subject, snapshot):
     """Renders a JsonSnapshot Entity into HtmlInfo
@@ -398,22 +312,15 @@ class ProcessToRenderInfo(object):
     Returns:
       HtmlInfo encoding of the subject.
     """
-    formatter = self.__formatter
-    formatter.push_level(2)
-    table_indent = formatter.line_indent
-    fragments = ['\n{indent}<table>\n'.format(indent=table_indent)]
-
-    formatter.push_level() # table lines
+    table = self.__document_manager.new_tag('table')
 
     blacklist = ['_edges']
-    formatter.push_level(2)  # the data will be under an additional tr and td.
     meta_info = self.process_metadata(subject, blacklist=blacklist)
-    formatter.pop_level(2)
-    if meta_info.detail_html:
-      fragments.extend([
-          self.__tr_for_html_info('<i>metadata</i>', meta_info,
-                                  relation='meta',
-                                  default_expanded=False)])
+    if meta_info.detail_block:
+      table.append(
+          self.__html_info_to_tr_tag(
+              '<i>metadata</i>', meta_info,
+              relation='meta', default_expanded=False))
     num_rows = 0
     edge_label_value_transformer = get_edge_label_value_transformer(
         subject, self.__entity_manager)
@@ -426,37 +333,26 @@ class ProcessToRenderInfo(object):
         target_id = None
         value_info = None
         if value and edge.get('format', None) in ['json', 'pre']:
-          formatter.push_level()
           value_info = self.process_edge_value(edge, value)
-          formatter.pop_level()
         elif isinstance(value, list):
-          formatter.push_level()
           value_info = self.process_list(value, snapshot, edge)
-          formatter.pop_level()
         elif (isinstance(value, dict)
               and value.get('_type') == 'EntityReference'):
           target_id = value.get('_id')
         elif value is not None:
-          formatter.push_level()
           value_info = self.process_edge_value(edge, value)
-          formatter.pop_level()
         else:
           target_id = edge.get('_to', None)
 
         if target_id is not None:
-          formatter.push_level()
           value_info = self.process_entity_id(target_id, snapshot)
-          formatter.pop_level()
         elif value_info is None:
-          value_info = HtmlInfo('<i>empty<i>')
-
-        fragments.append(
-            self.__tr_for_html_info(label, value_info,
-                                    relation=edge.get('relation')))
+          value_info = HtmlInfo(
+              self.__document_manager.make_tag_text('i', 'empty'))
+        table.append(
+            self.__html_info_to_tr_tag(label, value_info,
+                                       relation=edge.get('relation')))
         num_rows += 1
-
-    formatter.pop_level(3) # Pop line level + original inner-2
-    fragments.append('{indent}</table>\n'.format(indent=table_indent))
 
     if num_rows > self.max_uncollapsable_entity_rows:
       summary_html = (subject.get('_title')
@@ -465,7 +361,10 @@ class ProcessToRenderInfo(object):
     else:
       summary_html = None
 
-    return HtmlInfo(''.join(fragments), summary_html=summary_html)
+    return HtmlInfo(
+        table,
+        summary=self.__document_manager.make_text_block(
+            summary_html))
 
   def process_entity_id(self, subject_id, snapshot):
     """Renders a JsonSnapshot Entity into HtmlInfo.
@@ -479,7 +378,8 @@ class ProcessToRenderInfo(object):
       HtmlInfo encoding of the referenced subject.
     """
     if subject_id in self.__entity_manager.ids_in_progress:
-      return HtmlInfo('<i>Cyclic link to entity id={0}</i>'.format(subject_id))
+      return HtmlInfo(self.__document_manager.make_tag_text(
+          'i', 'Cyclic link to entity id={0}'.format(subject_id)))
 
     try:
       self.__entity_manager.begin_id(subject_id)
@@ -548,23 +448,31 @@ class HtmlRenderer(JournalProcessor):
     # Relation here is used to indicate the test status.
     # Take that and turn it into a style.
     relation = end_control.get('relation', None)
-    css = self.__document_manager.determine_attribute_css(relation)[0]
-    title_html = cgi.escape(begin_control.get('_title', ''))
+    document_manager = self.__document_manager
+    css = document_manager.determine_attribute_css_kwargs(relation)[0]
+    title_html = document_manager.make_html_block(
+        begin_control.get('_title', ''))
     if not rendered_context.html:
+      title_html.append(document_manager.make_html_block(' (<i>empty</i>)'))
       self.render_log_tr(begin_control['_timestamp'], None,
-                         title_html + ' (<i>empty</i>)', css=css)
+                         title_html, css=css)
     else:
       delta_time = end_control['_timestamp'] - begin_control['_timestamp']
       if css:
-        title_html = '<span{css}>{title}</span>'.format(
-            css=css, title=title_html)
+        title_html = document_manager.make_tag_container(
+            'span', [title_html], **css)
       lvl = min(1, len(self.__context_stack))
-      title_html = '<context{n}>{title}</context{n}>'.format(
-          n=lvl, title=title_html)
-      html = '{title}\n<table>\n{rows}\n</table>\n'.format(
-          title=title_html, rows=''.join(rendered_context.html))
-      context_title = '%s <small>+%.3fs</small>' % (title_html, delta_time)
-      self.render_log_tr(begin_control['_timestamp'], context_title, html)
+      title_html = document_manager.make_tag_container(
+          'context{n}'.format(n=lvl), [title_html])
+      summary = document_manager.make_html_block(
+          '%s <small>+%.3fs</small>' % (title_html, delta_time))
+      table = document_manager.new_tag('table')
+
+      for row in rendered_context.html:
+        table.append(row)
+      detail = document_manager.make_html_block(str(title_html))
+      detail.append(table)
+      self.render_log_tr(begin_control['_timestamp'], summary, detail)
 
   def handle_context_control(self, control):
     """Begin or terminate contexts."""
@@ -572,12 +480,12 @@ class HtmlRenderer(JournalProcessor):
     if direction == 'BEGIN':
       self.__context_stack.append(RenderedContext(control, []))
     elif direction == 'END':
-      just_finished = self.__context_stack[-1]
+      context = self.__context_stack[-1]
       self.__context_stack.pop()
-      if (not just_finished.html
-          and just_finished.control.get('_title', '') in ['setUp', 'tearDown']):
+      if (not context.html
+          and context.control.get('_title', '') in ['setUp', 'tearDown']):
         return
-      self.__render_context(control, just_finished)
+      self.__render_context(control, context)
     else:
       raise ValueError(
           'Invalid JournalContextControl control={0}'.format(direction))
@@ -587,7 +495,6 @@ class HtmlRenderer(JournalProcessor):
     subject_id = snapshot.get('_subject_id')
     entities = snapshot.get('_entities', {})
     self.__entity_manager.push_entity_map(entities)
-    date_str = self.timestamp_to_string(snapshot.get('_timestamp'))
 
     # This is only for the final relation.
     subject = self.__entity_manager.lookup_entity_with_id(subject_id)
@@ -596,27 +503,26 @@ class HtmlRenderer(JournalProcessor):
     # Delegate the whole thing.
     document_manager = self.__document_manager
     processor = ProcessToRenderInfo(document_manager, self.__entity_manager)
+
     try:
       info = processor.process_entity_id(subject_id, snapshot)
     finally:
       self.__entity_manager.pop_entity_map(entities)
 
-    if not info.summary_html:
-      self._do_render(
-          '<tr><th class="nw">{timestamp}</th><td>{html}</td></tr>\n'.format(
-              timestamp=date_str, html=info.detail_html))
+    if not info.summary_block:
+      self.render_log_tr(snapshot.get('_timestamp'), None, info.detail_block)
       return
 
-    final_css = document_manager.determine_attribute_css(final_relation)[0]
-    title = cgi.escape(snapshot.get('_title', ''))
-    if not title and info.summary_html:
-      title = '"{html}" Snapshot'.format(html=info.summary_html)
+    final_css = document_manager.determine_attribute_css_kwargs(
+        final_relation)[0]
+    title = snapshot.get('_title', '')
+    if not title and info.summary_block:
+      title = '"{html}" Snapshot'.format(html=info.summary_block)
     if title:
-      title_html = '<span{css}>{title}</span>'.format(
-          css=final_css, title=title)
+      title_html = document_manager.make_tag_text('padded', title, **final_css)
 
     self.render_log_tr(snapshot.get('_timestamp'),
-                       title_html, info.detail_html, collapse_decorator=title)
+                       title_html, info.detail_block, collapse_decorator=title)
     return
 
   @staticmethod
@@ -631,8 +537,21 @@ class HtmlRenderer(JournalProcessor):
     return datetime.datetime.fromtimestamp(timestamp).strftime(
         '%Y-%m-%d %H:%M:%S.{millis}'.format(millis=millis))
 
-  def render_log_tr(self, timestamp, summary, detail,
-                    collapse_decorator='', css=''):
+  def render_log_tr(self, timestamp, summary, detail, **kwargs):
+    """Add row to accumulated output.
+
+      timestamp: [float] The timestamp for the entry.
+      summary: [string] If provided, this is an abbreviation.
+      detail: [string] This is the full detail for the entry.
+    """
+    tag = self.render_log_tr_tag(timestamp, summary, detail, **kwargs)
+    if self.__context_stack:
+      self.__context_stack[-1].html.append(tag)
+    else:
+      self.__document_manager.append_tag(tag)
+
+  def render_log_tr_tag(self, timestamp, summary, detail,
+                        collapse_decorator='', css=None):
     """Render a top level entry into the log as a table row.
 
     Args:
@@ -640,12 +559,18 @@ class HtmlRenderer(JournalProcessor):
       summary: [string] If provided, this is an abbreviation.
       detail: [string] This is the full detail for the entry.
     """
+    document_manager = self.__document_manager
     date_str = self.timestamp_to_string(timestamp)
+
+    tr = document_manager.new_tag('tr')
+    th = document_manager.make_tag_text('th', date_str, class_='nw')
+    td = document_manager.new_tag('td')
+    tr.append(th)
+    tr.append(td)
+
     if not summary:
-      self._do_render(
-          '<tr><th class="nw">{timestamp}</th><td>{html}</td></tr>\n'.format(
-              timestamp=date_str, html=detail))
-      return
+      td.append(detail)
+      return tr
 
     # pylint: disable=bad-continuation
     collapse_html = ('collapse {decorator}'
@@ -653,29 +578,25 @@ class HtmlRenderer(JournalProcessor):
                      if collapse_decorator
                      else 'collapse')
 
-    document_manager = self.__document_manager
     section_id = document_manager.new_section_id()
-    show = document_manager.make_expandable_control_for_section_id(
+    show = document_manager.make_expandable_control_tag(
         section_id, 'expand')
-    hide = document_manager.make_expandable_control_for_section_id(
+    hide = document_manager.make_expandable_control_tag(
         section_id, collapse_html)
     detail_tag_attrs, summary_tag_attrs = (
-        document_manager.make_expandable_tag_attr_pair(
+        document_manager.make_expandable_tag_attr_kwargs_pair(
             section_id=section_id, default_expanded=False))
-    # pylint: disable=bad-continuation
-    self._do_render(
-        ''.join(
-            ['<tr><th class="nw">{timestamp}</th><td>\n'
-                 .format(timestamp=date_str),
-             '<span{css} {hide_attrs} padding:8px>{show} {summary}</span>\n'
-                 .format(css=css,
-                         hide_attrs=summary_tag_attrs,
-                         summary=summary,
-                         show=show),
-             '<span{css} {show_attrs}>\n'
-                 .format(css=css, show_attrs=detail_tag_attrs),
-             '{hide}\n'.format(hide=hide),
-             '{detail}\n</span>\n'.format(detail=detail)]))
+
+    css_class = None if css is None else css.get('class_')
+    show_span = document_manager.make_tag_container(
+        'span', [show, summary], class_=css_class, **summary_tag_attrs)
+
+    hide_span = document_manager.make_tag_container(
+          'span', [hide, detail], class_=css_class, **detail_tag_attrs)
+
+    td.append(show_span)
+    td.append(hide_span)
+    return tr
 
   def render_message(self, message):
     """Default method for rendering a JournalMessage into HTML."""
@@ -690,29 +611,28 @@ class HtmlRenderer(JournalProcessor):
       html_info = processor.process_json_html_if_possible(text)
     else:
       summary = None
-      if text is not None:
-        html = cgi.escape(text) if text is not None else '<i>Empty Message</i>'
+      if text is None:
+        html = document_manager.make_tag_text('i', 'Empty Message')
+      elif html_format != 'pre':
+        html = document_manager.make_text_block(text)
+      else:
+        last_offset = -1
 
-      if html_format == 'pre':
         # pylint: disable=bad-indentation
         # The ff tag here is a custom tag for "Fixed Format"
         # It is like 'pre' but inline rather than block to be more compact.
-        num_lines = html.count('\n')
+        num_lines = text.count('\n')
         if num_lines > processor.max_uncollapsable_message_lines:
-          summary = '<ff>{0}...</ff>'.format(html[0:html.find('\n')])
+          last_offset = text.find('\n')
         elif len(text) > processor.max_message_summary_length:
-          summary = '<ff>{0}...</ff>'.format(
-              html[0:processor.max_message_summary_length - 2*len('expand')])
-        html = '<ff>{0}</ff>'.format(html)
+          last_offset = processor.max_message_summary_length - 2*len('expand')
 
-      html_info = HtmlInfo(html=html, summary_html=summary)
+        if last_offset >= 0:
+          summary = document_manager.make_tag_text(
+              'ff', '{0}...'.format(text[0:last_offset]))
+        html = document_manager.make_tag_text('ff', text)
+
+      html_info = HtmlInfo(detail=html, summary=summary)
 
     self.render_log_tr(message.get('_timestamp'),
-                       html_info.summary_html, html_info.detail_html)
-
-  def _do_render(self, html):
-    """Helper function that renders html fragment into the HTML document."""
-    if self.__context_stack:
-      self.__context_stack[-1].html.append(html)
-    else:
-      self.__document_manager.write(html)
+                       html_info.summary_block, html_info.detail_block)

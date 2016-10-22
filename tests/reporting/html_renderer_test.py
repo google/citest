@@ -15,6 +15,7 @@
 """Test citest.reporting.html_renderer module."""
 
 import unittest
+
 from citest.base import (JsonSnapshotableEntity, JsonSnapshot)
 from citest.reporting.html_document_manager import HtmlDocumentManager
 from citest.reporting.html_renderer import HtmlRenderer
@@ -48,42 +49,38 @@ class HtmlRendererTest(unittest.TestCase):
     # Numeric literals wont be treated as json.
     for n in [-1, 0, 1, 3.14]:
       info = processor.process_json_html_if_possible(n)
-      self.assertEquals('{0}'.format(n), info.detail_html)
-      self.assertEquals(None, info.summary_html)
+      self.assertEquals('{0}'.format(n), info.detail_block)
+      self.assertEquals(None, info.summary_block)
 
     # None of these strings are well-defined JSON documents
     # so should just be strings.
     for s in ['test', 'a phrase', 'True']:
       info = processor.process_json_html_if_possible(s)
-      self.assertEquals('"{0}"'.format(s), info.detail_html)
-      self.assertEquals(None, info.summary_html)
+      self.assertEquals("'{0}'".format(s), info.detail_block)
+      self.assertEquals(None, info.summary_block)
 
     # Boolean values wont be considered JSON.
     for b in [True, False]:
       info = processor.process_json_html_if_possible(b)
-      self.assertEquals('{0}'.format(str(b)), info.detail_html)
-      self.assertEquals(None, info.summary_html)
+      self.assertEquals('{0}'.format(str(b)), info.detail_block)
+      self.assertEquals(None, info.summary_block)
 
     # Dictionaries and JSON dictionary strings normalize to JSON.
     for d in [{'A': 'a', 'B': True}, '{"A":"a", "B":true}']:
       info = processor.process_json_html_if_possible(d)
-      self.assertEquals('<pre>{{\n  "A": "a",\n'
-                        '  "B": true\n'
-                        '}}</pre>'.format(), info.detail_html)
-      self.assertEquals(None, info.summary_html)
-      self.assertEquals(None, info.summary_html)
+      self.assertEquals('<pre>{"A":"a","B":true}</pre>',
+                        str(info.detail_block).replace(' ', ''))
+      self.assertEquals(None, info.summary_block)
+      self.assertEquals(None, info.summary_block)
 
     # Lists and JSON lists strings normalize to JSON.
     for l in [[123, 'abc', True, {'A': 'a', 'B': 'b'}],
               '[123, "abc", true, {"A":"a", "B":"b"}]']:
       info = processor.process_json_html_if_possible(l)
-      self.assertEquals('<pre>[\n  123,\n  "abc",\n  true,\n'
-                        '  {{\n'
-                        '    "A": "a",\n'
-                        '    "B": "b"\n'
-                        '  }}\n'
-                        ']</pre>'.format(), info.detail_html)
-      self.assertEquals(None, info.summary_html)
+      self.assertEquals(
+          '<pre>[123,"abc",true,{"A":"a","B":"b"}]</pre>',
+          str(info.detail_block).replace(' ', ''))
+      self.assertEquals(None, info.summary_block)
 
   def test_expandable_tag_attrs(self):
     """Test the production of HTML tag decorators controling show/hide."""
@@ -92,25 +89,25 @@ class HtmlRendererTest(unittest.TestCase):
     section_id = 'SID'
 
     # Test block both as being initially expanded then not.
-    detail_tags, summary_tags = manager.make_expandable_tag_attr_pair(
+    detail_tags, summary_tags = manager.make_expandable_tag_attr_kwargs_pair(
         section_id, default_expanded=True)
-    self.assertEqual(' id="SID.1"', detail_tags)
-    self.assertEqual(' id="SID.0" style="display:none"', summary_tags)
+    self.assertEqual({'id': 'SID.1'}, detail_tags)
+    self.assertEqual({'id': 'SID.0', 'style': 'display:none'}, summary_tags)
 
-    detail_tags, summary_tags = manager.make_expandable_tag_attr_pair(
+    detail_tags, summary_tags = manager.make_expandable_tag_attr_kwargs_pair(
         section_id, default_expanded=False)
-    self.assertEqual(' id="SID.1" style="display:none"', detail_tags)
-    self.assertEqual(' id="SID.0"', summary_tags)
+    self.assertEqual({'id': 'SID.1', 'style': 'display:none'}, detail_tags)
+    self.assertEqual({'id': 'SID.0'}, summary_tags)
 
   def test_expandable_control(self):
     """Test the production of HTML controller for show/hide."""
     manager = HtmlDocumentManager('test_json')
 
     # Test block both as being initially expanded then not.
-    html = manager.make_expandable_control_for_section_id('SID', 'TEST')
+    tag = manager.make_expandable_control_tag('SID', 'TEST')
     self.assertEqual(
         '<a class="toggle" onclick="toggle_inline(\'SID\');">TEST</a>',
-        html)
+        str(tag))
 
   def test_process_snapshot(self):
     """Test the conversion of a snapshot into HTML."""
@@ -165,7 +162,7 @@ class HtmlRendererTest(unittest.TestCase):
 """
     # Test without regard to whitespace formatting.
     self.assertEquals(''.join(expect.split()),
-                      ''.join(html_info.detail_html.split()))
+                      ''.join(str(html_info.detail_block).split()))
 
   def test_cycle(self):
     tail = TestLinkedList(name='tail')

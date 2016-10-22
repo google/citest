@@ -139,17 +139,17 @@ class HtmlIndexRenderer(JournalProcessor):
 
   def __write_row(self, passed_count, failed_count, summary, secs):
     """Helper function to write an individual row in the index."""
-    pcss = ''
-    fcss = ''
-    css = ''
+    pcss = {}
+    fcss = {}
+    css = {}
 
     if passed_count > 0:
-      fcss = ' class="valid"'  # So far it is good nothing failed.
-      pcss = ' class="valid"'  # It's always good something passed.
+      fcss = {'class_': 'valid'}  # So far it is good nothing failed.
+      pcss = {'class_': 'valid'}  # It's always good something passed.
       css = pcss               # Assume overall success is good
 
     if failed_count > 0:
-      fcss = ' class="invalid"'  # It's always bad that something failed.
+      fcss = {'class_': 'invalid'}  # It's always bad that something failed.
       css = fcss                 # Overall success is bad if something failed.
 
     if secs is not None:
@@ -159,17 +159,14 @@ class HtmlIndexRenderer(JournalProcessor):
     else:
       time = 'Unknown'
 
-    self.__document_manager.write(
-        '<tr>\n'
-        '  <td{pcss}>{passed}'
-        '<td{fcss}>{failed}'
-        '<td{css}>{summary}'
-        '<td>{time}'
-        '\n'
-        .format(passed=passed_count, failed=failed_count,
-                css=css, pcss=pcss, fcss=fcss,
-                summary=summary, time=time))
-
+    document_manager = self.__document_manager
+    document_manager.append_tag(
+        document_manager.make_tag_container('tr', [
+            document_manager.make_tag_text('td', str(passed_count), **pcss),
+            document_manager.make_tag_text('td', str(failed_count), **fcss),
+            document_manager.make_tag_text('td', str(summary), **css),
+            document_manager.make_tag_text('td', time)
+            ]))
 
   def terminate(self):
     """Implements interface for JournalProcessor.
@@ -177,8 +174,11 @@ class HtmlIndexRenderer(JournalProcessor):
     This terminates the index after the last journal has been processed.
     """
     # Write a little separator
-    self.__document_manager.write(
-        '<tr><td colspan=5 style="background-color:#999999"/>\n')
+    document_manager = self.__document_manager
+    document_manager.append_tag(
+        document_manager.make_tag_container('tr', [
+            document_manager.new_tag('td', colspan=5,
+                                     style='background-color:#999999')]))
 
     # Add the summary row
     self.__write_row(self.__total_passed, self.__total_failed,
