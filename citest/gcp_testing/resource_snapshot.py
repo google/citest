@@ -376,7 +376,7 @@ class Processor(object):
               context, resource,
               method_variant=method_name,
               item_list_transform=transform)
-        except ValueError as err:
+        except (ValueError, HttpError) as err:
           print '*** ' + str(err)
           errors[resource] = err.message
           continue
