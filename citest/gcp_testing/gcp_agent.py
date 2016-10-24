@@ -47,17 +47,19 @@ class GcpAgent(BaseAgent):
     raise NotImplementedError()
 
   @classmethod
-  def download_discovery_document(cls, version=None):
+  def download_discovery_document(cls, api=None, version=None):
     """Return the discovery document for the specified service.
 
     Args:
+      api: [string] The API name to use or None for default.
       version: [String] The service API version.
     Returns:
       https://developers.google.com/discovery/v1/reference/apis#resource
     """
-    api, default_version = cls.default_discovery_name_and_version()
-    if version is None:
-      version = default_version
+    if api is None or version is None:
+      default_api, default_version = cls.default_discovery_name_and_version()
+      api = api or default_api
+      version = version or default_version
 
     http = httplib2.Http()
     http = apiclient.http.set_user_agent(
@@ -68,7 +70,8 @@ class GcpAgent(BaseAgent):
     return service.apis().getRest(api=api, version=version).execute()
 
   @classmethod
-  def make_service(cls, version=None, scopes=None, credentials_path=None):
+  def make_service(cls, api=None, version=None,
+                   scopes=None, credentials_path=None):
     """Instantiate a client service instance.
 
     Args:
@@ -85,9 +88,10 @@ class GcpAgent(BaseAgent):
       raise ValueError(
           'Either provide both scopes and credentials_path or neither')
 
-    api, default_version = cls.default_discovery_name_and_version()
-    if version is None:
-      version = default_version
+    if api is None or version is None:
+      default_api, default_version = cls.default_discovery_name_and_version()
+      api = api or default_api
+      version = version or default_version
 
     http = httplib2.Http()
     http = apiclient.http.set_user_agent(
@@ -105,7 +109,7 @@ class GcpAgent(BaseAgent):
     return apiclient.discovery.build(api, version, http=http)
 
   @classmethod
-  def make_agent(cls, version=None,
+  def make_agent(cls, api=None, version=None,
                  scopes=None, credentials_path=None,
                  default_variables=None, **kwargs):
     """Factory method to create a new agent instance.
@@ -114,6 +118,7 @@ class GcpAgent(BaseAgent):
     service and discovery document parameters.
 
     Args:
+      api: [string] The API name to use or None for default.
       version: [string] The version of the API to use or None for default.
       scopes: [string] List of scopes to authorize, or None.
       credentials_path: [string] Path to json file with credentials, or None.
@@ -124,8 +129,8 @@ class GcpAgent(BaseAgent):
       Agent
     """
     # pylint: disable=too-many-arguments
-    service = cls.make_service(version, scopes, credentials_path)
-    discovery_doc = cls.download_discovery_document(version)
+    service = cls.make_service(api, version, scopes, credentials_path)
+    discovery_doc = cls.download_discovery_document(api=api, version=version)
     return cls(service, discovery_doc, default_variables, **kwargs)
 
   @property
@@ -248,7 +253,7 @@ class GcpAgent(BaseAgent):
           format='json')
     finally:
       JournalLogger.end_context()
-      
+
     return response
 
   def list_resource(self, context, resource_type, method_variant='list',
@@ -278,9 +283,10 @@ class GcpAgent(BaseAgent):
       all_objects = []
       more = ''
       while request:
-        JournalLogger.journal_or_log('Listing {0}{1}'.format(more, resource_type),
-                                     _module=self.logger.name,
-                                     _context='request')
+        JournalLogger.journal_or_log(
+            'Listing {0}{1}'.format(more, resource_type),
+            _module=self.logger.name,
+            _context='request')
         response = request.execute()
         JournalLogger.journal_or_log(
             json.JSONEncoder(
@@ -296,8 +302,13 @@ class GcpAgent(BaseAgent):
         all_items = (item_list_transform(response_items)
                      if item_list_transform
                      else response_items)
+        if not isinstance(all_items, list):
+          all_items = [all_items]
         all_objects.extend(all_items)
-        request = method_container.list_next(request, response)
+        try:
+          request = method_container.list_next(request, response)
+        except AttributeError:
+          request = None
         more = ' more '
 
       self.logger.info('Found total=%d %s', len(all_objects), resource_type)
