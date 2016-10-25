@@ -32,9 +32,9 @@ import argparse
 import os
 import sys
 
-from .html_renderer import HtmlRenderer
-from .html_document_manager import HtmlDocumentManager
-from .html_index_renderer import HtmlIndexRenderer
+from citest.reporting.html_renderer import HtmlRenderer
+from citest.reporting.html_document_manager import HtmlDocumentManager
+from citest.reporting.html_index_renderer import HtmlIndexRenderer
 
 
 def journal_to_html(input_path):
@@ -51,12 +51,10 @@ def journal_to_html(input_path):
   document_manager = HtmlDocumentManager(
       title='Report for {0}'.format(os.path.basename(input_path)))
 
-  document_manager.write('<table>')
   processor = HtmlRenderer(document_manager)
   processor.process(input_path)
   processor.terminate()
-  document_manager.write('</table>')
-
+  document_manager.wrap_tag(document_manager.new_tag('table'))
   document_manager.build_to_path(output_path)
 
 
@@ -72,15 +70,18 @@ def build_index(journal_list):
   document_manager.has_global_expand = False
 
   processor = HtmlIndexRenderer(document_manager)
-  document_manager.write('<table style="font-size:12pt">')
-  document_manager.write('\n<tr>\n  <th>{0}\n'.format(
-      '<th>'.join(processor.output_column_names)))
-
   for journal in journal_list:
     processor.process(journal)
   processor.terminate()
 
-  document_manager.write('</table>')
+  tr = document_manager.make_tag_container(
+      'tr',
+      [document_manager.make_text_block(name)
+       for name in processor.output_column_names])
+  table = document_manager.make_tag_container(
+      'table', [tr], style='font-size:12pt')
+  document_manager.wrap_tag(table)
+
   document_manager.build_to_path('index.html')
 
 

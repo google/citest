@@ -350,8 +350,19 @@ class GoogleFront50TestScenario(sk.SpinnakerTestScenario):
             title='delete_pipeline', data=None, path=app_url_path),
         contract=contract)
 
-
+xxyy = 0
 class GoogleFront50Test(st.AgentTestCase):
+  def setUp(self):
+    global xxyy
+    xxyy += 1
+    if xxyy == 2:
+      raise TypeError('Set Up Failed')
+
+  def tearDown(self):
+    global xxyy
+    if xxyy == 3:
+      raise TypeError('Tear Down Failed')
+
   @property
   def scenario(self):
     return citest.base.TestRunner.global_runner().get_shared_data(
