@@ -51,22 +51,35 @@ def to_json_string(obj):
   return json.JSONEncoder(indent=2, encoding='utf-8').encode(obj)
 
 
-def make_resource_filter(name_filters):
-  """Returns a function that filters a resource name based on our filters.
+class ApiResourceFilter(object):
+  """Determines which resources in an API are wanted."""
+  # pylint: disable=too-few-public-methods
 
-  Args:
-    name_filters: [list of compiled re's]
+  def __init__(self, include_regexs, exclude_regexs):
+    """Constructor.
 
-  Returns:
-    A callable that takes a resource name and returns True to keep it.
-  """
-  def wanted(key):
-    # pylint: disable=missing-docstring
-    for exp in name_filters:
-      if exp.match(key):
-        return True
-    return False
-  return wanted
+    Args:
+      include_regexs: [list] List of compiled regexes to include.
+      exclude_regexes: [list] List of compield regexes to subtract from include.
+    """
+    self.__include = include_regexs
+    self.__exclude = exclude_regexs
+
+  def wanted(self, resource_name):
+    """Determine if resource_name is among those included but not excluded."""
+    found = False
+    for exp in self.__include:
+      if exp.match(resource_name):
+        found = True
+        break
+
+    if found:
+      for exp in self.__exclude:
+        if exp.match(resource_name):
+          found = False
+          break
+
+    return found
 
 
 class Explorer(object):
@@ -166,52 +179,58 @@ class Explorer(object):
         scope_to_resource[scope] = set([resource])
     return scope_to_resource
 
-  def find_listable_resources(self, api, version, name_filters):
+  def find_listable_resources(self, api, version, resource_filter):
     """Find all the resources within an API that we can list elements of.
 
     Args:
       api: [string] The API name containing the resources.
       version: [string] The API version.
-      name_filters: [set(string)] list of regexes for resource names to match.
+      resource_filter: [ApiResourceFilter] Determines resource names to match.
 
     Returns:
       Map of resource name to the method specification for listing it.
     """
     doc = GcpAgent.download_discovery_document(api, version)
     resources = doc['resources']
-    return self.__find_listable_resources_helper(None, resources, name_filters)
+    return self.__find_listable_resources_helper(
+        None, resources, resource_filter)
 
   def __find_listable_resources_helper(
-      self, container, resources, name_filters):
+      self, container, resources, resource_filter):
     """Helper method for find_listable_resources.
 
     This is potentially recursive to handle nested resources.
+    We ignore resources that are not listable as well as resources that
+    are listable but not deletable since there's nothing we can do about them.
+    These are likely constant resources (e.g. regions).
 
     Args:
       container: [string] The parent resource, if any.
       resources: [list of resource specification] The discovery document
           resource specification to look for a list method within.
-      name_filters: [set(string)] list of regexes for resource names to match.
+      resource_filter: [ResourceFilter] Determines resource names to match.
     """
-    wanted = make_resource_filter(name_filters)
-
     listable = {}
     unlistable = set()
+    undeletable = set()
     container_prefix = '{0}.'.format(container) if container else ''
     for name, value in resources.items():
       key = '{prefix}{name}'.format(prefix=container_prefix, name=name)
-      if not wanted(key):
+      if not resource_filter.wanted(key):
         continue
       children = value.get('resources')
       if children:
         sub_listable, sub_unlistable = self.__find_listable_resources_helper(
-            key, children, name_filters)
+            key, children, resource_filter)
         listable.update(sub_listable)
         unlistable = unlistable.union(sub_unlistable)
       methods = value.get('methods') or {}
       list_method = methods.get('aggregatedList') or methods.get('list')
       if list_method:
-        listable[key] = list_method
+        if methods.get('delete'):
+          listable[key] = list_method
+        else:
+          undeletable.add(key)  # Ignored for now.
       else:
         unlistable.add(key)
     return listable, unlistable
@@ -339,6 +358,8 @@ class Processor(object):
                 ['methods'][method_name]['path'])
         data_label = path.split('/')[-1]
         def transform(items):
+          # pylint: disable=missing-docstring
+          # pylint: disable=cell-var-from-loop
           result = []
           for key, entry_values in items.items():
             data_values = entry_values.get(data_label, None)
@@ -361,12 +382,18 @@ class Processor(object):
     context = ExecutionContext()
 
     for scope, resource_list in scope_map.items():
-      agent = self.make_agent(api, version, scope)
+      try:
+        agent = self.make_agent(api, version, scope)
+      except HttpError as err:
+        print ('E Could not create agent'
+               'for "{0}" {1} with scope={2}: {3}'
+               .format(api, version, scope, err.message))
+        continue
+
       for resource in resource_list:
         method_name, transform, error_msg = (
             self.__determine_list_method_and_transform(agent, resource))
         if method_name is None:
-          print '*** ' + error_msg
           errors[resource] = error_msg
           continue
 
@@ -376,7 +403,7 @@ class Processor(object):
               context, resource,
               method_variant=method_name,
               item_list_transform=transform)
-        except (ValueError, HttpError) as err:
+        except (TypeError, ValueError, HttpError) as err:
           print '*** ' + str(err)
           errors[resource] = err.message
           continue
@@ -433,6 +460,8 @@ class Processor(object):
           indent, before.params, after.params)
       return
 
+    bindings = ', '.join(['{0}={1}'.format(name, value)
+                          for name, value in before.params.items()])
     before_names = set(before.response)
     after_names = set(after.response)
     removed = before_names.difference(after_names)
@@ -440,12 +469,12 @@ class Processor(object):
     same = before_names.intersection(after_names)
     if len(removed) + len(added) + len(same) == 0:
       if show_same and resource:
-        print '{0}RESOURCE: {1}  empty'.format(indent, resource)
+        print '{0}RESOURCE: {1}({2})  empty'.format(indent, resource, bindings)
       return
 
     if added or removed or show_same:
-      print '{0}RESOURCE: {1}  +/-/= {2}/{3}/{4}'.format(
-          indent, resource, len(added), len(removed), len(same))
+      print '{0}RESOURCE: {1}({2})  +/-/= {3}/{4}/{5}'.format(
+          indent, resource, bindings, len(added), len(removed), len(same))
       indent += '  '
 
     if added:
@@ -455,7 +484,7 @@ class Processor(object):
     if show_same:
       print self.__stringify_enumerated(same, bullet='=', prefix=indent)
 
-  def compare_api_resources(self, api, before, after, name_filters,
+  def compare_api_resources(self, api, before, after, resource_filter,
                             show_same=False):
     """Compare all ResourceLists within an API.
 
@@ -463,13 +492,13 @@ class Processor(object):
       api: [string] The API name.
       before: [dict] Map of resource name to ResourceList for baseline.
       after: [dict] Map of resource name to ResourceList for comparison.
-      name_filters: [list] List of compiled regular expressions to filter
-         resource names to consider.
+      resource_filter: [ResourceFilter] Determines resource names to match.
       show_same: [boolean] Also show unchanged resources.
     """
-    wanted = make_resource_filter(name_filters)
-    before_keys = set([key for key in before.keys() if wanted(key)])
-    after_keys = set([key for key in after.keys() if wanted(key)])
+    before_keys = set([key for key in before.keys()
+                       if resource_filter.wanted(key)])
+    after_keys = set([key for key in after.keys()
+                      if resource_filter.wanted(key)])
     resources_removed = before_keys.difference(after_keys)
     resources_added = after_keys.difference(before_keys)
 
@@ -484,19 +513,19 @@ class Processor(object):
       self.compare_resource_list(resource, before[resource], after[resource],
                                  show_same=show_same)
 
-  def compare(self, before, after, api_to_name_filters, show_same=False):
+  def compare(self, before, after, api_to_resource_filter, show_same=False):
     """Compare a suite of API ResourceLists to another.
 
     Args:
       before: [dict] Baseline map of {api: {resource: ResourceList}}
       after: [dict] Comparision map of {api: {resource: ResourceList}}
-      api_to_name_filters: [dict] {api: [resource name regexs]}
+      api_to_resource_filter: [dict] {api: ResourceFilter}
       show_name: [boolean]: Also show unchanged resources.
     """
     before_apis = set([api for api in before.keys()
-                       if api_to_name_filters.get(api)])
+                       if api_to_resource_filter.get(api)])
     after_apis = set([api for api in after.keys()
-                      if api_to_name_filters.get(api)])
+                      if api_to_resource_filter.get(api)])
     apis_removed = before_apis.difference(after_apis)
     apis_added = after_apis.difference(before_apis)
 
@@ -510,11 +539,11 @@ class Processor(object):
     for api in before_apis.intersection(after_apis):
       print 'API "{0}"'.format(api)
       self.compare_api_resources(api, before[api], after[api],
-                                 api_to_name_filters[api],
+                                 api_to_resource_filter[api],
                                  show_same=show_same)
       print '-' * 40 + '\n'
 
-  def delete_added(self, api, version, before, after, name_filters):
+  def delete_added(self, api, version, before, after, resource_filter):
     """Delete resources that were added since the baseline.
 
     Args:
@@ -522,19 +551,18 @@ class Processor(object):
       version: [string] The API version.
       before: [dict] {resource: [ResourceList]} baseline.
       after: [dict] {resource: [ResourceList]} changed.
-      name_filters: [list] list of regexps for names to consider.
+      resource_filter: [ResourceFilter] Determines resource names to consider.
     """
-    if name_filters is None:
+    if resource_filter is None:
       return
 
-    wanted = make_resource_filter(name_filters)
     discovery_doc = GcpAgent.download_discovery_document(
         api=api, version=version)
 
     common_resources = set([
         resource
         for resource in set(before.keys()).intersection(set(after.keys()))
-        if wanted(resource)])
+        if resource_filter.wanted(resource)])
     for resource in common_resources:
       if before[resource].params != after[resource].params:
         print 'WARNING: ignoring "{0}" because parameters do not match.'.format(
@@ -643,6 +671,11 @@ class Main(object):
         help='Print the discovery document for the API itself.')
 
     parser.add_argument(
+        '--exclude', default='',
+        help='A command-separated list of resources to exclude. These'
+        ' are subtracted from the api list of resources to include.')
+
+    parser.add_argument(
         '--bindings', default=None,
         help='A comma-separated list of variable bindings where a binding is'
         ' <name>=<value>. These will be used as parameters when calling API'
@@ -686,7 +719,7 @@ class Main(object):
     self.__version_map = None
     self.__aggregated_listings = {}
     self.__listable_unlistable_scope_cache = {}
-    self.__api_to_resource_regexs = {}
+    self.__api_to_resource_filter = {}
     self.__exit_code = 0
 
   @property
@@ -724,14 +757,25 @@ class Main(object):
     if apis == ['all']:
       apis = self.version_map.keys()
 
-    self.__api_to_resource_regexs = self.apis_to_resource_filter(apis)
-    bad_apis = [api for api in self.__api_to_resource_regexs.keys()
+    api_to_include_map = self.apis_to_resource_filter(apis)
+    api_to_exclude_map = self.apis_to_resource_filter(
+        self.__options.exclude.split(',')
+        if self.__options.exclude else [])
+
+    bad_apis = [api for api in api_to_include_map.keys()
                 if not api in self.version_map]
+    bad_apis.extend([api for api in api_to_exclude_map.keys()
+                     if not api in self.version_map])
     if bad_apis:
       print 'Unknown apis: {0}'.format(', '.join(['"{0}"'.format(s)
                                                   for s in bad_apis]))
       self.__exit_code = -1
       return
+
+    self.__api_to_resource_filter = {
+        api: ApiResourceFilter(api_to_include_map[api],
+                               api_to_exclude_map.get(api) or [])
+        for api in api_to_include_map.keys()}
 
     self.process_commands()
 
@@ -751,14 +795,14 @@ class Main(object):
       with open(options.compare[1], 'rb+') as f:
         unpickler = pickle.Unpickler(f)
         after = unpickler.load()
-      self.__processor.compare(before, after, self.__api_to_resource_regexs,
+      self.__processor.compare(before, after, self.__api_to_resource_filter,
                                show_same=options.show_unchanged)
 
     if options.delete_added:
       for api in set(before.keys()).intersection(after.keys()):
         self.__processor.delete_added(api, self.version_map[api],
                                       before[api], after[api],
-                                      self.__api_to_resource_regexs.get(api))
+                                      self.__api_to_resource_filter.get(api))
 
   def process_commands(self):
     """Run all the commands."""
@@ -773,14 +817,14 @@ class Main(object):
 
   def __foreach_api(self, fn):
     """Execute a function for each api name of interest."""
-    return {api: fn(api) for api in self.__api_to_resource_regexs.keys()}
+    return {api: fn(api) for api in self.__api_to_resource_filter.keys()}
 
   def __get_listable_unlistable_scope_map(self, api):
     """Determine the listable and unlistable methods and the scope to use."""
     if api not in self.__listable_unlistable_scope_cache:
       version = self.version_map[api]
       listable, unlistable = self.__explorer.find_listable_resources(
-          api, version, self.__api_to_resource_regexs[api])
+          api, version, self.__api_to_resource_filter[api])
       scope_map = self.__explorer.determine_scope_map(listable, api)
       self.__listable_unlistable_scope_cache[api] = (listable, unlistable,
                                                      scope_map)
