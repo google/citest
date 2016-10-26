@@ -51,6 +51,20 @@ def to_json_string(obj):
   return json.JSONEncoder(indent=2, encoding='utf-8').encode(obj)
 
 
+def stringify_enumerated(objs, bullet='*', prefix='', title=None):
+  """Produce a string with one object element per line."""
+  if not objs:
+    return ''
+
+  lines = []
+  if title:
+    lines.append('{prefix}{title}'.format(prefix=prefix, title=title))
+  for value in objs:
+    lines.append('{prefix}  {bullet} {value}'.format(
+        prefix=prefix, bullet=bullet, value=value))
+  return '\n'.join(lines)
+
+
 class ApiResourceFilter(object):
   """Determines which resources in an API are wanted."""
   # pylint: disable=too-few-public-methods
@@ -303,6 +317,142 @@ class ResourceList(
     return '\n'.join(lines)
 
 
+class ApiDiff(object):
+  """Contains the resource differences within a given API family."""
+
+  @staticmethod
+  def make_api_resources_diff_map(before, after, api_to_resource_filter):
+    """Compare a suite of API ResourceLists to another.
+
+    Args:
+      before: [dict] Baseline map of {api: {resource: ResourceList}}
+      after: [dict] Comparision map of {api: {resource: ResourceList}}
+      api_to_resource_filter: [dict] {api: ResourceFilter}
+    """
+    before_apis = set([api for api in before.keys()
+                       if api_to_resource_filter.get(api)])
+    after_apis = set([api for api in after.keys()
+                      if api_to_resource_filter.get(api)])
+
+    return {api: ApiDiff(before.get(api), after.get(api),
+                         api_to_resource_filter.get(api))
+            for api in before_apis.union(after_apis)}
+
+  def __init__(self, before, after, resource_filter):
+    """Compare all ResourceLists within an API.
+
+    Args:
+      api: [string] The API name.
+      before: [dict] Map of resource name to ResourceList for baseline.
+      after: [dict] Map of resource name to ResourceList for comparison.
+      resource_filter: [ResourceFilter] Determines resource names to match.
+    """
+    self.__errors = []
+    self.__resource_diffs = {}
+    before_keys = set([key for key in before.keys()
+                       if resource_filter.wanted(key)])
+    after_keys = set([key for key in after.keys()
+                      if resource_filter.wanted(key)])
+    resources_removed = before_keys.difference(after_keys)
+    resources_added = after_keys.difference(before_keys)
+
+    if resources_removed:
+      self.__errors.append(stringify_enumerated(
+          resources_removed, title='MISSING RESOURCES', prefix='  '))
+    if resources_added:
+      self.__errors.append(stringify_enumerated(
+          resources_added, title='EXTRA RESOURCES', prefix='  '))
+
+    self.__resource_diffs = {
+        resource: _ApiResourceDiff(resource,
+                                   before[resource], after[resource])
+        for resource in before_keys.intersection(after_keys)}
+
+  def stringify(self, show_same):
+    """Render as string with or without the equivalent items."""
+    result = list(self.__errors)
+    for value in sorted(self.__resource_diffs.values(),
+                        key=lambda value: value.resource):
+      s = value.stringify(show_same)
+      if s:
+        result.append(s)
+
+    return '  ' + '\n  '.join(result) if result else ''
+
+
+class _ApiResourceDiff(object):
+  """Compare resource lists."""
+
+  @property
+  def resource(self):
+    """The resource being diffed."""
+    return self.__resource
+
+  def __init__(self, resource, before, after):
+    """Constructor.
+
+    Args:
+      resource: [string] The name of the resource.
+      before: [ResourceList] The baseline snapshot.
+      after: [ResourceList] The snapshot to compare.
+    """
+    self.__before = before
+    self.__after = after
+    self.__resource = resource
+    self.__removed = []
+    self.__added = []
+    self.__same = []
+    self.__error = None
+
+    if before.params != after.params:
+      self.__error = (
+          'PARAMETERS for "{resource}" DIFFER so values are disjoint\n'
+          '  Before: {before}\n'
+          '  After : {after}'
+          .format(resource=resource, before=before.params, after=after.params))
+      return
+
+    before_names = set(before.response)
+    after_names = set(after.response)
+    self.__removed = before_names.difference(after_names)
+    self.__added = after_names.difference(before_names)
+    self.__same = before_names.intersection(after_names)
+
+  def stringify(self, show_same):
+    """Render as string with or without the equivalent items."""
+    if self.__error:
+      return self.__error
+
+    result = []
+    bindings = ', '.join(['{0}={1}'.format(name, value)
+                          for name, value in self.__before.params.items()])
+    indent = ''
+    if self.__added or self.__removed or show_same:
+      result.append(
+          'RESOURCE: {0}({1})  +/-/= {2}/{3}/{4}'.format(
+              self.__resource, bindings,
+              len(self.__added), len(self.__removed), len(self.__same)))
+      indent += '  '
+    elif len(self.__removed) + len(self.__added) + len(self.__same) == 0:
+      if show_same and resource:
+        result.append(
+            '{0}RESOURCE: {1}({2})  empty'.format(
+                indent, self.__resource, bindings))
+
+    if self.__added:
+      result.append(
+          stringify_enumerated(self.__added, bullet='+', prefix=indent))
+    if self.__removed:
+      result.append(
+          stringify_enumerated(self.__removed, bullet='-', prefix=indent))
+
+    if self.__same and show_same:
+      result.append(
+          stringify_enumerated(self.__same, bullet='=', prefix=indent))
+
+    return '\n'.join(result) if result else ''
+
+
 class Processor(object):
   """Functions for performing heuristics on APIs and resources."""
 
@@ -429,120 +579,6 @@ class Processor(object):
 
     return result, errors
 
-  def __stringify_enumerated(self, objs, bullet='*', prefix='', title=None):
-    """Produce a string with one object element per line."""
-    if not objs:
-      return ''
-
-    lines = []
-    if title:
-      lines.append('{prefix}{title}'.format(prefix=prefix, title=title))
-    for value in objs:
-      lines.append('{prefix}  {bullet} {value}'.format(
-          prefix=prefix, bullet=bullet, value=value))
-    return '\n'.join(lines)
-
-  def compare_resource_list(self, resource, before, after, show_same=False):
-    """Compare resource lists and print the differences.
-
-    Args:
-      resource: [string] The name of the resource.
-      before: [ResourceList] The baseline snapshot.
-      after: [ResourceList] The snapshot to compare.
-      show_same: [boolean] If true, also show unchanged values.
-    """
-    indent = '  '
-    if before.params != after.params:
-      print '{0}PARAMETERS for "{1}" DIFFER so values are disjoint'.format(
-          indent, resource)
-      indent += '  '
-      print '{0}Before: {1}\n{0}After : {2}'.format(
-          indent, before.params, after.params)
-      return
-
-    bindings = ', '.join(['{0}={1}'.format(name, value)
-                          for name, value in before.params.items()])
-    before_names = set(before.response)
-    after_names = set(after.response)
-    removed = before_names.difference(after_names)
-    added = after_names.difference(before_names)
-    same = before_names.intersection(after_names)
-    if len(removed) + len(added) + len(same) == 0:
-      if show_same and resource:
-        print '{0}RESOURCE: {1}({2})  empty'.format(indent, resource, bindings)
-      return
-
-    if added or removed or show_same:
-      print '{0}RESOURCE: {1}({2})  +/-/= {3}/{4}/{5}'.format(
-          indent, resource, bindings, len(added), len(removed), len(same))
-      indent += '  '
-
-    if added:
-      print self.__stringify_enumerated(added, bullet='+', prefix=indent)
-    if removed:
-      print self.__stringify_enumerated(removed, bullet='-', prefix=indent)
-    if show_same:
-      print self.__stringify_enumerated(same, bullet='=', prefix=indent)
-
-  def compare_api_resources(self, api, before, after, resource_filter,
-                            show_same=False):
-    """Compare all ResourceLists within an API.
-
-    Args:
-      api: [string] The API name.
-      before: [dict] Map of resource name to ResourceList for baseline.
-      after: [dict] Map of resource name to ResourceList for comparison.
-      resource_filter: [ResourceFilter] Determines resource names to match.
-      show_same: [boolean] Also show unchanged resources.
-    """
-    before_keys = set([key for key in before.keys()
-                       if resource_filter.wanted(key)])
-    after_keys = set([key for key in after.keys()
-                      if resource_filter.wanted(key)])
-    resources_removed = before_keys.difference(after_keys)
-    resources_added = after_keys.difference(before_keys)
-
-    if resources_removed:
-      print self.__stringify_enumerated(
-          resources_removed, title='MISSING RESOURCES', prefix='  ')
-    if resources_added:
-      print self.__stringify_enumerated(
-          resources_added, title='EXTRA RESOURCES', prefix='  ')
-
-    for resource in before_keys.intersection(after_keys):
-      self.compare_resource_list(resource, before[resource], after[resource],
-                                 show_same=show_same)
-
-  def compare(self, before, after, api_to_resource_filter, show_same=False):
-    """Compare a suite of API ResourceLists to another.
-
-    Args:
-      before: [dict] Baseline map of {api: {resource: ResourceList}}
-      after: [dict] Comparision map of {api: {resource: ResourceList}}
-      api_to_resource_filter: [dict] {api: ResourceFilter}
-      show_name: [boolean]: Also show unchanged resources.
-    """
-    before_apis = set([api for api in before.keys()
-                       if api_to_resource_filter.get(api)])
-    after_apis = set([api for api in after.keys()
-                      if api_to_resource_filter.get(api)])
-    apis_removed = before_apis.difference(after_apis)
-    apis_added = after_apis.difference(before_apis)
-
-    if apis_removed:
-      print self.__stringify_enumerated(
-          apis_removed, title='MISSING APIS')
-    if apis_added:
-      print self.__stringify_enumerated(
-          apis_added, title='EXTRA RESOURCES')
-
-    for api in before_apis.intersection(after_apis):
-      print 'API "{0}"'.format(api)
-      self.compare_api_resources(api, before[api], after[api],
-                                 api_to_resource_filter[api],
-                                 show_same=show_same)
-      print '-' * 40 + '\n'
-
   def delete_added(self, api, version, before, after, resource_filter):
     """Delete resources that were added since the baseline.
 
@@ -594,8 +630,7 @@ class Processor(object):
           api=api,
           scope=scope if self.__options.credentials_path else '<default>')
 
-      aggregated = after[resource].aggregated
-      self.__delete_all(agent, resource, added, aggregated)
+      self.__delete_all(agent, resource, added, after[resource].aggregated)
       print '-' * 40 + '\n'
 
   def __delete_all(self, agent, resource, results_to_delete, aggregated):
@@ -779,31 +814,6 @@ class Main(object):
 
     self.process_commands()
 
-    options = self.__options
-    if options.output_path and self.__aggregated_listings:
-      with open(options.output_path, 'wb+') as f:
-        pickler = pickle.Pickler(f)
-        pickler.dump(self.__aggregated_listings)
-
-    before = None
-    after = None
-    if options.compare:
-      print 'Compare {0} vs {1}'.format(*options.compare)
-      with open(options.compare[0], 'rb+') as f:
-        unpickler = pickle.Unpickler(f)
-        before = unpickler.load()
-      with open(options.compare[1], 'rb+') as f:
-        unpickler = pickle.Unpickler(f)
-        after = unpickler.load()
-      self.__processor.compare(before, after, self.__api_to_resource_filter,
-                               show_same=options.show_unchanged)
-
-    if options.delete_added:
-      for api in set(before.keys()).intersection(after.keys()):
-        self.__processor.delete_added(api, self.version_map[api],
-                                      before[api], after[api],
-                                      self.__api_to_resource_filter.get(api))
-
   def process_commands(self):
     """Run all the commands."""
     if self.__options.catalog:
@@ -814,6 +824,29 @@ class Main(object):
 
     if self.__options.list:
       self.__foreach_api(self.do_command_collect_api)
+
+    options = self.__options
+    if options.output_path and self.__aggregated_listings:
+      with open(options.output_path, 'wb+') as f:
+        pickler = pickle.Pickler(f)
+        pickler.dump(self.__aggregated_listings)
+
+    before = None
+    after = None
+    if options.compare:
+      with open(options.compare[0], 'rb+') as f:
+        unpickler = pickle.Unpickler(f)
+        before = unpickler.load()
+      with open(options.compare[1], 'rb+') as f:
+        unpickler = pickle.Unpickler(f)
+        after = unpickler.load()
+      self.__do_compare_snapshots(before, after)
+
+    if options.delete_added:
+      for api in set(before.keys()).intersection(after.keys()):
+        self.__processor.delete_added(api, self.version_map[api],
+                                      before[api], after[api],
+                                      self.__api_to_resource_filter.get(api))
 
   def __foreach_api(self, fn):
     """Execute a function for each api name of interest."""
@@ -865,6 +898,26 @@ class Main(object):
     for resource, resource_list in found.items():
       print resource_list.stringify(resource)
     return found
+
+  def __do_compare_snapshots(self, before, after):
+    options = self.__options
+    num_diff_apis = 0
+    api_diffs = ApiDiff.make_api_resources_diff_map(
+        before, after, self.__api_to_resource_filter)
+    for api, diff in api_diffs.items():
+      content = diff.stringify(options.show_unchanged)
+      if content:
+        num_diff_apis += 1
+        if num_diff_apis == 1:
+          print 'Differences between snapshots "{0}" and "{1}":'.format(
+              *options.compare)
+        print '\nAPI "{0}"'.format(api)
+        print content
+        print '-' * 40
+    if num_diff_apis == 0:
+      print 'Snapshots "{0}" and "{1}" are equivalent.'.format(
+          *options.compare)
+
 
 if __name__ == '__main__':
   exit(Main.main())

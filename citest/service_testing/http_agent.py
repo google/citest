@@ -380,6 +380,12 @@ class HttpAgent(base_agent.BaseAgent):
       exception = ex
     return HttpResponseType(code, output, exception)
 
+  def patch(self, path, data, content_type='application/json', trace=True):
+    """Perform an HTTP PATCH."""
+    return self.__send_http_request(
+        path, 'PATCH', data=data,
+        headers={'Content-Type': content_type}, trace=trace)
+
   def post(self, path, data, content_type='application/json', trace=True):
     """Perform an HTTP POST."""
     return self.__send_http_request(
@@ -497,5 +503,14 @@ class HttpPutOperation(BaseHttpOperation):
     """Implements BaseHttpOperation interface."""
     # pylint: disable=protected-access
     http_response = agent.put(self.path, self.data, trace=trace)
+    status = agent._new_messaging_status(self, http_response)
+    return status
+
+class HttpPatchOperation(BaseHttpOperation):
+  """Specialization of AgentOperation that performs HTTP PATCH."""
+  def _send_message(self, agent, trace):
+    """Implements BaseHttpOperation interface."""
+    # pylint: disable=protected-access
+    http_response = agent.patch(self.path, self.data, trace=trace)
     status = agent._new_messaging_status(self, http_response)
     return status

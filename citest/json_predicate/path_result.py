@@ -290,7 +290,8 @@ class IndexBoundsError(PathResult):
     """
     valid = kwargs.pop('valid', False)
     super(IndexBoundsError, self).__init__(
-        valid=valid, source=source, target_path=target_path)
+        valid=valid, source=source, target_path=target_path,
+        path_value=path_value)
     if not isinstance(path_value.value, list):
       raise TypeError('{0} is not a list', path_value.value.__class__)
     self.__index = index
