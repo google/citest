@@ -76,7 +76,7 @@ def build_index(journal_list):
 
   tr = document_manager.make_tag_container(
       'tr',
-      [document_manager.make_text_block(name)
+      [document_manager.make_tag_text('th', name)
        for name in processor.output_column_names])
   table = document_manager.make_tag_container(
       'table', [tr], style='font-size:12pt')

@@ -99,7 +99,9 @@ def _find_external_ip_interface(iface_list, gcloud_response):
     # Find an external IP address in this list
     for config in access_configs:
       try:
-        if config['name'] == 'external-nat':
+        # Reponse changed from 'external-nat' to 'External NAT' on 20161027
+        # Not yet sure if this is permanent or not so leaving both.
+        if config['name'] in ['external-nat', 'External NAT']:
           return config['natIP']
       except KeyError:
         logger.warning('Config lacks name or natIP:%s', config)

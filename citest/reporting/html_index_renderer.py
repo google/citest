@@ -97,7 +97,7 @@ class HtmlIndexRenderer(JournalProcessor):
   @property
   def output_column_names(self):
     """Returns list of column names for the summary table."""
-    return ['Passed', 'Failed', 'Test Module', 'Time']
+    return ['P', 'F', 'Test Module', 'Time']
 
   def process(self, journal):
     """Overrides JournalProcessor.process() for an individual journal.
@@ -132,10 +132,9 @@ class HtmlIndexRenderer(JournalProcessor):
     else:
       secs = None
 
-    self.__write_row(self.__passed_count, self.__failed_count,
-                     '<a class="toggle" href="{html_path}">{name}</a>'.format(
-                         html_path=html_path, name=journal_basename),
-                     secs)
+    summary = self.__document_manager.make_tag_text(
+        'a', journal_basename, class_='toggle', href=html_path)
+    self.__write_row(self.__passed_count, self.__failed_count, summary, secs)
 
   def __write_row(self, passed_count, failed_count, summary, secs):
     """Helper function to write an individual row in the index."""
@@ -164,7 +163,7 @@ class HtmlIndexRenderer(JournalProcessor):
         document_manager.make_tag_container('tr', [
             document_manager.make_tag_text('td', str(passed_count), **pcss),
             document_manager.make_tag_text('td', str(failed_count), **fcss),
-            document_manager.make_tag_text('td', str(summary), **css),
+            document_manager.make_tag_container('td', [summary], **css),
             document_manager.make_tag_text('td', time)
             ]))
 

@@ -335,7 +335,7 @@ class HtmlDocumentManager(object):
       kwargs: [kwargs] Additional tag attributes to pass through.
     """
     tag = self.new_tag(tag, class_=class_, **kwargs)
-    tag.string = text
+    tag.string = cgi.escape(text)
     return tag
 
   def make_tag_container(self, tag, children, class_=None, **kwargs):

@@ -169,10 +169,10 @@ class ProcessToRenderInfo(object):
     try:
       if isinstance(value, basestring):
         tmp = json.JSONDecoder(encoding='utf-8').decode(value)
-        text = json.JSONEncoder(encoding='utf-8',
+        text = json.JSONEncoder(encoding='utf-8', indent=2,
                                 separators=(',', ': ')).encode(tmp)
       elif isinstance(value, (list, dict)):
-        text = json.JSONEncoder(encoding='utf-8',
+        text = json.JSONEncoder(encoding='utf-8', indent=2,
                                 separators=(',', ': ')).encode(value)
       else:
         raise ValueError('Invalid value={0!r}'.format(value))
@@ -185,8 +185,8 @@ class ProcessToRenderInfo(object):
       elif len(text) > 2 * self.max_message_summary_length:
         # If json is more than 2x normal log message, then truncate it.
         summary = document_manager.make_tag_text(
-            'ff', '{0}...',
-            text[0:self.max_message_summary_length - 2*len('expand')])
+            'ff', '{0}...'.format(
+                text[0:self.max_message_summary_length - 2*len('show')]))
       else:
         summary = None
     except (ValueError, UnicodeEncodeError):

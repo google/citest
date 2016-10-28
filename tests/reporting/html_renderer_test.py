@@ -68,7 +68,8 @@ class HtmlRendererTest(unittest.TestCase):
     # Dictionaries and JSON dictionary strings normalize to JSON.
     for d in [{'A': 'a', 'B': True}, '{"A":"a", "B":true}']:
       info = processor.process_json_html_if_possible(d)
-      self.assertEquals('<pre>{"A":"a","B":true}</pre>',
+      # The eolns here show that it is being json formatted.
+      self.assertEquals('<pre>{\n"A":"a",\n"B":true\n}</pre>',
                         str(info.detail_block).replace(' ', ''))
       self.assertEquals(None, info.summary_block)
       self.assertEquals(None, info.summary_block)
@@ -79,7 +80,7 @@ class HtmlRendererTest(unittest.TestCase):
       info = processor.process_json_html_if_possible(l)
       self.assertEquals(
           '<pre>[123,"abc",true,{"A":"a","B":"b"}]</pre>',
-          str(info.detail_block).replace(' ', ''))
+          str(info.detail_block).replace(' ', '').replace('\n', ''))
       self.assertEquals(None, info.summary_block)
 
   def test_expandable_tag_attrs(self):
