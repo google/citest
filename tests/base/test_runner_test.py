@@ -18,8 +18,10 @@ import os.path
 import sys
 import __main__
 
-from citest.base import BaseTestCase
-from citest.base import TestRunner
+from citest.base import (
+    BaseTestCase,
+    ConfigurationBindingsBuilder,
+    TestRunner)
 
 
 tested_main = False
@@ -30,19 +32,27 @@ class TestRunnerTest(BaseTestCase):
     global tested_main
     tested_main = True
 
+  def test_init_bindings_builder(self):
+    builder = ConfigurationBindingsBuilder()
+    TestRunner.global_runner().init_bindings_builder(builder)
+    bindings = builder.build()
+    self.assertEquals('.', bindings.get('log_dir'))
+    self.assertEquals(os.path.splitext(os.path.basename(__main__.__file__))[0],
+                      bindings.get('log_filebase'))
+
   def test_init_argument_parser(self):
     parser = argparse.ArgumentParser()
     TestRunner.global_runner().initArgumentParser(parser)
     args = parser.parse_args()
-    self.assertEquals(args.log_dir, '.')
-    self.assertEquals(args.log_filebase,
-                      os.path.splitext(os.path.basename(__main__.__file__))[0])
+    self.assertEquals('.', args.log_dir)
+    self.assertEquals(os.path.splitext(os.path.basename(__main__.__file__))[0],
+                      args.log_filebase)
 
   def test_bindings(self):
     self.assertEquals('.', TestRunner.global_runner().bindings['LOG_DIR'])
     self.assertEquals(
-      os.path.splitext(os.path.basename(__main__.__file__))[0],
-      TestRunner.global_runner().bindings['LOG_FILEBASE'])
+        os.path.splitext(os.path.basename(__main__.__file__))[0],
+        TestRunner.global_runner().bindings['LOG_FILEBASE'])
 
 
 if __name__ == '__main__':

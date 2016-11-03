@@ -24,7 +24,6 @@ running and standard reporting hooks used by other tools.
 """
 
 # Standard python modules.
-import argparse
 import ast
 import logging
 import logging.config
@@ -36,6 +35,7 @@ import unittest
 # Our modules.
 from . import global_journal
 from . import args_util
+from .bindings import ConfigurationBindingsBuilder
 from .snapshot import JsonSnapshotableEntity
 
 # If a -log_config is not provided, then use this.
@@ -131,7 +131,7 @@ class TestRunner(object):
     ArgumentParser. Programs can use this to inject the default submodule
     values they'd like to override.
     """
-    return self.__default_binding_overrides
+    return self.__bindings_builder.overrides
 
   @staticmethod
   def global_runner():
@@ -156,7 +156,15 @@ class TestRunner(object):
     underlying data object returned by this method.
     """
     if not klass in TestRunner.__singleton_scenario_instances:
-      bindings = TestRunner.global_runner().bindings
+      global_runner = TestRunner.global_runner()
+      bindings = global_runner.bindings
+      if hasattr(klass, 'init_bindings_builder'):
+        builder = ConfigurationBindingsBuilder(
+            overrides=global_runner.default_binding_overrides)
+        builder.add_configs_for_class(klass)
+        klass.init_bindings_builder(builder, defaults=bindings)
+        bindings = builder.build()
+
       instance = klass(bindings)
       TestRunner.__singleton_scenario_instances[klass] = instance
       return instance
@@ -164,6 +172,7 @@ class TestRunner(object):
 
   @classmethod
   def main(cls, runner=None,
+           config_files=None,
            parser_inits=None,
            default_binding_overrides=None,
            test_case_list=None):
@@ -174,6 +183,7 @@ class TestRunner(object):
 
     Args:
       runner: If provided, then delegate to this runner to run the tests.
+      config_files: A list of config files to load options from.
       parser_inits: A list of functions (argumentParser, defaults=defaultDict)
           for initializing the argumentParser with custom arguments using
           optional default values for each argument.
@@ -184,6 +194,7 @@ class TestRunner(object):
     runner = cls(runner=runner)
     runner.set_default_binding_overrides(default_binding_overrides)
     runner.set_parser_inits(parser_inits)
+    runner.set_config_files(config_files)
 
     # pylint: disable=protected-access
     return runner._do_main(test_case_list=test_case_list)
@@ -192,9 +203,9 @@ class TestRunner(object):
     """Provides a means for setting the default_binding_overrides attribute.
 
     This is intentionally not an assignment because it is not intended to be
-    called, but is here in case it is no possible to use the "main()" method.
+    called, but is here in case it is not possible to use the "main()" method.
     """
-    self.__default_binding_overrides = overrides or {}
+    self.__bindings_builder.overrides = overrides
 
   def set_parser_inits(self, inits):
     """Provides a means for setting the parser_inits attribute.
@@ -203,6 +214,14 @@ class TestRunner(object):
     called, but is here in case it is no possible to use the "main()" method.
     """
     self.__parser_inits = inits or []
+
+  def set_config_files(self, config_files):
+    """Provides a means for setting the config_files attribute.
+
+    This is intentionally not an assignment because it is not intended to be
+    called, but is here in case it is no possible to use the "main()" method.
+    """
+    self.__config_files = config_files or []
 
   def _do_main(self, default_binding_overrides=None, test_case_list=None):
     """Helper function used by main() once a TestRunner instance exists."""
@@ -250,9 +269,12 @@ class TestRunner(object):
     self.__delegate = runner or unittest.TextTestRunner(verbosity=2)
     self.__options = None
     self.__bindings = {}
-    self.__default_binding_overrides = {}
     self.__parser_inits = []
     self.__journal = None
+    self.__config_files = []
+    self.__bindings_builder = ConfigurationBindingsBuilder(
+        default_config_files=[os.path.join(os.path.dirname(__file__),
+                                           'base.config')])
 
   def run(self, obj_or_suite):
     """Run tests.
@@ -274,12 +296,44 @@ class TestRunner(object):
 
     return result
 
+  def init_bindings_builder(self, builder, defaults=None):
+    """Adds configuration introduced by the TestRunner module.
+
+    Args:
+      builder: ConfigurationBindingsBuilder instance to add to.
+    """
+    # Normally we want the log file name to reflect the name of the program
+    # we are running, but we might not be running one (e.g. in interpreter).
+    try:
+      basename = os.path.basename(sys.argv[0])
+      main_filename = os.path.splitext(basename)[0]
+    except IndexError:
+      main_filename = 'debug'
+
+    defaults = (defaults or {})
+    builder.add_argument('--log_dir', default=defaults.get('LOG_DIR', '.'))
+    builder.add_argument('--log_filebase',
+                         default=defaults.get('LOG_FILEBASE', main_filename))
+    builder.add_argument(
+        '--log_config', default=defaults.get('LOG_CONFIG', ''),
+        help='Path to text file containing custom logging configuration. The'
+        ' contents of this path can contain variable references in the form'
+        ' $KEY where --KEY is a command-line argument that whose value should'
+        ' be substituted. Otherwise this is a standard python logging'
+        ' configuration schema as described in'
+        ' https://docs.python.org/2/library/logging.config.html'
+        '#logging-config-dictschema')
+
   def initArgumentParser(self, parser, defaults=None):
     """Adds arguments introduced by the TestRunner module.
 
     Args:
       parser: argparse.ArgumentParser instance to add to.
     """
+    print ('{} called DEPRECATED initArgumentParser\n'
+           'Use init_bindings_builder instead.'
+           .format(self.__class__.__name__))
+
     # Normally we want the log file name to reflect the name of the program
     # we are running, but we might not be running one (e.g. in interpreter).
     try:
@@ -303,7 +357,7 @@ class TestRunner(object):
         '#logging-config-dictschema')
 
   def start_logging(self):
-    """Setup default logging from the --log_config parameter."""
+    """Setup default logging from the citest.base.log_config parameter."""
     text = _DEFAULT_LOG_CONFIG
     path = self.bindings.get('LOG_CONFIG', None)
     if path:
@@ -370,14 +424,12 @@ class TestRunner(object):
     This includes processing command-line arguments to set the bindings in
     the runner, and initializing the reporting journal.
     """
-    # Customize commandline arguments
-    parser = argparse.ArgumentParser()
-    self.initArgumentParser(parser, defaults=self.default_binding_overrides)
     for init in self.__parser_inits:
-      init(parser, defaults=self.default_binding_overrides)
-    self.__options = parser.parse_args()
-    self.__bindings.update(args_util.parser_args_to_bindings(self.__options))
+      init(self.__bindings_builder, defaults=self.default_binding_overrides)
 
+    self.init_bindings_builder(self.__bindings_builder,
+                               defaults=self.default_binding_overrides)
+    self.__bindings = self.__bindings_builder.build()
     self.start_logging()
 
   def _cleanup(self):

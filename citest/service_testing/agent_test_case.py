@@ -32,6 +32,7 @@ but can be changed with --log_filename and --log_dir.
 
 # Standard python modules.
 from multiprocessing.pool import ThreadPool
+import logging
 import time
 import traceback as traceback_module
 
@@ -39,10 +40,10 @@ import traceback as traceback_module
 from ..base import (
     args_util,
     BaseTestCase,
+    ConfigurationBindingsBuilder,
     ExecutionContext,
     JournalLogger,
-    JsonSnapshotableEntity,
-    TestRunner)
+    JsonSnapshotableEntity)
 
 
 _DEFAULT_TEST_ID = time.strftime('%H%M%S')
@@ -304,8 +305,28 @@ class AgentTestScenario(object):
     Args:
       parser: [argparse.ArgumentParser] Instance to add to.
     """
+    logger = logging.getLogger(__name__)
+    logger.warning('{} called DEPRECATED initArgumentParser\n'
+                   'Use init_bindings_builder instead.',
+                   cls.__name__)
+    if not isinstance(parser, ConfigurationBindingsBuilder):
+      # if we're already an instance then we've already redirected.
+      # parser has enough builder API so should be drop in replacement.
+      cls.init_bindings_builder(parser, defaults=defaults)
+
+  @classmethod
+  def init_bindings_builder(cls, builder, defaults=None):
+    """Adds bindings introduced by the BaseTestCase module.
+
+    Args:
+      builder: [citest,base.ConfigurationBindingsBuilder] Instance to add to.
+    """
+    if (getattr(cls, 'initArgumentParser')
+        != AgentTestScenario.initArgumentParser):
+      cls.initArgumentParser(builder, defaults=defaults)
+
     defaults = defaults or {}
-    parser.add_argument(
+    builder.add_argument(
         '--test_id', default=defaults.get('TEST_ID', _DEFAULT_TEST_ID),
         help='A short, [reasonably] unique identifier for this test')
 
