@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=missing-docstring
+# pylint: disable=redefined-builtin
+
 import logging
 
 from ..json_predicate import binary_predicate
@@ -75,9 +78,16 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
     self.__constraints.append(constraint)
     return self
 
-  def contains_path_match(self, path, match_spec, min=1, max=None):
-    return self.contains_path_pred(
-        path, binary_predicate.DICT_MATCHES(match_spec), min, max)
+  def contains_path_match(self, path, match_spec, min=1, max=None,
+                          **kwargs):
+    if isinstance(match_spec, list):
+      enumerate_terminals = kwargs.pop('enumerate_terminals', False)
+      return self.contains_path_pred(
+          path, binary_predicate.LIST_MATCHES(match_spec), min, max,
+          enumerate_terminals=enumerate_terminals, **kwargs)
+    else:
+      return self.contains_path_pred(
+          path, binary_predicate.DICT_MATCHES(match_spec), min, max)
 
   def contains_path_value(self, path, value, min=1, max=None):
     return self.contains_path_pred(
@@ -87,10 +97,13 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
     return self.contains_path_pred(
         path, binary_predicate.EQUIVALENT(value), min, max)
 
-  def contains_path_pred(self, path, pred, min=1, max=None):
+  def contains_path_pred(self, path, pred, min=1, max=None, **kwargs):
+    enumerate_terminals = kwargs.pop('enumerate_terminals', True)
     self.add_constraint(
         cardinality_predicate.CardinalityPredicate(
-            path_predicate.PathPredicate(path, pred), min=min, max=max))
+            path_predicate.PathPredicate(
+                path, pred, enumerate_terminals=enumerate_terminals),
+            min=min, max=max))
     return self
 
   def contains_pred_list(self, pred_list, min=1, max=None):
@@ -101,20 +114,36 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
     return self
 
   def contains_match(self, match_spec, min=1, max=None):
-    self.add_constraint(
-        cardinality_predicate.CardinalityPredicate(
-            binary_predicate.DICT_MATCHES(match_spec), min=min, max=max))
+    if isinstance(match_spec, list):
+      constraint = binary_predicate.LIST_MATCHES(match_spec)
+      self.add_constraint(
+          cardinality_predicate.CardinalityPredicate(
+              path_predicate.PathPredicate(
+                  '', constraint, enumerate_terminals=False),
+              min=min, max=max))
+    else:
+      self.add_constraint(
+          cardinality_predicate.CardinalityPredicate(
+              binary_predicate.DICT_MATCHES(match_spec), min=min, max=max))
     return self
 
-  def excludes_path_pred(self, path, pred, max=0):
+  def excludes_path_pred(self, path, pred, max=0, **kwargs):
+    enumerate_terminals = kwargs.pop('enumerate_terminals', True)
     self.add_constraint(
         cardinality_predicate.CardinalityPredicate(
-            path_predicate.PathPredicate(path, pred), min=0, max=max))
+            path_predicate.PathPredicate(
+                path, pred, enumerate_terminals=enumerate_terminals),
+            min=0, max=max))
     return self
 
   def excludes_path_match(self, path, match_spec, max=0):
-    return self.excludes_path_pred(
-        path, binary_predicate.DICT_MATCHES(match_spec), max)
+    if isinstance(match_spec, list):
+      return self.excludes_path_pred(
+          path, binary_predicate.LIST_MATCHES(match_spec), max,
+          enumerate_terminals=False)
+    else:
+      return self.excludes_path_pred(
+          path, binary_predicate.DICT_MATCHES(match_spec), max)
 
   def excludes_path_value(self, path, value, max=0):
     return self.excludes_path_pred(path, binary_predicate.CONTAINS(value),
@@ -125,9 +154,17 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
         path, binary_predicate.EQUIVALENT(value), max)
 
   def excludes_match(self, match_spec, max=0):
-    self.add_constraint(
-        cardinality_predicate.CardinalityPredicate(
-            binary_predicate.DICT_MATCHES(match_spec), min=0, max=max))
+    if isinstance(match_spec, list):
+      constraint = binary_predicate.LIST_MATCHES(match_spec)
+      self.add_constraint(
+          cardinality_predicate.CardinalityPredicate(
+              path_predicate.PathPredicate(
+                  '', constraint, enumerate_terminals=False),
+              min=0, max=max))
+    else:
+      self.add_constraint(
+          cardinality_predicate.CardinalityPredicate(
+              binary_predicate.DICT_MATCHES(match_spec), min=0, max=max))
     return self
 
   def excludes_pred_list(self, pred_list, max=0):
@@ -177,22 +214,41 @@ class ValueObservationVerifier(ov.ObservationVerifier):
           to be satisfied by at least one object. Not necessarily the same
           object, nor does any object have to satisfy even one constraint.
 
-       See base class (ObservationVerifier) for additional kwargs.
+       See base class (ov.ObservationVerifier) for additional kwargs.
     """
     self.__strict = kwargs.pop('strict', False)
-    self.__constraints = kwargs.pop('constraints', None)
+    constraints = kwargs.pop('constraints', None)
+    self.__constraints = constraints
+    self.__value_constraints = []
+    self.__observation_constraints = []
+    for constraint in constraints:
+      if isinstance(constraint, ov.ObservationVerifier):
+        self.__observation_constraints.append(constraint)
+      else:
+        self.__value_constraints.append(constraint)
     super(ValueObservationVerifier, self).__init__(title, **kwargs)
 
   def __call__(self, context, observation):
+    valid = True
+    final_builder = ov.ObservationVerifyResultBuilder(observation)
+
+    for constraint in self.__observation_constraints:
+      result = constraint(context, observation)
+      valid = valid and result
+      final_builder.add_observation_verify_result(result)
+
     if observation.errors:
-      logging.getLogger(__name__).debug(
-          'Failing because of observation errors %s', observation.errors)
-      return ov.ObservationVerifyResult(
-          valid=False, observation=observation,
-          good_results=[],
-          bad_results=[of.ObservationFailedError(observation.errors)],
-          failed_constraints=[],
-          comment='Observation Failed.')
+      if self.__value_constraints:
+        valid = False
+        logging.getLogger(__name__).debug(
+            'Failing because of observation errors %s', observation.errors)
+        error = of.ObservationFailedError(observation.errors)
+        final_builder.add_observation_verify_result(
+            ov.ObservationVerifyResult(
+                valid=False, observation=observation,
+                good_results=[], bad_results=[error],
+                failed_constraints=[self.__value_constraints]))
+      return final_builder.build(valid)
 
     all_objects = observation.objects
     if not all_objects:
@@ -209,10 +265,9 @@ class ValueObservationVerifier(ov.ObservationVerifier):
     # Every constraint must be satisfied by at least one object.
     # If strict then every object must be verified by at least one
     # constraint.
-    valid = True
     final_builder = ov.ObservationVerifyResultBuilder(observation)
 
-    for constraint in self.__constraints:
+    for constraint in self.__value_constraints:
       logging.getLogger(__name__).debug('Verifying constraint=%s',
                                         constraint)
 

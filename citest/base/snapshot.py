@@ -76,6 +76,8 @@ def _normalize_metadata_value(value):
     return value
   if isinstance(value, type):
     return 'type ' + value.__name__
+  if isinstance(value, BaseException):
+    return 'exception ' + value.__class__.__name__
   raise TypeError('{0} is not a valid metadata type: {1}'.format(
       value.__class__, value))
 

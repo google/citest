@@ -232,6 +232,12 @@ class TestRunner(object):
     logger.info('Building test suite')
     suite = self.build_suite(test_case_list)
 
+    if not self.__parser_inits:
+      for test in test_case_list or []:
+        self.__bindings_builder.add_configs_for_class(test)
+        if hasattr(test, 'init_bindings_builder'):
+          self.__parser_inits.append(test.init_bindings_builder)
+
     # Create some separation in logs
     logger.info('Finished Setup. Start Tests\n'
                 + ' ' * (8 + 1)  # for leading timestamp prefix

@@ -126,6 +126,7 @@ class OperationContractExecutionAttempt(JsonSnapshotableEntity):
     entity.add_metadata('_timestamp', self.__start)
     if self.__status_summary:
       entity.add_metadata('summary', self.__status_summary)
+
     builder.make(entity, 'Name', self.__name)
     builder.make(entity, 'Duration',
                  round(self.__stop - self.__start, _DURATION_PRECISION))
@@ -250,6 +251,8 @@ class AgentTestScenario(object):
   @property
   def agent(self):
     """The primary BaseAgent that is the focal point for the test."""
+    if self.__agent is None:
+      self.__agent = self.new_agent(self.__bindings)
     return self.__agent
 
   @property
@@ -287,8 +290,8 @@ class AgentTestScenario(object):
           factory method.
     """
     self.__bindings = bindings
-    self.__agent = agent or self.new_agent(bindings)
     self.__test_id = bindings.get('TEST_ID', _DEFAULT_TEST_ID)
+    self.__agent = agent   # may be None
 
   def substitute_variables(self, text):
     """Substitute $KEY with the bound value of KEY.
@@ -306,9 +309,8 @@ class AgentTestScenario(object):
       parser: [argparse.ArgumentParser] Instance to add to.
     """
     logger = logging.getLogger(__name__)
-    logger.warning('{} called DEPRECATED initArgumentParser\n'
-                   'Use init_bindings_builder instead.',
-                   cls.__name__)
+    logger.warning('%s called DEPRECATED initArgumentParser\n'
+                   'Use init_bindings_builder instead.' % cls.__name__)
     if not isinstance(parser, ConfigurationBindingsBuilder):
       # if we're already an instance then we've already redirected.
       # parser has enough builder API so should be drop in replacement.
@@ -322,7 +324,8 @@ class AgentTestScenario(object):
       builder: [citest,base.ConfigurationBindingsBuilder] Instance to add to.
     """
     if (getattr(cls, 'initArgumentParser')
-        != AgentTestScenario.initArgumentParser):
+        and (cls.initArgumentParser.im_func
+             != AgentTestScenario.initArgumentParser.im_func)):
       cls.initArgumentParser(builder, defaults=defaults)
 
     defaults = defaults or {}
@@ -330,9 +333,8 @@ class AgentTestScenario(object):
         '--test_id', default=defaults.get('TEST_ID', _DEFAULT_TEST_ID),
         help='A short, [reasonably] unique identifier for this test')
 
-  @classmethod
   def new_agent(cls, bindings):
-    """Factory method to create the agent to pass into the constructor."""
+    """Factory method to create the agent is called on demand."""
     raise NotImplementedError(
         'new_agent not specialized on ' + cls.__name__)
 
@@ -607,10 +609,10 @@ class AgentTestCase(BaseTestCase):
                           traceback_module.format_exc())
       raise
     finally:
-      context.set_internal('ContractVerifyResults', verify_results)
-      self.log_end_test(test_case.title)
-      self.report(execution_trace)
       try:
+        context.set_internal('ContractVerifyResults', verify_results)
+        self.log_end_test(test_case.title)
+        self.report(execution_trace)
         if test_case.cleanup:
           if status is None:
             self.logger.info('Skipping operation cleanup because'

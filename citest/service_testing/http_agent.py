@@ -308,7 +308,8 @@ class HttpAgent(base_agent.BaseAgent):
       operation: The AgentOperation the status is for.
       http_response: The HttpResponseType from the original HTTP response.
     """
-    return self.__status_class(operation, http_response)
+    status_class = operation.status_class or self.__status_class
+    return status_class(operation, http_response)
 
   def __send_http_request(self, path, http_type,
                           data=None, headers=None, trace=True):
@@ -423,12 +424,14 @@ class BaseHttpOperation(base_agent.AgentOperation):
 
   @property
   def status_class(self):
-    """The class to instantiate for the OperationStatus."""
+    """The overriden class to instantiate for the OperationStatus.
+
+    If this returns None then use the agent's default class.
+    """
     return self.__status_class
 
   def __init__(self, title, path, data,
-               http_agent=None, status_class=HttpOperationStatus,
-               max_wait_secs=None):
+               http_agent=None, status_class=None, max_wait_secs=None):
     """Construct a new operation.
 
     Args:
@@ -437,7 +440,8 @@ class BaseHttpOperation(base_agent.AgentOperation):
       data [string]: If not empty, post this data with the invocation.
       http_agent [HttpAgent]: If provided, invoke with this agent.
       status_class [HttpOperationStatus]: If provided, use this for the
-         result status returned by the operation.
+         result status returned by the operation. Otherwise it will use
+         the agent's default.
       max_wait_secs: [float] Max number of seconds to wait for status
           completion. None indicates unlimited.
     """

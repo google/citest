@@ -83,6 +83,7 @@ class BaseTestCase(unittest.TestCase):
     # original intended method.
     self.__method_name = methodName
     self.__method = getattr(self, self.__method_name)
+
     self.__in_step = None
     setattr(self, self.__method_name, self.__wrap_method)
     super(BaseTestCase, self).__init__(methodName)
@@ -132,7 +133,9 @@ class BaseTestCase(unittest.TestCase):
     method_name = self.__method_name
     self.__in_step = _TestProcessingStep.SETUP
     try:
-      JournalLogger.begin_context('Test "{0}"'.format(method_name))
+      doc = {'_doc': self.__method.__doc__} if self.__method.__doc__ else {}
+      JournalLogger.begin_context('Test "{0}"'.format(method_name),
+                                  **doc)
       self.__begin_step_context()
       super(BaseTestCase, self).__call__(result)
     finally:
