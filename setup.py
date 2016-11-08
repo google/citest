@@ -12,7 +12,6 @@ setup(
     "mock",
     "oauth2client",
     "pyyaml",
-    "pyopenssl"
   ],
   long_description = open('README.md').read()
 )

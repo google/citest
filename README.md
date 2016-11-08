@@ -146,10 +146,18 @@ gcp_testing | Specializations and extensions to support testing on Google Cloud 
 tests | Tests for this package
 
 
+# More Examples
+
+For more examples, see:
+
+* The [examples](https://github.com/google/citest/blob/master/examples) subdirectory.
+* [Spinnaker Citests](https://github.com/spinnaker/spinnaker/blob/master/testing/citest/README.md).
+
+
 # Documentation
 
-The [Usage Overview Document](overview.md) provides some instructions and examples
-to guide basic usage.
+The [Usage Overview Document](overview.md) provides some instructions and
+examples to guide basic usage.
 
 
 # Contributing
