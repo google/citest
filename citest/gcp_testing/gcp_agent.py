@@ -28,6 +28,12 @@ from ..base import JournalLogger
 from ..service_testing import BaseAgent
 import citest
 
+# This doesnt belong here, but this library insists on logging
+# ImportError: file_cache is unavailable when using oauth2client >= 4.0.0
+# The maintainer wont fix or remove the warning so we'll force it to be disabled
+logging.getLogger('googleapiclient.discovery_cache').setLevel(logging.ERROR)
+
+
 PLATFORM_READ_ONLY_SCOPE = (
     'https://www.googleapis.com/auth/cloud-platform.read-only'
     )
