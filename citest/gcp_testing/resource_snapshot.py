@@ -32,18 +32,25 @@ Usage:
       --compare baseline delta \
       --delete_after \
       --delete_for_real
+
+  When comparing results, returns non-0 exit code if snapshotsan differ.
 """
 
 import argparse
 import collections
+import httplib
 import json
 import pickle
 import re
+import time
 
 from googleapiclient.errors import HttpError
 
 from citest.gcp_testing.gcp_agent import GcpAgent
 from citest.base import ExecutionContext
+
+
+_RETRYABLE_DELETE_HTTP_CODES = [httplib.CONFLICT, httplib.SERVICE_UNAVAILABLE]
 
 
 def to_json_string(obj):
@@ -353,15 +360,30 @@ class ApiDiff(object):
                        if resource_filter.wanted(key)])
     after_keys = set([key for key in after.keys()
                       if resource_filter.wanted(key)])
-    resources_removed = before_keys.difference(after_keys)
-    resources_added = after_keys.difference(before_keys)
+    removed_tuples = [
+        (key, stringify_enumerated(before[key].response, title=None,
+                                   prefix='    ', bullet='+'))
+        for key in before_keys.difference(after_keys)]
+
+    added_tuples = [
+        (key, stringify_enumerated(after[key].response, title=None,
+                                   prefix='    ', bullet='+'))
+        for key in after_keys.difference(before_keys)]
+    resources_removed = (
+        ['{key}\n{values}'.format(
+            key=data[0], values=data[1]) for data in removed_tuples]
+        if removed_tuples else [])
+    resources_added = (
+        ['{key}\n{values}'.format(
+            key=data[0], values=data[1]) for data in added_tuples]
+        if added_tuples else [])
 
     if resources_removed:
       self.__errors.append(stringify_enumerated(
-          resources_removed, title='MISSING RESOURCES', prefix='  '))
+          resources_removed, title='MISSING RESOURCES', prefix=''))
     if resources_added:
       self.__errors.append(stringify_enumerated(
-          resources_added, title='EXTRA RESOURCES', prefix='  '))
+          resources_added, title='EXTRA RESOURCES', prefix=''))
 
     self.__resource_diffs = {
         resource: _ApiResourceDiff(resource,
@@ -434,7 +456,7 @@ class _ApiResourceDiff(object):
               len(self.__added), len(self.__removed), len(self.__same)))
       indent += '  '
     elif len(self.__removed) + len(self.__added) + len(self.__same) == 0:
-      if show_same and resource:
+      if show_same and self.__resource:
         result.append(
             '{0}RESOURCE: {1}({2})  empty'.format(
                 indent, self.__resource, bindings))
@@ -509,13 +531,12 @@ class Processor(object):
         data_label = path.split('/')[-1]
         def transform(items):
           # pylint: disable=missing-docstring
-          # pylint: disable=cell-var-from-loop
           result = []
           for key, entry_values in items.items():
             data_values = entry_values.get(data_label, None)
             if data_values:
               result.extend([(key, value) for value in data_values])
-            return result
+          return result
         return 'aggregatedList', transform, None
       except KeyError:
         pass  # Unknown method
@@ -579,6 +600,21 @@ class Processor(object):
 
     return result, errors
 
+  def __determine_added_instances(self, resource, before, after):
+    """Determine the resource instances added to |after| since |before|.
+    """
+    if resource in before:
+      if before[resource].params != after[resource].params:
+        print ('WARNING: ignoring "{0}" because parameters do not match.'
+               .format(resource))
+        return []
+
+      before_values = set(before[resource].response)
+      after_values = set(after[resource].response)
+      return after_values.difference(before_values)
+    else:
+      return set(after[resource].response)
+
   def delete_added(self, api, version, before, after, resource_filter):
     """Delete resources that were added since the baseline.
 
@@ -595,56 +631,154 @@ class Processor(object):
     discovery_doc = GcpAgent.download_discovery_document(
         api=api, version=version)
 
-    common_resources = set([
-        resource
-        for resource in set(before.keys()).intersection(set(after.keys()))
-        if resource_filter.wanted(resource)])
-    for resource in common_resources:
-      if before[resource].params != after[resource].params:
-        print 'WARNING: ignoring "{0}" because parameters do not match.'.format(
-            resource)
-        continue
+    common_resource_types = set([
+        resource_type
+        for resource_type in set(before.keys()).intersection(set(after.keys()))
+        if resource_filter.wanted(resource_type)])
+    added_resource_types = set([
+        resource_type
+        for resource_type in set(after.keys()).difference(before.keys())
+        if resource_filter.wanted(resource_type)])
+    resource_types_to_consider = common_resource_types.union(
+        added_resource_types)
 
-      before_values = set(before[resource].response)
-      after_values = set(after[resource].response)
-      added = after_values.difference(before_values)
+    all_results = {}
+    for resource_type in resource_types_to_consider:
+      added = self.__determine_added_instances(resource_type, before, after)
       if not added:
         continue
 
-      delete = (discovery_doc
-                .get('resources', {})
-                .get(resource, {})
-                .get('methods', {})
-                .get('delete', None))
+      resource_container = discovery_doc.get('resources')
+      resource_segments = resource_type.split('.')
+      resource_spec = {}
+      for segment in resource_segments:
+        resource_spec = resource_container.get(segment, {})
+        resource_container = resource_spec.get('resources', {})
+
+      delete = resource_spec.get('methods', {}).get('delete', None)
       if not delete:
-        print '*** Cannot find delete method for "{0}"'.format(resource)
+        print '*** Cannot find delete method for "{0}"'.format(resource_type)
         continue
 
       scope = self.__explorer.pick_scope(
           delete.get('scopes', []), api, mutable=True)
       agent = self.make_agent(api, version, scope,
-                              default_variables=after[resource].params)
+                              default_variables=after[resource_type].params)
       print '{action} from API={api} with scope={scope}'.format(
           action=('Deleting' if self.__options.delete_for_real
                   else 'Simulating Delete'),
           api=api,
           scope=scope if self.__options.credentials_path else '<default>')
 
-      self.__delete_all(agent, resource, added, after[resource].aggregated)
-      print '-' * 40 + '\n'
+      all_results[resource_type] = (
+          agent, after[resource_type].aggregated,
+          self.__try_delete_all(
+              agent, resource_type, added, after[resource_type].aggregated))
 
-  def __delete_all(self, agent, resource, results_to_delete, aggregated):
+    self.__wait_for_delete_and_maybe_retry(all_results)
+    print '-' * 40 + '\n'
+
+  def __wait_for_delete_and_maybe_retry(self, waiting_on):
+    """Wait for outstanding results to finish deleting.
+
+    If some elements were conflicted, then retry them as long as we made some
+    progress since the last retry (by successful deletes).
+    """
+    while waiting_on:
+      retryable_elems = {}
+      for resource_type, agent_results in waiting_on.items():
+        agent = agent_results[0]
+        aggregated = agent_results[1]
+        results = agent_results[2]
+        result = self.__wait_on_delete(
+            agent, resource_type, results, aggregated)
+        if result:
+          retryable_elems[resource_type] = (aggregated, result)
+      waiting_on = {}
+      if retryable_elems:
+        print 'Retrying some failures that are worth trying again.'
+        for resource_type, data in retryable_elems.items():
+          aggregated = data[0]
+          elems = data[1]
+          waiting_on[resource_type] = self.__try_delete_all(
+              agent, resource_type, elems, aggregated)
+
+  def __wait_on_delete(
+        self, agent, resource_type, results, aggregated, timeout=180):
+    """Wait for outstanding results to finish deleting or timeout."""
+    awaiting_list = results.get(httplib.OK, [])
+    retryable_elems = []
+    for code in _RETRYABLE_DELETE_HTTP_CODES:
+      retryable_elems.extend(results.get(code, []))
+
+    # Wait for the deletes to finish before returning
+    wait_until = time.time() + timeout
+    print_every_secs = 20
+    approx_secs_so_far = 0   # used to print every secs
+    if awaiting_list:
+      print 'Waiting for {0} items to finish deleting ...'.format(
+        len(awaiting_list))
+
+      while awaiting_list and time.time() < wait_until:
+        awaiting_list = [elem for elem in awaiting_list
+                         if self.__elem_exists(agent, resource_type,
+                                               elem, aggregated)]
+        if awaiting_list:
+          sleep_secs = 5
+          approx_secs_so_far += sleep_secs
+          if approx_secs_so_far % print_every_secs == 0:
+            print '  Still waiting on {0} ...'.format(len(awaiting_list))
+          time.sleep(sleep_secs)
+      if awaiting_list:
+        print 'Gave up waiting on remaining {0} items.'.format(
+            len(awaiting_list))
+
+    return retryable_elems
+
+  def __elem_exists(self, agent, resource_type, elem, aggregated):
+    """Determine if a pending delete on an instance has completed or not."""
+    context = ExecutionContext()
+    params = {}
+    if aggregated:
+      name = elem[1]
+      param_name, param_value = elem[0].split('/', 1)
+      if param_name[-1] == 's':
+        param_name = param_name[:-1]
+
+      # Just because the aggregation returned a parameter
+      # does not mean the get API takes it. Confirm before adding.
+      if (agent.resource_type_to_discovery_info(resource_type)
+          .get('methods', {}).get('get', {}).get('parameters', {})
+          .get(param_name)):
+        params[param_name] = param_value
+
+    name = elem[1] if aggregated else elem
+    try:
+      agent.get_resource(context, resource_type, resource_id=name, **params)
+      return True
+    except HttpError as http_error:
+      if http_error.resp.status == httplib.NOT_FOUND:
+        return False
+      if http_error.resp.status in _RETRYABLE_DELETE_HTTP_CODES:
+        return True
+      print 'Unexpected error while waiting for delete: {0} {1}={2}'.format(
+        resource_type, name, http_error)
+    return False
+
+  def __try_delete_all(
+        self, agent, resource_type, results_to_delete, aggregated):
     """Implements the actual delete heuristics.
 
     Args:
       agent: [GcpAgent] The agent to delete the resources.
-      resource: [string] The resource type to delete.
+      resource_type: [string] The resource type to delete.
       results_to_delete: [string] The listing results to be deleted.
          These may be the ids or may be tuples (params, result) if
          the listing was an aggreatedList.
       aggregated: [bool] Indicates whether results_to_delete were aggregated.
     """
     context = ExecutionContext()
+    result_by_code = {}
     for elem in results_to_delete:
       params = {}
       name = elem
@@ -656,7 +790,7 @@ class Processor(object):
 
         # Just because the aggregation returned a parameter
         # does not mean the delete API takes it. Confirm before adding.
-        if (agent.resource_type_to_discovery_info(resource)
+        if (agent.resource_type_to_discovery_info(resource_type)
             .get('methods', {}).get('delete', {}).get('parameters', {})
             .get(param_name)):
           params[param_name] = param_value
@@ -664,26 +798,37 @@ class Processor(object):
       name = elem[1] if aggregated else elem
       try:
         if self.__options.delete_for_real:
-          agent.invoke_resource(context, 'delete', resource,
+          agent.invoke_resource(context, 'delete', resource_type,
                                 resource_id=name, **params)
-          print 'Deleted "{resource}" {name}'.format(
-              resource=resource, name=name)
+          print 'Deleted "{type}" {name}'.format(
+              type=resource_type, name=name)
         else:
           variables = agent.resource_method_to_variables(
-              'delete', resource, resource_id=name, **params)
+              'delete', resource_type, resource_id=name, **params)
           args = ','.join([' {0}={1!r}'.format(key, value)
                            for key, value in variables.items()])
           if args:
             args = '\n  ' + args
-          print 'Ideally, this would delete "{resource}" {name}{args}'.format(
-              resource=resource, name=name, args=args)
-      except HttpError as http_error:
-        if http_error.resp.status == 404:
-          print 'WARNING: Ignoring 404 deleting "{resource}" {name}'.format(
-              resource=resource, name=name)
+          print 'Ideally, this would delete "{type}" {name}{args}'.format(
+              type=resource_type, name=name, args=args)
+        if httplib.OK in result_by_code:
+          result_by_code[httplib.OK].append(elem)
         else:
-          print ('WARNING: Ignore error deleting "{resource}" {name}: {msg}'
-                 .format(resource=resource, name=name, msg=http_error))
+          result_by_code[httplib.OK] = [elem]
+      except HttpError as http_error:
+        if http_error.resp.status in result_by_code:
+          result_by_code[http_error.resp.status].append(elem)
+        else:
+          result_by_code[http_error.resp.status] = [elem]
+
+        if http_error.resp.status == httplib.NOT_FOUND:
+          print '  - "{type}" "{name}" was already deleted'.format(
+              type=resource_type, name=name)
+        else:
+          print ('  Ignoring error deleting "{type}" "{name}": {msg}'
+                 .format(type=resource_type, name=name, msg=http_error))
+
+    return result_by_code if self.__options.delete_for_real else {}
 
 
 class Main(object):
@@ -833,6 +978,7 @@ class Main(object):
 
     before = None
     after = None
+    num_diffs = 0
     if options.compare:
       with open(options.compare[0], 'rb+') as f:
         unpickler = pickle.Unpickler(f)
@@ -840,13 +986,15 @@ class Main(object):
       with open(options.compare[1], 'rb+') as f:
         unpickler = pickle.Unpickler(f)
         after = unpickler.load()
-      self.__do_compare_snapshots(before, after)
+      num_diffs = self.__do_compare_snapshots(before, after)
 
     if options.delete_added:
       for api in set(before.keys()).intersection(after.keys()):
         self.__processor.delete_added(api, self.version_map[api],
                                       before[api], after[api],
                                       self.__api_to_resource_filter.get(api))
+    elif num_diffs != 0:
+      self.__exit_code = 1
 
   def __foreach_api(self, fn):
     """Execute a function for each api name of interest."""
@@ -917,6 +1065,7 @@ class Main(object):
     if num_diff_apis == 0:
       print 'Snapshots "{0}" and "{1}" are equivalent.'.format(
           *options.compare)
+    return num_diff_apis
 
 
 if __name__ == '__main__':
