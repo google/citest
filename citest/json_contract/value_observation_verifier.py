@@ -27,6 +27,19 @@ from . import observation_failure as of
 
 
 class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
+  """Builds ValueObservationVerifier instances.
+
+  As a rule of thumb, the path-oriented predicates (e.g. contains_path_*)
+  take varargs that include an 'enumerate_terminals' boolean keyword argument
+  that specifies whether the predicate should be applied to individual list
+  elements or the list itself when the path refers to a list.
+
+  As a rule of thumb, the match-orientd predicates (e.g. contains_*match)
+  take varargs that include an 'match_kwargs' dictionary keyword argument
+  that propagate the match_kwargs value (if any) to the implied match
+  predicate being specified.
+  """
+
   def __init__(self, title, strict=False):
     """Constructor.
 
@@ -80,22 +93,28 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
 
   def contains_path_match(self, path, match_spec, min=1, max=None,
                           **kwargs):
+    match_kwargs = kwargs.pop('match_kwargs', {})
     if isinstance(match_spec, list):
       enumerate_terminals = kwargs.pop('enumerate_terminals', False)
       return self.contains_path_pred(
-          path, binary_predicate.LIST_MATCHES(match_spec), min, max,
+          path, binary_predicate.LIST_MATCHES(match_spec, **match_kwargs),
+          min, max,
           enumerate_terminals=enumerate_terminals, **kwargs)
-    else:
+    elif isinstance(match_spec, dict):
       return self.contains_path_pred(
-          path, binary_predicate.DICT_MATCHES(match_spec), min, max)
+          path, binary_predicate.DICT_MATCHES(match_spec, **match_kwargs),
+          min, max, **kwargs)
+    else:
+      raise ValueError('match_spec must be a dict or list, not a {0}'
+                       .format(match_spec.__class__.__name__))
 
-  def contains_path_value(self, path, value, min=1, max=None):
+  def contains_path_value(self, path, value, min=1, max=None, **kwargs):
     return self.contains_path_pred(
-        path, binary_predicate.CONTAINS(value), min, max)
+        path, binary_predicate.CONTAINS(value), min, max, **kwargs)
 
-  def contains_path_eq(self, path, value, min=1, max=None):
+  def contains_path_eq(self, path, value, min=1, max=None, **kwargs):
     return self.contains_path_pred(
-        path, binary_predicate.EQUIVALENT(value), min, max)
+        path, binary_predicate.EQUIVALENT(value), min, max, **kwargs)
 
   def contains_path_pred(self, path, pred, min=1, max=None, **kwargs):
     enumerate_terminals = kwargs.pop('enumerate_terminals', True)
@@ -113,18 +132,27 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
             conjunction, min=min, max=max))
     return self
 
-  def contains_match(self, match_spec, min=1, max=None):
+  def contains_match(self, match_spec, min=1, max=None, **kwargs):
+    match_kwargs = kwargs.pop('match_kwargs', {})
     if isinstance(match_spec, list):
-      constraint = binary_predicate.LIST_MATCHES(match_spec)
+      enumerate_terminals = kwargs.pop('enumerate_terminals', False)
+      constraint = binary_predicate.LIST_MATCHES(match_spec, **match_kwargs)
       self.add_constraint(
           cardinality_predicate.CardinalityPredicate(
               path_predicate.PathPredicate(
-                  '', constraint, enumerate_terminals=False),
-              min=min, max=max))
-    else:
+                  '', constraint, enumerate_terminals=enumerate_terminals),
+              min=min, max=max,
+              **kwargs))
+    elif isinstance(match_spec, dict):
       self.add_constraint(
           cardinality_predicate.CardinalityPredicate(
-              binary_predicate.DICT_MATCHES(match_spec), min=min, max=max))
+              binary_predicate.DICT_MATCHES(match_spec, **match_kwargs),
+              min=min, max=max,
+              **kwargs))
+    else:
+      raise ValueError('match_spec must be a dict or list, not a {0}'
+                       .format(match_spec.__class__.__name__))
+
     return self
 
   def excludes_path_pred(self, path, pred, max=0, **kwargs):
@@ -136,14 +164,20 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
             min=0, max=max))
     return self
 
-  def excludes_path_match(self, path, match_spec, max=0):
+  def excludes_path_match(self, path, match_spec, max=0, **kwargs):
+    match_kwargs = kwargs.pop('match_kwargs', {})
     if isinstance(match_spec, list):
+      enumerate_terminals = kwargs.pop('enumerate_terminals', False)
       return self.excludes_path_pred(
-          path, binary_predicate.LIST_MATCHES(match_spec), max,
-          enumerate_terminals=False)
+          path, binary_predicate.LIST_MATCHES(match_spec, **match_kwargs), max,
+          enumerate_terminals=enumerate_terminals, **kwargs)
+    elif isinstance(match_spec, dict):
+      return self.excludes_path_pred(
+          path, binary_predicate.DICT_MATCHES(match_spec, **match_kwargs), max,
+          **kwargs)
     else:
-      return self.excludes_path_pred(
-          path, binary_predicate.DICT_MATCHES(match_spec), max)
+      raise ValueError('match_spec must be a dict or list, not a {0}'
+                       .format(match_spec.__class__.__name__))
 
   def excludes_path_value(self, path, value, max=0):
     return self.excludes_path_pred(path, binary_predicate.CONTAINS(value),
@@ -153,18 +187,25 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
     return self.excludes_path_pred(
         path, binary_predicate.EQUIVALENT(value), max)
 
-  def excludes_match(self, match_spec, max=0):
+  def excludes_match(self, match_spec, max=0, **kwargs):
+    match_kwargs = kwargs.pop('match_kwargs', {})
     if isinstance(match_spec, list):
-      constraint = binary_predicate.LIST_MATCHES(match_spec)
+      enumerate_terminals = kwargs.pop('enumerate_terminals', False)
+      constraint = binary_predicate.LIST_MATCHES(match_spec, **match_kwargs)
       self.add_constraint(
           cardinality_predicate.CardinalityPredicate(
               path_predicate.PathPredicate(
-                  '', constraint, enumerate_terminals=False),
+                  '', constraint, enumerate_terminals=enumerate_terminals),
               min=0, max=max))
-    else:
+    elif isinstance(match_spec, dict):
       self.add_constraint(
           cardinality_predicate.CardinalityPredicate(
-              binary_predicate.DICT_MATCHES(match_spec), min=0, max=max))
+              binary_predicate.DICT_MATCHES(match_spec, **match_kwargs),
+              min=0, max=max))
+    else:
+      raise ValueError('match_spec must be a dict or list, not a {0}'
+                       .format(match_spec.__class__.__name__))
+
     return self
 
   def excludes_pred_list(self, pred_list, max=0):

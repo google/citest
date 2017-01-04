@@ -693,15 +693,16 @@ class Processor(object):
         result = self.__wait_on_delete(
             agent, resource_type, results, aggregated)
         if result:
-          retryable_elems[resource_type] = (aggregated, result)
+          retryable_elems[resource_type] = (agent, aggregated, result)
       waiting_on = {}
       if retryable_elems:
         print 'Retrying some failures that are worth trying again.'
         for resource_type, data in retryable_elems.items():
-          aggregated = data[0]
-          elems = data[1]
-          waiting_on[resource_type] = self.__try_delete_all(
-              agent, resource_type, elems, aggregated)
+          agent = data[0]
+          aggregated = data[1]
+          elems = data[2]
+          waiting_on[resource_type] = (agent, aggregated, self.__try_delete_all(
+              agent, resource_type, elems, aggregated))
 
   def __wait_on_delete(
         self, agent, resource_type, results, aggregated, timeout=180):
