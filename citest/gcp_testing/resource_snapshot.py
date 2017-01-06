@@ -12,37 +12,71 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=star-args
+
 """Collects resources managed by Google APIs.
 
 Usage:
+  # Snapshot everything in compute and storage APIs from the
+  # GCP project we are running in and write to a file called 'baseline'.
+  # If listing a resource requires a "bucket" parameter, use "my-bucket".
+  # (project or projectId parameters will be the local project).
   python citest/gcp_testing/resource_snapshot.py \
-      --bindings=project=my-project,bucket=my-bucket \
+      --bindings=bucket=my-bucket \
       --output_file=baseline \
       compute storage
 
+  # Snapshot everything in compute and storage APIs from the
+  # GCP project "my-project" and write to a file called 'delta'.
+  # Use the credentials in the file "credentials.json" to authenticate APIs.
+  # If listing a resource requires a "bucket" parameter, use "my-bucket".
+  # (project or projectId parameters will be "my-project").
   python citest/gcp_testing/resource_snapshot.py \
-      --bindings=project=my-project,bucket=my-bucket \
+      --project=my-project
+      --bindings=bucket=my-bucket \
       --output_file=delta \
+      --credentials_path=credentials.json \
       compute storage
 
+  # Print the difference between the 'baseline' and 'delta' snapshots.
   python citest/gcp_testing/resource_snapshot.py \
       --compare baseline delta
 
+  # Delete the API resources in the delta snapshot that are not in the
+  # baseline. However since this is a "dry run" it will only show what would
+  # have otherwise been deleted.
   python citest/gcp_testing/resource_snapshot.py \
       --compare baseline delta \
       --delete_after \
-      --delete_for_real
+      --dry_run
 
-  When comparing results, returns non-0 exit code if snapshotsan differ.
+  # Collect and print all the images created today.
+  python citest/gcp_testing/resource_snapshot.py \
+      --list \
+      --days_since 0 \
+      compute.images
+
+  # Delete all the "candidate" images more than 10 days old.
+  python citest/gcp_testing/resource_snapshot.py \
+      --delete_list \
+      --days_before 10 \
+      --name ".*candidate.*" \
+      compute.images
+
+
+  When comparing results, returns non-0 exit code if snapshots differ.
 """
 
 import argparse
 import collections
+import datetime
 import httplib
 import json
 import pickle
 import re
 import time
+import urllib2
+import urlparse
 
 from googleapiclient.errors import HttpError
 
@@ -51,6 +85,37 @@ from citest.base import ExecutionContext
 
 
 _RETRYABLE_DELETE_HTTP_CODES = [httplib.CONFLICT, httplib.SERVICE_UNAVAILABLE]
+
+
+def get_metadata(relative_url):
+  """Return metadata value.
+
+  Args:
+    relative_url: [string] Metadata url to fetch relative to base metadata URL.
+  """
+  base_url = 'http://metadata/computeMetadata/v1/'
+  url = urlparse.urljoin(base_url, relative_url)
+  headers = {'Metadata-Flavor': 'Google'}
+  return urllib2.urlopen(urllib2.Request(url, headers=headers)).read()
+
+def binding_string_to_dict(raw_value):
+  """Convert comma-delimted kwargs argument into a normalized dictionary.
+
+  Args:
+    raw_value: [string] Comma-delimited key=value bindings.
+  """
+  kwargs = {}
+  if raw_value:
+    for binding in raw_value.split(','):
+      name, value = binding.split('=')
+      if value.lower() == 'true':
+        value = True
+      elif value.lower() == 'false':
+        value = False
+      elif value.isdigit():
+        value = int(value)
+      kwargs[name] = value
+  return kwargs
 
 
 def to_json_string(obj):
@@ -80,8 +145,8 @@ class ApiResourceFilter(object):
     """Constructor.
 
     Args:
-      include_regexs: [list] List of compiled regexes to include.
-      exclude_regexes: [list] List of compield regexes to subtract from include.
+      include_regexs: [list of re] Regexes to include.
+      exclude_regexes: [list of re] Regexes to subtract from include.
     """
     self.__include = include_regexs
     self.__exclude = exclude_regexs
@@ -140,7 +205,7 @@ class Explorer(object):
     Args:
       choices: [list of string]  List of auth scopes to pick from.
       api: [string]  The name of the resource API the scope is for.
-      mutable: [boolean]  False for a read-only scope true for a write-only one.
+      mutable: [boolean]  False for a read-only scope. True for write-only.
     """
     if not choices:
       return None
@@ -237,14 +302,15 @@ class Explorer(object):
     container_prefix = '{0}.'.format(container) if container else ''
     for name, value in resources.items():
       key = '{prefix}{name}'.format(prefix=container_prefix, name=name)
-      if not resource_filter.wanted(key):
-        continue
       children = value.get('resources')
       if children:
         sub_listable, sub_unlistable = self.__find_listable_resources_helper(
             key, children, resource_filter)
         listable.update(sub_listable)
         unlistable = unlistable.union(sub_unlistable)
+      if not resource_filter.wanted(key):
+        continue
+
       methods = value.get('methods') or {}
       list_method = methods.get('aggregatedList') or methods.get('list')
       if list_method:
@@ -286,9 +352,8 @@ class Explorer(object):
         lines.append('    * {0}: params=({1})'.format(
             name,
             ', '.join([key
-                       for key, value
-                       in self.determine_required_parameters(
-                           listable[name]).items()])))
+                       for key in self.determine_required_parameters(
+                           listable[name]).keys()])))
     lines.append('-' * 40 + '\n')
     return '\n'.join(lines)
 
@@ -395,9 +460,9 @@ class ApiDiff(object):
     result = list(self.__errors)
     for value in sorted(self.__resource_diffs.values(),
                         key=lambda value: value.resource):
-      s = value.stringify(show_same)
-      if s:
-        result.append(s)
+      value_str = value.stringify(show_same)
+      if value_str:
+        result.append(value_str)
 
     return '  ' + '\n  '.join(result) if result else ''
 
@@ -483,14 +548,27 @@ class Processor(object):
     """The bound explorer helper class."""
     return self.__explorer
 
+  @property
+  def default_variables(self):
+    """Default variables to use where needed by API methods."""
+    return self.__default_variables
+
   def __init__(self, explorer):
+    options = explorer.options
+    bindings_kwargs = binding_string_to_dict(options.bindings)
+    in_project = bindings_kwargs.get('project', options.project)
+    for which in ['project', 'projectId']:
+      if not bindings_kwargs.get(which):
+        if not in_project:
+          try:
+            in_project = get_metadata('project/project-id')
+          except IOError:
+            continue
+        bindings_kwargs[which] = in_project
+
     self.__explorer = explorer
-    self.__options = explorer.options
-    self.__default_variables = {}
-    if self.__options.bindings:
-      bindings = self.__options.bindings.split(',')
-      pairs = [binding.split('=') for binding in bindings]
-      self.__default_variables = {name: value for name, value in pairs}
+    self.__options = options
+    self.__default_variables = bindings_kwargs
 
   def make_agent(self, api, version, default_scope, default_variables=None):
     """Construct an agent to talk to a Google API.
@@ -498,7 +576,8 @@ class Processor(object):
     Args:
       api: [string] The API name containing the resources.
       version: [string] The API version.
-      default_scope: [string] The oauth scope to use if options.credentials_path
+      default_scope: [string] The OAuth scope to use.
+         This is only considered if given an options.credentials_path.
     """
     credentials = self.__options.credentials_path or None
     default_variables = default_variables or self.__default_variables
@@ -546,7 +625,7 @@ class Processor(object):
 
     return None, None, error
 
-  def list_api(self, api, version, scope_map):
+  def list_api(self, api, version, scope_map, item_filter=None):
     """List the instances of an API."""
     result = {}
     errors = {}
@@ -574,6 +653,11 @@ class Processor(object):
               context, resource,
               method_variant=method_name,
               item_list_transform=transform)
+          if item_filter:
+            if method_name == 'aggregatedList':
+              instances = [item for item in instances if item_filter(item[1])]
+            else:
+              instances = [item for item in instances if item_filter(item)]
         except (TypeError, ValueError, HttpError) as err:
           print '*** ' + str(err)
           errors[resource] = err.message
@@ -615,6 +699,55 @@ class Processor(object):
     else:
       return set(after[resource].response)
 
+  def delete_all_collected(
+      self, resource_type, discovery_doc, collected, bindings):
+    """Delete all the collected items.
+
+    Args:
+      resource_type: The API resource type of the items must be homogenous.
+      discovery_doc: The API discovery document.
+      collected: The API resource items as collected from the API.
+        If an aggregated_list() method was used, then this is a tuple that
+        also includes the key from the list needed by the delete() method.
+      bindings: The bindings to use for variables needed by delete. If
+        this is none, use processor's default variables.
+    """
+    api, version = discovery_doc['id'].split(':')
+    resource_container = discovery_doc.get('resources')
+    resource_segments = resource_type.split('.')
+    resource_spec = {}
+    for segment in resource_segments:
+      resource_spec = resource_container.get(segment, {})
+      resource_container = resource_spec.get('resources', {})
+
+    delete = resource_spec.get('methods', {}).get('delete', None)
+    if not delete:
+      print '*** Cannot find delete method for "{0}"'.format(resource_type)
+      return None
+
+    scope = self.__explorer.pick_scope(
+        delete.get('scopes', []), api, mutable=True)
+    agent = self.make_agent(api, version, scope,
+                            default_variables=bindings)
+
+    decorator = '[dry run] ' if self.__options.dry_run else ''
+    print '{decorator}DELETING from API={api} with scope={scope}'.format(
+        decorator=decorator,
+        api=api,
+        scope=scope if self.__options.credentials_path else '<default>')
+
+    if collected:
+      sample = collected.pop()
+      was_aggregated = isinstance(sample, tuple)
+      collected.add(sample)
+    else:
+      was_aggregated = False
+
+    return (
+        agent, was_aggregated,
+        self.__try_delete_all(
+            agent, resource_type, collected, was_aggregated))
+
   def delete_added(self, api, version, before, after, resource_filter):
     """Delete resources that were added since the baseline.
 
@@ -648,37 +781,15 @@ class Processor(object):
       if not added:
         continue
 
-      resource_container = discovery_doc.get('resources')
-      resource_segments = resource_type.split('.')
-      resource_spec = {}
-      for segment in resource_segments:
-        resource_spec = resource_container.get(segment, {})
-        resource_container = resource_spec.get('resources', {})
+      type_results = self.delete_all_collected(
+          resource_type, discovery_doc, added, after[resource_type].params)
+      if type_results:
+        all_results[resource_type] = type_results
 
-      delete = resource_spec.get('methods', {}).get('delete', None)
-      if not delete:
-        print '*** Cannot find delete method for "{0}"'.format(resource_type)
-        continue
-
-      scope = self.__explorer.pick_scope(
-          delete.get('scopes', []), api, mutable=True)
-      agent = self.make_agent(api, version, scope,
-                              default_variables=after[resource_type].params)
-      print '{action} from API={api} with scope={scope}'.format(
-          action=('Deleting' if self.__options.delete_for_real
-                  else 'Simulating Delete'),
-          api=api,
-          scope=scope if self.__options.credentials_path else '<default>')
-
-      all_results[resource_type] = (
-          agent, after[resource_type].aggregated,
-          self.__try_delete_all(
-              agent, resource_type, added, after[resource_type].aggregated))
-
-    self.__wait_for_delete_and_maybe_retry(all_results)
+    self.wait_for_delete_and_maybe_retry(all_results)
     print '-' * 40 + '\n'
 
-  def __wait_for_delete_and_maybe_retry(self, waiting_on):
+  def wait_for_delete_and_maybe_retry(self, waiting_on):
     """Wait for outstanding results to finish deleting.
 
     If some elements were conflicted, then retry them as long as we made some
@@ -701,8 +812,9 @@ class Processor(object):
           agent = data[0]
           aggregated = data[1]
           elems = data[2]
-          waiting_on[resource_type] = (agent, aggregated, self.__try_delete_all(
-              agent, resource_type, elems, aggregated))
+          waiting_on[resource_type] = (
+              agent, aggregated, self.__try_delete_all(
+                  agent, resource_type, elems, aggregated))
 
   def __wait_on_delete(
         self, agent, resource_type, results, aggregated, timeout=180):
@@ -798,20 +910,20 @@ class Processor(object):
 
       name = elem[1] if aggregated else elem
       try:
-        if self.__options.delete_for_real:
+        if self.__options.dry_run:
+          variables = agent.resource_method_to_variables(
+              'delete', resource_type, resource_id=name, **params)
+          args_str = ','.join([' {0}={1!r}'.format(key, value)
+                               for key, value in variables.items()])
+
+          print '[dry run] delete "{type}" {name} {args}'.format(
+              type=resource_type, name=name, args=args_str)
+        else:
           agent.invoke_resource(context, 'delete', resource_type,
                                 resource_id=name, **params)
           print 'Deleted "{type}" {name}'.format(
               type=resource_type, name=name)
-        else:
-          variables = agent.resource_method_to_variables(
-              'delete', resource_type, resource_id=name, **params)
-          args = ','.join([' {0}={1!r}'.format(key, value)
-                           for key, value in variables.items()])
-          if args:
-            args = '\n  ' + args
-          print 'Ideally, this would delete "{type}" {name}{args}'.format(
-              type=resource_type, name=name, args=args)
+
         if httplib.OK in result_by_code:
           result_by_code[httplib.OK].append(elem)
         else:
@@ -835,14 +947,16 @@ class Processor(object):
 class Main(object):
   """Implements command line program for producing and manipulating snapshots.
   """
+
   @staticmethod
   def __get_options():
+    """Determine commandline options."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'apis', nargs='+',
         help='The list of APIs to process. These can be in the form'
-        ' <api>.<resource> to limit particular resources.'
-        ' The <resource> can have "*" wildcards.')
+             ' <api>.<resource> to limit particular resources.'
+             ' The <resource> can have "*" wildcards.')
 
     parser.add_argument(
         '--catalog', default=False, action='store_true',
@@ -854,13 +968,21 @@ class Main(object):
     parser.add_argument(
         '--exclude', default='',
         help='A command-separated list of resources to exclude. These'
-        ' are subtracted from the api list of resources to include.')
+             ' are subtracted from the api list of resources to include.')
+
+    parser.add_argument(
+        '--project', default=None,
+        help='The project owning the resources to consider.'
+             ' This should only be specified if the resource API requires a'
+             ' project (e.g. compute.images, but not storage.objects).'
+             ' An empty string means the local GCP project.'
+             '\nThis is a shortcut for adding the project into --bindings'
+             ' as either "project" or "projectId".')
 
     parser.add_argument(
         '--bindings', default=None,
         help='A comma-separated list of variable bindings where a binding is'
-        ' <name>=<value>. These will be used as parameters when calling API'
-        ' methods as needed.')
+             ' <name>=<value>. Used as parameters as needed with API methods.')
     parser.add_argument(
         '--credentials_path', default='',
         help='Path to overide credentials from JSON file.')
@@ -868,6 +990,17 @@ class Main(object):
     parser.add_argument(
         '--list', default=False, action='store_true',
         help='List the resource instances.')
+    parser.add_argument('--name', default=None,
+        help='The regular expression for resource instance names to include.'
+             ' The default is none (dont consider)')
+    parser.add_argument(
+        '--days_before', default=None, type=int,
+        help='The number of recent days to exclude (exclusive).'
+             ' The default is none (dont consider)')
+    parser.add_argument(
+        '--days_since', default=None, type=int,
+        help='The number of recent days to include (inclusive).'
+             ' The default is none (dont consider)')
 
     parser.add_argument(
         '--output_path', default=None,
@@ -880,11 +1013,17 @@ class Main(object):
         help='Also show unchanged values in listing compare.')
     parser.add_argument(
         '--delete_added', default=False, action='store_true',
-        help='Delete the added resources after --compare.'
-        ' Requires --delete_for_real, otherwise it is a dry run.')
+        help='Delete the added resources after --compare.')
+    parser.add_argument(
+        '--delete_list', default=False, action='store_true',
+        help='Delete the specified resources.')
+
+    parser.add_argument('--dry_run', default=False, action='store_true',
+        help='Show proposed changes (deletes), dont actually perform them.')
+
     parser.add_argument(
         '--delete_for_real', default=False, action='store_true',
-        help='Actually attempt the deletes, do not just hypothesize.')
+        help='DEPRECATED')
 
     return parser.parse_args()
 
@@ -893,14 +1032,85 @@ class Main(object):
     """Return the exit code."""
     return self.__exit_code
 
+  @property
+  def processor(self):
+    """The bound processor helper class."""
+    return self.__processor
+
+  @staticmethod
+  def __determine_age_date_str(days_ago):
+    """Determine the date string for the given age (in days)."""
+    now = datetime.datetime.now()
+    today = datetime.datetime(now.year, now.month, now.day)
+    return ((today - datetime.timedelta(days_ago)).isoformat()
+            if days_ago is not None
+            else None)
+
+  @staticmethod
+  def make_item_filter(options):
+    """Create filter from options for filtering out resource items.
+
+    Args:
+       options: [argparse namespace] See command line options.
+    """
+    name_regex = re.compile('^' + options.name + '$') if options.name else None
+    before_str = Main.__determine_age_date_str(options.days_before)
+    since_str = Main.__determine_age_date_str(options.days_since)
+
+    def determine_timestamp(item):
+      """Figure out appropriate item timestamp for filtering."""
+      # There is no standard for this.
+      # The following are common to some APIs.
+      for key in ['creationTimestamp', 'timeCreated']:
+        if key in item:
+          return item[key]
+
+      error = 'Could not determine timestamp key for {0}'.format(
+          item.get('kind', item))
+      print error
+      raise ValueError(error)
+
+    def item_filter(item):
+      """Apply option filters to an API resource item."""
+      if name_regex:
+        name = None
+        for key in ['name', 'id']:
+          name = item.get(key)
+          if name is not None:
+            break
+        if name is None:
+          print 'Could not determine name for {0}'.format(item)
+          return False
+        if not name_regex.match(name):
+          return False
+
+      if before_str:
+        try:
+          if determine_timestamp(item) >= before_str:
+            return False
+        except ValueError:
+          pass
+
+      if since_str:
+        try:
+          if determine_timestamp(item) < since_str:
+            return False
+        except ValueError:
+          pass
+      return True
+
+    return item_filter
+
+
   def __init__(self, options):
+    self.__item_filter = self.make_item_filter(options)
     self.__options = options
     self.__explorer = Explorer(options)
     self.__processor = Processor(self.__explorer)
     self.__version_map = None
     self.__aggregated_listings = {}
     self.__listable_unlistable_scope_cache = {}
-    self.__api_to_resource_filter = {}
+    self.__api_to_resource_filter_map = {}
     self.__exit_code = 0
 
   @property
@@ -910,6 +1120,14 @@ class Main(object):
       self.__version_map = Explorer.collect_apis()
     return self.__version_map
 
+  @property
+  def api_to_resource_filter_map(self):
+    return self.__api_to_resource_filter_map
+
+  @api_to_resource_filter_map.setter
+  def api_to_resource_filter_map(self, api_resource_filter_map):
+    self.__api_to_resource_filter_map = api_resource_filter_map
+
   @staticmethod
   def main():
     """Runs the command-line program."""
@@ -918,7 +1136,7 @@ class Main(object):
     return program.exit_code
 
   @staticmethod
-  def apis_to_resource_filter(api_list):
+  def make_apis_to_resource_filter_map(api_list):
     """Return a dictionary of apis and distinct resource filters for each."""
     roots = {}
     for elem in api_list:
@@ -927,9 +1145,9 @@ class Main(object):
       value = r'\*' if len(parts) == 1 else re.escape(parts[1])
       value = value.replace(r'\*', '.*')
       if root in roots:
-        roots[root].add(re.compile(value))
+        roots[root].add(re.compile('^' + value))
       else:
-        roots[root] = set([re.compile(value)])
+        roots[root] = set([re.compile('^' + value)])
     return roots
 
   def run(self):
@@ -938,8 +1156,8 @@ class Main(object):
     if apis == ['all']:
       apis = self.version_map.keys()
 
-    api_to_include_map = self.apis_to_resource_filter(apis)
-    api_to_exclude_map = self.apis_to_resource_filter(
+    api_to_include_map = self.make_apis_to_resource_filter_map(apis)
+    api_to_exclude_map = self.make_apis_to_resource_filter_map(
         self.__options.exclude.split(',')
         if self.__options.exclude else [])
 
@@ -953,7 +1171,7 @@ class Main(object):
       self.__exit_code = -1
       return
 
-    self.__api_to_resource_filter = {
+    self.api_to_resource_filter_map = {
         api: ApiResourceFilter(api_to_include_map[api],
                                api_to_exclude_map.get(api) or [])
         for api in api_to_include_map.keys()}
@@ -971,42 +1189,45 @@ class Main(object):
     if self.__options.list:
       self.__foreach_api(self.do_command_collect_api)
 
+    if self.__options.delete_list:
+      self.__foreach_api(self.do_command_delete_list)
+
     options = self.__options
     if options.output_path and self.__aggregated_listings:
-      with open(options.output_path, 'wb+') as f:
-        pickler = pickle.Pickler(f)
+      with open(options.output_path, 'wb+') as sink:
+        pickler = pickle.Pickler(sink)
         pickler.dump(self.__aggregated_listings)
 
     before = None
     after = None
     num_diffs = 0
     if options.compare:
-      with open(options.compare[0], 'rb+') as f:
-        unpickler = pickle.Unpickler(f)
+      with open(options.compare[0], 'rb') as source:
+        unpickler = pickle.Unpickler(source)
         before = unpickler.load()
-      with open(options.compare[1], 'rb+') as f:
-        unpickler = pickle.Unpickler(f)
+      with open(options.compare[1], 'rb') as source:
+        unpickler = pickle.Unpickler(source)
         after = unpickler.load()
       num_diffs = self.__do_compare_snapshots(before, after)
 
     if options.delete_added:
       for api in set(before.keys()).intersection(after.keys()):
-        self.__processor.delete_added(api, self.version_map[api],
-                                      before[api], after[api],
-                                      self.__api_to_resource_filter.get(api))
+        self.__processor.delete_added(
+            api, self.version_map[api], before[api], after[api],
+            self.__api_to_resource_filter_map.get(api))
     elif num_diffs != 0:
       self.__exit_code = 1
 
-  def __foreach_api(self, fn):
+  def __foreach_api(self, func):
     """Execute a function for each api name of interest."""
-    return {api: fn(api) for api in self.__api_to_resource_filter.keys()}
+    return {api: func(api) for api in self.__api_to_resource_filter_map.keys()}
 
   def __get_listable_unlistable_scope_map(self, api):
     """Determine the listable and unlistable methods and the scope to use."""
     if api not in self.__listable_unlistable_scope_cache:
       version = self.version_map[api]
       listable, unlistable = self.__explorer.find_listable_resources(
-          api, version, self.__api_to_resource_filter[api])
+          api, version, self.__api_to_resource_filter_map[api])
       scope_map = self.__explorer.determine_scope_map(listable, api)
       self.__listable_unlistable_scope_cache[api] = (listable, unlistable,
                                                      scope_map)
@@ -1038,21 +1259,46 @@ class Main(object):
     version = self.version_map[api]
 
     print 'API:  "{0}"'.format(api)
-    found, errors = self.__processor.list_api(api, version, scope_map)
+    found, errors = self.__processor.list_api(api, version, scope_map,
+                                              item_filter=self.__item_filter)
     if errors:
       print 'ERRORS:{0}'.format(
           ''.join(['\n  E {0} {1}'.format(resource, msg)
                    for resource, msg in errors.items()]))
+
     self.__aggregated_listings[api] = found
     for resource, resource_list in found.items():
       print resource_list.stringify(resource)
     return found
 
+  def do_command_delete_list(self, api):
+    """Delete all the specified instances of each of the api resources."""
+    resource_type = api
+    results = {}
+    collected = self.do_command_collect_api(api)
+    for resource_type, data in collected.items():
+      elems = set(data.response)
+      discovery_doc = GcpAgent.download_discovery_document(api=api)
+      results[resource_type] = self.processor.delete_all_collected(
+          resource_type, discovery_doc, elems, bindings=None)
+
+    self.processor.wait_for_delete_and_maybe_retry(results)
+
   def __do_compare_snapshots(self, before, after):
+    """Print difference between snapshots.
+
+    Args:
+      before[dictionary of list results]: The baseline resources keyed by api.
+      after[dictionary of list results]: The resources to compare keyed by api.
+
+    Returns:
+      The number of different resources (to know if anything was different).
+    """
+
     options = self.__options
     num_diff_apis = 0
     api_diffs = ApiDiff.make_api_resources_diff_map(
-        before, after, self.__api_to_resource_filter)
+        before, after, self.__api_to_resource_filter_map)
     for api, diff in api_diffs.items():
       content = diff.stringify(options.show_unchanged)
       if content:

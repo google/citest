@@ -62,10 +62,13 @@ class GcpAgent(BaseAgent):
     Returns:
       https://developers.google.com/discovery/v1/reference/apis#resource
     """
-    if api is None or version is None:
+    if api is None:
       default_api, default_version = cls.default_discovery_name_and_version()
-      api = api or default_api
+      api = default_api
       version = version or default_version
+
+    if version is None:
+      version = GcpAgent.determine_current_version(api)
 
     http = httplib2.Http()
     http = apiclient.http.set_user_agent(
@@ -74,6 +77,20 @@ class GcpAgent(BaseAgent):
 
     # pylint: disable=no-member
     return service.apis().getRest(api=api, version=version).execute()
+
+  @staticmethod
+  def determine_current_version(api):
+    """Determine current version of Google API
+
+    Args:
+      api: [string] Google API name
+    """
+    discovery = GcpAgent.make_service('discovery', 'v1')
+    response = discovery.apis().list(name=api, preferred=True).execute()
+    if not response.get('items'):
+      raise ValueError('Unknown API "{0}".'.format(api))
+    return response['items'][0]['version']
+    
 
   @classmethod
   def make_service(cls, api=None, version=None,
@@ -94,10 +111,13 @@ class GcpAgent(BaseAgent):
       raise ValueError(
           'Either provide both scopes and credentials_path or neither')
 
-    if api is None or version is None:
+    if api is None:
       default_api, default_version = cls.default_discovery_name_and_version()
-      api = api or default_api
+      api = default_api
       version = version or default_version
+
+    if version is None:
+      version = GcpAgent.determine_current_version(api)
 
     http = httplib2.Http()
     http = apiclient.http.set_user_agent(
@@ -135,6 +155,9 @@ class GcpAgent(BaseAgent):
       Agent
     """
     # pylint: disable=too-many-arguments
+    if version is None and api is not None:
+      version = GcpAgent.determine_current_version(api)
+
     service = cls.make_service(api, version, scopes, credentials_path)
     discovery_doc = cls.download_discovery_document(api=api, version=version)
     return cls(service, discovery_doc, default_variables, **kwargs)
