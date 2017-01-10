@@ -13,6 +13,7 @@
 # limitations under the License.
 
 # pylint: disable=star-args
+# pylint: disable=global-statement
 
 """Collects resources managed by Google APIs.
 
@@ -85,6 +86,39 @@ from citest.base import ExecutionContext
 
 
 _RETRYABLE_DELETE_HTTP_CODES = [httplib.CONFLICT, httplib.SERVICE_UNAVAILABLE]
+
+
+LIST_BY_ZONE = 'listByZone'
+LIST_BY_REGION = 'listByRegion'
+_compute_agent = None
+_all_zones = []
+_all_regions = []
+
+ListedResources = collections.namedtuple(
+    'ListedResources', ['params', 'method_name', 'resources'])
+
+AttemptedResourceDeletes = collections.namedtuple(
+  'AttemptedResourcesDeletes', ['agent', 'aggregated', 'code_to_results'])
+
+
+def get_all_zones():
+  """Get all the available GCE zones."""
+  global _all_zones
+  if not _all_zones:
+    _all_zones = [
+        item['name']
+        for item in _compute_agent.list_resource(ExecutionContext(), 'zones')]
+  return _all_zones
+
+def get_all_regions():
+  """Get all the available GCE regions."""
+  global _all_regions
+  if not _all_regions:
+    _all_regions = [
+        item['name']
+        for item in _compute_agent.list_resource(ExecutionContext(), 'regions')]
+
+  return _all_regions
 
 
 def get_metadata(relative_url):
@@ -623,13 +657,79 @@ class Processor(object):
         error = err.message
         # Maybe try again if more remaining.
 
+    if re.search(r"missing required parameters.*\[u?'zone'\]", error):
+      return LIST_BY_ZONE, None, None
+    elif re.search(r"missing required parameters.*\[u?'region'\]", error):
+      return LIST_BY_REGION, None, None
+
     return None, None, error
+
+  def __list_resource_helper(self, agent, method_name, resource, transform):
+    """Helper function for listing resources.
+
+    This function will associate the parameters used to invoke the function
+    with the results from the function so that the listed results can be
+    operated on again in the future (e.g. delete) where additional parameters
+    for their context might be needed (e.g. project, zone, etc).
+
+    Normally this will either call list or listAggregated
+    (for some Compute APIs). The listAggregated response is actually a
+    composite response containing a dictionary keyed by the parameter
+    aggregated over (e.g. zone) and whose value is the result list for that
+    particular zone. This method unpacks that dictionary into a list of
+    tuples where the first element is the key (e.g. identifying the zone)
+    and the second element is the result value (the inner item data list.
+    For normal 'list' methods, this returns just the non-tupled item list.
+    The tuple form communicates an additional [implied] parameter that will
+    be needed to retrieve or operate on the item.
+
+    This module introduces some fake "method_name" parameters for synthetic
+    aggregation. If the method is LIST_BY_ZONE then this function will manually
+    iterate over each ZONE and perform a 'list' operation, but return the
+    results from all these queries as if it were a single 'listAggregated'
+    call. This is to support APIs that do not have a listAggregated method
+    but require a zone or region parameter.
+
+    The method that calls this figures out whether or not it should iterate
+    over zones or regions when passing i the "method name". If one of these
+    synthetic methods is passed in, the result will report as if it came
+    from 'aggregatedList' even though this method does not actually exist.
+    This is so other functions dont need additional special cases since the
+    result schema is the same as if there were an "aggregatedList".
+    """
+
+    context = ExecutionContext()
+
+    if method_name == LIST_BY_ZONE:
+      param_name = 'zone'
+      param_variants = get_all_zones()
+    elif method_name == LIST_BY_REGION:
+      param_name = 'region'
+      param_variants = get_all_regions()
+    else:
+      params = agent.resource_method_to_variables(method_name, resource)
+      return ListedResources(
+          params, method_name, agent.list_resource(
+              context, resource,
+              method_variant=method_name,
+              item_list_transform=transform))
+
+    params = agent.resource_method_to_variables(
+        'list', resource, **{param_name: 'tbd'})
+    items = []
+    for param_value in param_variants:
+      results = agent.list_resource(
+          context, resource, method_variant='list',
+          **{param_name: param_value})
+      items.extend([('{0}s/{1}'.format(param_name, param_value), item)
+                    for item in results])
+
+    return ListedResources(params, 'aggregatedList', items)
 
   def list_api(self, api, version, scope_map, item_filter=None):
     """List the instances of an API."""
     result = {}
     errors = {}
-    context = ExecutionContext()
 
     for scope, resource_list in scope_map.items():
       try:
@@ -648,11 +748,8 @@ class Processor(object):
           continue
 
         try:
-          params = agent.resource_method_to_variables(method_name, resource)
-          instances = agent.list_resource(
-              context, resource,
-              method_variant=method_name,
-              item_list_transform=transform)
+          params, method_name, instances = self.__list_resource_helper(
+            agent, method_name, resource, transform)
           if item_filter:
             if method_name == 'aggregatedList':
               instances = [item for item in instances if item_filter(item[1])]
@@ -730,20 +827,20 @@ class Processor(object):
     agent = self.make_agent(api, version, scope,
                             default_variables=bindings)
 
-    decorator = '[dry run] ' if self.__options.dry_run else ''
-    print '{decorator}DELETING from API={api} with scope={scope}'.format(
-        decorator=decorator,
-        api=api,
-        scope=scope if self.__options.credentials_path else '<default>')
-
     if collected:
+      action = 'PREVIEWING' if self.__options.dry_run else 'DELETING'
+      print '\n{action} from API={api} with scope={scope}'.format(
+          action=action,
+          api=api,
+          scope=scope if self.__options.credentials_path else '<default>')
+
       sample = collected.pop()
       was_aggregated = isinstance(sample, tuple)
       collected.add(sample)
     else:
       was_aggregated = False
 
-    return (
+    return AttemptedResourceDeletes(
         agent, was_aggregated,
         self.__try_delete_all(
             agent, resource_type, collected, was_aggregated))
@@ -812,7 +909,7 @@ class Processor(object):
           agent = data[0]
           aggregated = data[1]
           elems = data[2]
-          waiting_on[resource_type] = (
+          waiting_on[resource_type] = AttemptedResourceDeletes(
               agent, aggregated, self.__try_delete_all(
                   agent, resource_type, elems, aggregated))
 
@@ -1132,6 +1229,13 @@ class Main(object):
   def main():
     """Runs the command-line program."""
     program = Main(Main.__get_options())
+
+    # Set global agent for lazy evaluation of zones and regions if we need.
+    # We do this here because we need the credentials.
+    global _compute_agent
+    _compute_agent = program.__processor.make_agent(
+        'compute', 'v1', 'https://www.googleapis.com/auth/compute.readonly')
+
     program.run()
     return program.exit_code
 
@@ -1261,14 +1365,16 @@ class Main(object):
     print 'API:  "{0}"'.format(api)
     found, errors = self.__processor.list_api(api, version, scope_map,
                                               item_filter=self.__item_filter)
+    for resource, resource_list in found.items():
+      if resource_list.response:
+        print resource_list.stringify(resource)
+
     if errors:
       print 'ERRORS:{0}'.format(
           ''.join(['\n  E {0} {1}'.format(resource, msg)
                    for resource, msg in errors.items()]))
 
     self.__aggregated_listings[api] = found
-    for resource, resource_list in found.items():
-      print resource_list.stringify(resource)
     return found
 
   def do_command_delete_list(self, api):
