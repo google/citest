@@ -66,4 +66,4 @@ def run_all_tests_in_dir(dirname=None, recurse=False):
 
   test_suite = unittest.TestSuite(suites)
   runner = TestRunner(runner=unittest.TextTestRunner(verbosity=2))
-  runner.run(test_suite)
+  return runner.run(test_suite)

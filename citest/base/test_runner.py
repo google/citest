@@ -131,7 +131,7 @@ class TestRunner(object):
     ArgumentParser. Programs can use this to inject the default submodule
     values they'd like to override.
     """
-    return self.__bindings_builder.overrides
+    return self.__default_binding_overrides
 
   @staticmethod
   def global_runner():
@@ -159,8 +159,7 @@ class TestRunner(object):
       global_runner = TestRunner.global_runner()
       bindings = global_runner.bindings
       if hasattr(klass, 'init_bindings_builder'):
-        builder = ConfigurationBindingsBuilder(
-            overrides=global_runner.default_binding_overrides)
+        builder = ConfigurationBindingsBuilder()
         builder.add_configs_for_class(klass)
         klass.init_bindings_builder(builder, defaults=bindings)
         bindings = builder.build()
@@ -199,13 +198,13 @@ class TestRunner(object):
     # pylint: disable=protected-access
     return runner._do_main(test_case_list=test_case_list)
 
-  def set_default_binding_overrides(self, overrides):
+  def set_default_binding_overrides(self, default_binding_overrides):
     """Provides a means for setting the default_binding_overrides attribute.
 
     This is intentionally not an assignment because it is not intended to be
     called, but is here in case it is not possible to use the "main()" method.
     """
-    self.__bindings_builder.overrides = overrides
+    self.__default_binding_overrides = default_binding_overrides
 
   def set_parser_inits(self, inits):
     """Provides a means for setting the parser_inits attribute.
@@ -278,6 +277,7 @@ class TestRunner(object):
     self.__parser_inits = []
     self.__journal = None
     self.__config_files = []
+    self.__default_binding_overrides = {}
     self.__bindings_builder = ConfigurationBindingsBuilder(
         default_config_files=[os.path.join(os.path.dirname(__file__),
                                            'base.config')])

@@ -33,6 +33,7 @@ but can be changed with --log_filename and --log_dir.
 # Standard python modules.
 from multiprocessing.pool import ThreadPool
 import logging
+import os
 import time
 import traceback as traceback_module
 
@@ -46,7 +47,7 @@ from ..base import (
     JsonSnapshotableEntity)
 
 
-_DEFAULT_TEST_ID = time.strftime('%H%M%S')
+_DEFAULT_TEST_ID = os.environ.get('CITEST_TEST_ID', time.strftime('%H%M%S'))
 
 
 # Number of decimals to round time durations.
