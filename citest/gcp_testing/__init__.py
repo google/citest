@@ -46,3 +46,9 @@ from gcp_error_predicates import (
     HttpErrorPredicate,
     HttpErrorPredicateResult,
     )
+
+from gcp_appengine_agent import (
+    APPENGINE_FULL_SCOPE,
+    APPENGINE_READ_ONLY_SCOPE,
+    APPENGINE_READ_WRITE_SCOPE,
+    GcpAppengineAgent)
