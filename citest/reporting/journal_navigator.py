@@ -25,6 +25,7 @@ class JournalNavigator(object):
   def __init__(self):
     """Constructor"""
     self.__input_stream = None
+    self.__decoder = json.JSONDecoder()
 
   def __iter__(self):
     """Iterate over the contents of the journal."""
@@ -55,13 +56,15 @@ class JournalNavigator(object):
     """
     self.__check_open()
     json_str = self.__input_stream.next()
+
     try:
-      return json.JSONDecoder().decode(json_str)
+      return self.__decoder.decode(json_str)
+
     except ValueError:
       print 'Invalid json record:\n{0}'.format(json_str)
       raise
 
   def __check_open(self):
     """Verify that the navigator is open (and thus valid to iterate)."""
-    if self.__input_stream == None:
+    if self.__input_stream is None:
       raise ValueError('Navigator is not open.')

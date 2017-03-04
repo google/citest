@@ -46,6 +46,8 @@ class HtmlInfo(object):
   as a link or facade for it.
   """
 
+  __slots__ = ['__detail_block', '__summary_block']
+
   @property
   def detail_block(self):
     """The fully detailed HTML block."""
@@ -61,8 +63,11 @@ class HtmlInfo(object):
 
   def __init__(self, detail=None, summary=None):
     """Constructor."""
-    self.__detail_block = detail
-    self.__summary_block = None if not summary else summary
+    # NOTE(ewiseblatt): 20170302
+    # Converting to a str is a memory optimization.
+    # (probably by substantially reducing lots of little objects)
+    self.__detail_block = str(detail) if detail else None
+    self.__summary_block = str(summary) if summary else None
 
 
 class ProcessToRenderInfo(object):
@@ -148,11 +153,11 @@ class ProcessToRenderInfo(object):
               'span', [info.detail_block], **detail_tag_attrs)
           ]
 
-    tr = document_manager.make_tag_container(
+    tr_tag = document_manager.make_tag_container(
         'tr',
         [document_manager.make_tag_container('th', [title_block], **th_css),
          document_manager.make_tag_container('td', data_tags, **td_css)])
-    return tr
+    return tr_tag
 
 
   def process_json_html_if_possible(self, value):
@@ -410,7 +415,7 @@ class HtmlRenderer(JournalProcessor):
           'JournalMessage': self.render_message
       }
 
-    super(HtmlRenderer, self).__init__(registry)
+    super(HtmlRenderer, self).__init__(registry=registry)
     self.__entity_manager = ProcessedEntityManager()
     self.__document_manager = document_manager
 
@@ -423,7 +428,7 @@ class HtmlRenderer(JournalProcessor):
     self.__context_stack = []
 
   def terminate(self):
-    """Implemets JournalProcessor interface."""
+    """Implements JournalProcessor interface."""
     if self.__context_stack:
       raise ValueError(
           'Still have {0} open contexts'.format(len(self.__context_stack)))
@@ -562,15 +567,15 @@ class HtmlRenderer(JournalProcessor):
     document_manager = self.__document_manager
     date_str = self.timestamp_to_string(timestamp)
 
-    tr = document_manager.new_tag('tr')
-    th = document_manager.make_tag_text('th', date_str, class_='nw')
-    td = document_manager.new_tag('td')
-    tr.append(th)
-    tr.append(td)
+    tr_tag = document_manager.new_tag('tr')
+    th_tag = document_manager.make_tag_text('th', date_str, class_='nw')
+    td_tag = document_manager.new_tag('td')
+    tr_tag.append(th_tag)
+    tr_tag.append(td_tag)
 
     if not summary:
-      td.append(detail)
-      return tr
+      td_tag.append(detail)
+      return tr_tag
 
     # pylint: disable=bad-continuation
     collapse_html = ('collapse {decorator}'
@@ -594,9 +599,9 @@ class HtmlRenderer(JournalProcessor):
     hide_span = document_manager.make_tag_container(
           'span', [hide, detail], class_=css_class, **detail_tag_attrs)
 
-    td.append(show_span)
-    td.append(hide_span)
-    return tr
+    td_tag.append(show_span)
+    td_tag.append(hide_span)
+    return tr_tag
 
   def render_message(self, message):
     """Default method for rendering a JournalMessage into HTML."""
