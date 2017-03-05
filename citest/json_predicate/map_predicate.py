@@ -145,8 +145,13 @@ class MapPredicateResult(SequencedPredicateResult):
     self.__obj_list = obj_list
     self.__good_map = good_map
     self.__bad_map = bad_map
+
+    # When we snapshot, dont show all the results
+    # These are redundant with the good/bad breakout that we'll add.
+    # Having both can get pretty large.
     super(MapPredicateResult, self).__init__(
-        valid=valid, pred=pred, results=all_results, **kwargs)
+        valid=valid, pred=pred, results=all_results,
+        keep_results_attribute_in_snapshot=False, **kwargs)
 
   def __eq__(self, result):
     return (super(MapPredicateResult, self).__eq__(result)
