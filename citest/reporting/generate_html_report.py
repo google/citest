@@ -30,6 +30,7 @@ To only generate the HTML files, invoke with --noindex.
 
 import argparse
 import os
+import resource
 import sys
 
 from citest.reporting.html_renderer import HtmlRenderer
@@ -74,12 +75,12 @@ def build_index(journal_list):
     processor.process(journal)
   processor.terminate()
 
-  tr = document_manager.make_tag_container(
+  tr_tag = document_manager.make_tag_container(
       'tr',
       [document_manager.make_tag_text('th', name)
        for name in processor.output_column_names])
   table = document_manager.make_tag_container(
-      'table', [tr], style='font-size:12pt')
+      'table', [tr_tag], style='font-size:12pt')
   document_manager.wrap_tag(table)
 
   document_manager.build_to_path('index.html')
@@ -106,6 +107,8 @@ def main(argv):
                       help='Generate HTML report for each journal.')
   parser.add_argument('--nohtml', dest='html', action='store_false',
                       help='Do not genreate an HTML report for the journals.')
+  parser.add_argument('--show_memory', default=False, action='store_true',
+                      help='Show how much memory we needed.')
 
   options = parser.parse_args(argv[1:])
 
@@ -115,6 +118,10 @@ def main(argv):
 
   if options.index and len(options.journals) > 1:
     build_index(options.journals)
+
+  if options.show_memory:
+    usage = resource.getrusage(resource.RUSAGE_SELF)
+    print 'Memory Usage (RSS): %dMiB' % (usage.ru_maxrss / (1024 * 1024))
 
 
 if __name__ == '__main__':

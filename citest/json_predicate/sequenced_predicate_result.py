@@ -58,8 +58,9 @@ class SequencedPredicateResult(PredicateResult, CloneableWithNewSource):
       builder.make(result_entity, '[{0}]'.format(index), result,
                    relation=builder.determine_valid_relation(result),
                    summary=result.summary)
-    builder.make(entity, 'Results', result_entity,
-                 relation=builder.determine_valid_relation(self))
+    if self.__keep_results_attribute_in_snapshot:
+      builder.make(entity, 'Results', result_entity,
+                   relation=builder.determine_valid_relation(self))
     super(SequencedPredicateResult, self).export_to_json_snapshot(
         snapshot, entity)
 
@@ -67,6 +68,8 @@ class SequencedPredicateResult(PredicateResult, CloneableWithNewSource):
     return '{0}'.format(self.__results)
 
   def __init__(self, valid, pred, results, **kwargs):
+    self.__keep_results_attribute_in_snapshot = kwargs.pop(
+        'keep_results_attribute_in_snapshot', True)
     super(SequencedPredicateResult, self).__init__(valid, **kwargs)
     self.__pred = pred
     self.__results = results

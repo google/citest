@@ -31,6 +31,8 @@ class MyTag(object):
   """
   # pylint: disable=too-few-public-methods
 
+  __slots__ = ['__name', '__attrs', '__parts', 'string']
+
   def __init__(self, name, **kwargs):
     """Construct a tag
 
@@ -76,6 +78,9 @@ class MyDocFragment(object):
   The class is a more efficient implementation that runs in 25% of the time
   (but still about 2.5x longer than hand-constructing HTML).
   """
+
+  __slots__ = ['__parts']
+
   def __init__(self, html):
     """Construct fragment from initial HTML.
 
@@ -111,6 +116,8 @@ class MyStringFragment(object):
   This corresponds to NavigableText.
   """
   # pylint: disable=too-few-public-methods
+
+  __slots__ = ['__html']
 
   def __init__(self, text):
     self.__html = cgi.escape(text)
@@ -464,7 +471,12 @@ class HtmlDocumentManager(object):
 
   def append_tag(self, tag):
     """Accumulate a tag into the document body."""
-    self.__body_tags.append(tag)
+    # NOTE(ewiseblatt): 20170302
+    # Appending as a str is a memory optimization
+    # (probably by substantially reducing lots of little objects)
+    # However if we need to manipulate the tags in the future, then
+    # this would need to remain as a tag.
+    self.__body_tags.append(str(tag))
 
   def wrap_tag(self, tag):
     """Wrap the tag around the accumulated tags, and accumulate it."""
