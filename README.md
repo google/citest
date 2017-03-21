@@ -4,7 +4,7 @@ writing integration tests against the REST style APIs typically used by
 cloud services.
 
 The gist is to allow tests to be written using a literary programming style
-where the core framework accomodates for asynchronous calls and even retries
+where the core framework accommodates for asynchronous calls and even retries
 if appropriate.
 
 
@@ -143,6 +143,7 @@ json_predicate | Introduces a means to locate and attributes within JSON objects
 service_testing | Introduces the core framework, base classes, and generic utilities.
 aws_testing | Specializations and extensions to support testing on Amazon Web Services (AWS)
 gcp_testing | Specializations and extensions to support testing on Google Cloud Platform (GCP)
+openstack_testing | Specializations and extensions to support testing on OpenStack
 tests | Tests for this package
 
 
@@ -169,10 +170,9 @@ See the CONTRIBUTING file for more information.
 
 See the LICENSE file for more information.
 
-The package is composed of several subpackages of indivual modules.
+The package is composed of several subpackages of individual modules.
 
 
 # Contact Info
 
 For more information, problems, or interest, contact ewiseblatt@google.com.
-
