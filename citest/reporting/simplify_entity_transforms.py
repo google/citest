@@ -214,10 +214,8 @@ class ObservationVerifyResultLabelValueTransformer(EdgeLabelValueTransformer):
   single result.
   """
 
-  def __init__(self, entity, entity_manager):
-    """Constructor."""
-    super(ObservationVerifyResultLabelValueTransformer, self).__init__(
-        entity, entity_manager)
+  def __determine_observed_single(self, entity, entity_manager):
+    """Determine whether the entity observed a single object."""
     observations = self._find_edge(self.entity, 'Observation')
     objects = None
     if observations is not None:
@@ -226,20 +224,42 @@ class ObservationVerifyResultLabelValueTransformer(EdgeLabelValueTransformer):
       # and get the value to determine how big the list of observations was.
       entity_id = observations.get('_to')
       if entity_id is not None:
-        observation_entity = self.entity_manager.lookup_entity_with_id(
+        observation_entity = entity_manager.lookup_entity_with_id(
             entity_id)
         objects_entity = self._find_edge(observation_entity, 'Objects')
         objects = (None if objects_entity is None
                    else objects_entity.get('_value'))
-    self.__observed_single = isinstance(objects, list) and len(objects) == 1
+    return isinstance(objects, list) and len(objects) == 1
+
+  def __determine_good_and_bad(self, entity):
+    # Track whether we have both good and bad results.
+    # We'll simplify or prune labels if only one or the other
+    num_good = len((self._find_edge(self.entity, 'Good Results') or {}).get('_value', []))
+    num_bad = len((self._find_edge(self.entity, 'Bad Results') or {}).get('_value', []))
+    total_results = num_good + num_bad
+    good_and_bad = num_good != 0 and num_bad != 0
+    return total_results, good_and_bad
+
+  def __init__(self, entity, entity_manager):
+    """Constructor."""
+    super(ObservationVerifyResultLabelValueTransformer, self).__init__(
+        entity, entity_manager)
+
+    self.__observed_single = self.__determine_observed_single(
+        entity, entity_manager)
+    self.__total_results, self.__good_and_bad = self.__determine_good_and_bad(
+        entity)
 
   def __call__(self, edge):
     """Implements EdgeLabelValueTransformer."""
     label, value = super(
         ObservationVerifyResultLabelValueTransformer, self).__call__(edge)
-    if self.__observed_single:
-      if label == 'Good Results' or label == 'Bad Results':
-        return ('Result', value[0]) if value else (None, value)
+
+    if (label == 'Good Results' or label == 'Bad Results'):
+      if isinstance(value, list) and len(value) == 1:
+        value = value[0]
+      if not self.__good_and_bad:
+        return ('Result', value)
 
     return label, value
 
