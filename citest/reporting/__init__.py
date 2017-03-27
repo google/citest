@@ -42,5 +42,10 @@ from .html_document_manager import HtmlDocumentManager
 # can be placed into HTML documents using the html_document_manager.
 from .html_renderer import HtmlRenderer
 
+# The Dump renderer translates journal entries into text fragments that
+# are meant to support debugging journal entries as opposed to reading
+# them to debug tests (in a TextRenderer).
+from .dump_renderer import DumpRenderer
+
 # Top level function for converting a journal into HTML.
 from .generate_html_report import journal_to_html
