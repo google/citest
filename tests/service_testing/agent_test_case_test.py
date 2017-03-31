@@ -15,13 +15,14 @@
 # pylint: disable=missing-docstring
 # pylint: disable=invalid-name
 
+from argparse import ArgumentParser
 import unittest
 
 import citest.service_testing.agent_test_case as agent_test_case
 import citest.service_testing as st
 import citest.json_contract as jc
 
-from citest.base import ExecutionContext
+from citest.base import (ExecutionContext, ConfigurationBindingsBuilder)
 from fake_agent import (
     FakeAgent,
     FakeOperation,
@@ -166,7 +167,48 @@ class AgentTestCaseTest(st.AgentTestCase):
         succeed=False, with_callbacks=True, with_context=False)
 
 
+class TestScenario(st.AgentTestScenario):
+  @classmethod
+  def initArgumentParser(cls, parser, defaults=None):
+    super(TestScenario, cls).initArgumentParser(parser, defaults=defaults)
+    cls.iap_calls.append((parser, defaults))
+
+  @classmethod
+  def init_bindings_builder(cls, builder, defaults=None):
+    super(TestScenario, cls).init_bindings_builder(
+        builder, defaults=defaults)
+    cls.ibb_calls.append((builder, defaults))
+
+
+class AgentTestScenarioTest(unittest.TestCase):
+  def test_init_argument_parser(self):
+    parser = ArgumentParser()
+    defaults = {'a': 'A'}
+
+    class ArgParserScenario(TestScenario):
+      iap_calls = []
+      ibb_calls = []
+
+    with self.assertRaises(NotImplementedError):
+      ArgParserScenario.initArgumentParser(parser, defaults=defaults)
+    self.assertEquals([], ArgParserScenario.iap_calls)
+    self.assertEquals([], ArgParserScenario.ibb_calls)
+
+  def test_init_bindings_builder(self):
+    builder = ConfigurationBindingsBuilder()
+    defaults = {'a': 'A'}
+
+    class BindingsBuilderScenario(TestScenario):
+      iap_calls = []
+      ibb_calls = []
+
+    BindingsBuilderScenario.init_bindings_builder(builder, defaults=defaults)
+    self.assertEquals(1, len(BindingsBuilderScenario.iap_calls))
+    self.assertEquals(builder, BindingsBuilderScenario.iap_calls[0][0])
+
+    self.assertEquals(1, len(BindingsBuilderScenario.ibb_calls))
+    self.assertEquals(builder, BindingsBuilderScenario.ibb_calls[0][0])
+    
+
 if __name__ == '__main__':
-  loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(AgentTestCaseTest)
-  unittest.TextTestRunner(verbosity=2).run(suite)
+  unittest.main()

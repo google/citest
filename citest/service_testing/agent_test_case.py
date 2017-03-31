@@ -32,6 +32,7 @@ but can be changed with --log_filename and --log_dir.
 
 # Standard python modules.
 from multiprocessing.pool import ThreadPool
+import argparse
 import logging
 import os
 import time
@@ -303,19 +304,34 @@ class AgentTestScenario(object):
     return args_util.replace(text, self.__bindings)
 
   @classmethod
-  def initArgumentParser(cls, parser, defaults=None):
+  def initArgumentParser(cls, builder, defaults=None):
     """Adds arguments introduced by the BaseTestCase module.
-
     Args:
-      parser: [argparse.ArgumentParser] Instance to add to.
+      builder: [citest,base.ConfigurationBindingsBuilder] Builder to add to.
     """
-    logger = logging.getLogger(__name__)
-    logger.warning('%s called DEPRECATED initArgumentParser\n'
-                   'Use init_bindings_builder instead.' % cls.__name__)
-    if not isinstance(parser, ConfigurationBindingsBuilder):
-      # if we're already an instance then we've already redirected.
-      # parser has enough builder API so should be drop in replacement.
-      cls.init_bindings_builder(parser, defaults=defaults)
+    if isinstance(builder, argparse.ArgumentParser):
+      # We still need this function because the spinnaker tests pass it as
+      # an initializer. However it should only be called internally, and the
+      # internal calls pass in a ConfigurationBindingsBuilder as part of
+      # migrating away from this api and to init_bindings_builder.
+      raise NotImplementedError('initArgumentParser is no longer supported.'
+                                'Call init_bindings_builder instead.')
+
+    # if we're already an instance then we've already redirected.
+    # parser has enough builder API so should be drop in replacement.
+    #
+    # HACK(ewiseblatt): 20170330
+    # These two methods call each other. We're going to ensure they are
+    # both called regardless of the order by adding temporary hack variables
+    # into the class. We shouldnt need to worry about thread safety/concurrent
+    # calls here because initialization is single threaded.
+    # The intent is to remove this function however most of the Spinnaker tests
+    # still call it for initialization so we want to preserve backward
+    # compatability while transitioning.
+    if not hasattr(cls, 'hack_in_init_bindings'):
+      cls.hack_in_init_parser = True
+      cls.init_bindings_builder(builder, defaults=defaults)
+      delattr(cls, 'hack_in_init_parser')
 
   @classmethod
   def init_bindings_builder(cls, builder, defaults=None):
@@ -324,10 +340,17 @@ class AgentTestScenario(object):
     Args:
       builder: [citest,base.ConfigurationBindingsBuilder] Instance to add to.
     """
-    if (getattr(cls, 'initArgumentParser')
-        and (cls.initArgumentParser.im_func
-             != AgentTestScenario.initArgumentParser.im_func)):
+    if (hasattr(cls, 'initArgumentParser')
+        and not hasattr(cls, 'hack_in_init_parser')):
+      # HACK(ewiseblatt): 20170330
+      # These two methods call each other. We're going to ensure they are
+      # both called regardless of the order by adding temporary hack variables
+      # into the class. We shouldnt need to worry about thread safety/concurrent
+      # calls here because initialization is single threaded.
+      # The intent is to remove the initArgumentParser calls longer term.
+      cls.hack_in_init_bindings = True
       cls.initArgumentParser(builder, defaults=defaults)
+      delattr(cls, 'hack_in_init_bindings')
 
     defaults = defaults or {}
     builder.add_argument(
