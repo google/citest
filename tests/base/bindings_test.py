@@ -151,6 +151,22 @@ class ConfigurationBindingsTest(unittest.TestCase):
                        (bindings, 'has_default')],
                       lazy_evaluator.called_with_bk)
 
+  def test_lazy_overrides_removes_None_override(self):
+    lazy_evaluator = TestLazyEvaluator()
+
+    builder = ConfigurationBindingsBuilder()
+    builder.set_override('overriden', None)
+    builder.set_override('has_default', 'have')
+    builder.add_lazy_initializer('overriden', lazy_evaluator)
+    builder.add_lazy_initializer('has_default', lazy_evaluator)
+    builder.add_lazy_initializer('lazy', lazy_evaluator)
+    builder.set_override('lazy', None)
+
+    bindings = builder.build()
+    self.assertEquals(1, bindings.get('overriden'))
+    self.assertEquals('have', bindings.get('has_default'))
+    self.assertIsNone(bindings.get('lazy')) # because we overrode it
+
   def test_contains(self):
     lazy_evaluator = TestLazyEvaluator()
     builder = ConfigurationBindingsBuilder()

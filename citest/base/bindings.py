@@ -123,7 +123,12 @@ class ConfigurationBindings(object):
       key: [string] The key to add (or replace)
       initializer: [callable] The initializer.
     """
-    self.__lazy_initializers[key] = initializer
+    normalized_key = _normalize_key(key)
+    if (self.__overrides.get(normalized_key) is None
+        and normalized_key in self.__overrides):
+      del(self.__overrides[normalized_key])
+
+    self.__lazy_initializers[normalized_key] = initializer
 
   def get_section_bindings(self, section):
     """Returns a new instance restrained to a particular section.
@@ -317,7 +322,11 @@ class ConfigurationBindingsBuilder(object):
       name: [string] The key for the initializer.
       func: [value (bindings, key)] function.
     """
-    self.__lazy_initializers[_normalize_key(name)] = func
+    normalized_key = _normalize_key(name)
+    if (self.__overrides.get(normalized_key) is None
+        and normalized_key in self.__overrides):
+      del self.__overrides[normalized_key]
+    self.__lazy_initializers[normalized_key] = func
 
   def update_lazy_initializers(self, values):
     """Add a collection of lazy initializers.
