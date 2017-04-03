@@ -43,6 +43,8 @@ class ConfigurationBindings(object):
     Overrides - These are explicit values injected at runtime.
        They could be from flags or other explicit API calls.
     ConfigParser - These are values read from configuration files[*].
+    LazyInitializers - These are values derived from injected functions.
+       The functions compute the value only if/when it is first accessed.
     Defaults - These are static default values if not found in a configuration
        file.
 
@@ -50,6 +52,14 @@ class ConfigurationBindings(object):
   The ConfigParser has an additional hierarchy of sections. If the instance
   section attribute is set, then only that section in the ConfigParser will be
   considered. The Defaults are implemented as part of the ConfigParser
+
+  The LazyInitializers are computed by an added function with the signature
+      value function(bindings, key)
+  where the <function> returns the desired <value> for the desired <key>
+  while considering other related <bindings>. The function may indirectly
+  add additional binding values as a side effect of attempting to access
+  other values that have lazy initializers, thus the functions should not
+  form a cycle.
 
   Bindings are typically collected and assembled by a
   ConfigurationBindingsBuilder.
@@ -65,31 +75,55 @@ class ConfigurationBindings(object):
     """Returns the underlying overrides dictionary."""
     return self.__overrides
 
-  def __init__(self, config_parser, overrides, section=None):
+  def __init__(self, config_parser, overrides,
+               lazy_initializers=None, defaults=None, section=None):
     """Construct a bindings instance.
 
     Args:
       config_parser: [ConfigParser] Retrieves values from configuration files.
       overrides: [dict] Values that override anything found in config_parser.
+      lazy_initializers: [dict] Values that are initialized on demand.
+      defaults[dict]: Default values if not otherwise determined.
       section: [string] Section to constrain ConfigParser to.
     """
     self.__config_parser = config_parser
-    self.__overrides = overrides
+    self.__overrides = overrides or {}
+    self.__lazy_initializers = lazy_initializers or {}
+    self.__defaults = defaults or {}
     self.__section = section
 
   def __str__(self):
-    return repr(self)
+    return self.__to_string(False)
 
   def __repr__(self):
+    return self.__to_string(True)
+
+  def __to_string(self, lazy_eval):
     configs = {}
     for section in self.__config_parser.sections():
       values = {key: self.__config_parser.get(section, key)
                 for key in self.__config_parser.options(section)}
       configs[section] = values
-    return ('configs={configs!r} defaults={defaults!r}, overrides={overrides!r}'
-            .format(configs=configs,
-                    defaults=self.__config_parser.defaults(),
-                    overrides=self.__overrides))
+
+    parts = [
+        'configs={!r}'.format(configs),
+        'config_defaults={!r}'.format(self.__config_parser.defaults()),
+        'overrides={!r}'.format(self.__overrides),
+        'lazy={!r}'.format({key: self.__lazy_initializers[key](self, key)
+                                 if lazy_eval
+                                 else self.__lazy_initializers[key]
+                            for key in self.__lazy_initializers.keys()}),
+        'defaults={!r}'.format(self.__defaults)]
+    return ' '.join(parts)
+
+  def add_lazy_initializer(self, key, initializer):
+    """Add to the existing lazy initializers.
+
+    Args:
+      key: [string] The key to add (or replace)
+      initializer: [callable] The initializer.
+    """
+    self.__lazy_initializers[key] = initializer
 
   def get_section_bindings(self, section):
     """Returns a new instance restrained to a particular section.
@@ -98,7 +132,8 @@ class ConfigurationBindings(object):
       section: [string] The section in the configuration files to restrict to.
     """
     return ConfigurationBindings(
-        self.__config_parser, overrides=self.__overrides, section=section)
+        self.__config_parser, overrides=self.__overrides,
+        lazy_initializers=self.__lazy_initializers, section=section)
 
   def __setitem__(self, name, value):
     """Override a binding values."""
@@ -108,7 +143,10 @@ class ConfigurationBindings(object):
     """Determine if a binding name is defined."""
 
     key = _normalize_key(name)
-    if key in self.__overrides or key in self.__config_parser.defaults():
+    if (key in self.__overrides
+        or key in self.__lazy_initializers
+        or key in self.__defaults
+        or key in self.__config_parser.defaults()):
       return True
 
     all_sections = ([self.__section]
@@ -159,7 +197,17 @@ class ConfigurationBindings(object):
       if self.__config_parser.has_option(section, key):
         return self.__config_parser.get(section, key) or default_value
 
-    return self.__config_parser.defaults().get(key, default_value)
+    lazy_init = self.__lazy_initializers.get(key)
+    if lazy_init is not None:
+      lazy_value = lazy_init(self, key)
+      if lazy_value is not None:
+        self.__overrides[key] = lazy_value
+        return lazy_value
+
+    if key in self.__config_parser.defaults():
+      return self.__config_parser.defaults()[key]
+
+    return self.__defaults.get(key, default_value)
 
 
 class ConfigurationBindingsBuilder(object):
@@ -182,6 +230,18 @@ class ConfigurationBindingsBuilder(object):
     if overrides:
       self.update_overrides(overrides)
 
+  @property
+  def lazy_initializers(self):
+    """Lazy initialization functions for specific keys. See class for more info.
+
+    Returns:
+      dictionary keyed by lazy key value whose value is the initialization
+      function in the form
+         value = func(bindings, key)
+      See class for more info about func
+    """
+    return self.__lazy_initializers
+
   def __init__(self, **kwargs):
     self.__config_files = list(kwargs.pop('default_config_files', []))
     self.__defaults = dict(kwargs.pop('defaults', {}))
@@ -189,6 +249,7 @@ class ConfigurationBindingsBuilder(object):
     self.__kwargs = copy.deepcopy(kwargs)
     self.__visited_for_config = set([])
     self.__arguments = []
+    self.__lazy_initializers = {}
 
     # These dummies are used for validation purposes at the point of API calls.
     # The final build() will recreate the parsers from scratch so they run
@@ -239,10 +300,33 @@ class ConfigurationBindingsBuilder(object):
     """Add a collection of overriden values.
 
     Args:
-      alues: [dict]  All the values to override.
+      values: [dict]  All the values to override.
     """
     self.__overrides.update({_normalize_key(name): value
                              for name, value in values.items()})
+
+  def add_lazy_initializer(self, name, func):
+    """Adds a lazy initialization function for a bindings.
+
+    The lazy function will only be called if the binding is requested
+    but value not yet known. It will not be needed if the value has
+    been provided through some other means, such as a command-line argument
+    or an override.
+
+    Args:
+      name: [string] The key for the initializer.
+      func: [value (bindings, key)] function.
+    """
+    self.__lazy_initializers[_normalize_key(name)] = func
+
+  def update_lazy_initializers(self, values):
+    """Add a collection of lazy initializers.
+
+    Args:
+      values: [dict]  All the lazy initializers to add.
+    """
+    self.__lazy_initializers.update({_normalize_key(name): value
+                                     for name, value in values.items()})
 
   def add_config_file(self, path):
     """Explicitly add a configuration file to the bindings.
@@ -321,7 +405,7 @@ class ConfigurationBindingsBuilder(object):
       parser.add_argument(arg[0], **arg[1])
     options = parser.parse_known_args()
 
-    config_parser = ConfigParser.RawConfigParser(defaults=self.__defaults)
+    config_parser = ConfigParser.RawConfigParser()
     config_parser.read(self.__config_files)
     flags = {}
     flags.update(vars(options[0]))
@@ -332,7 +416,10 @@ class ConfigurationBindingsBuilder(object):
                   for key, value in self.__overrides.items()})
 
     bindings = ConfigurationBindings(
-        config_parser, overrides=flags, section=section)
+        config_parser, overrides=flags,
+        lazy_initializers=self.__lazy_initializers,
+        defaults=self.__defaults,
+        section=section)
     return bindings
 
   def _exists(self, path):

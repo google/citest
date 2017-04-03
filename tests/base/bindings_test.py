@@ -22,6 +22,26 @@ from citest.base.bindings import (
     ConfigurationBindingsBuilder)
 
 
+class TestLazyEvaluator(object):
+  """Callable for testing lazy initialization.
+
+  Generates values and keeps track of call sequence.
+  Contains a special key "implied" that "lazy" key depends on to test
+  evaluators with side effects.
+  """
+
+  def __init__(self):
+    self.called_with_bk = []  # tuple of (bindings, key)
+
+  def __call__(self, bindings, key):
+    if key == 'lazy':
+      if bindings.get('implied'):
+        pass  # Forcing side-effect initialization of another key.
+
+    self.called_with_bk.append((bindings, key))
+    return len(self.called_with_bk)
+
+
 class ConfigurationBindingsTest(unittest.TestCase):
   def test_not_found(self):
     bindings = ConfigurationBindingsBuilder().build()
@@ -104,9 +124,57 @@ class ConfigurationBindingsTest(unittest.TestCase):
     finally:
       sys.argv = orig_argv
 
+  def test_lazy_initializer(self):
+    lazy_evaluator = TestLazyEvaluator()
+    builder = ConfigurationBindingsBuilder()
+    builder.add_lazy_initializer('lazy', lazy_evaluator)
+    builder.add_lazy_initializer('implied', lazy_evaluator)
+    builder.add_lazy_initializer('overriden', lazy_evaluator)
+    builder.add_lazy_initializer('has_default', lazy_evaluator)
+    builder.set_default('has_default', 'default')
+
+    bindings = builder.build()
+    self.assertEqual(2, bindings['lazy'])
+    self.assertEqual(1, bindings['IMPLIED'])  # already initialized
+
+    bindings['overriden'] = 'Hello'
+    self.assertEquals('Hello', bindings['overriden'])
+
+    # Default is lower precedence than lazy initializer
+    self.assertEquals(3, bindings['has_default'])
+
+    with self.assertRaises(KeyError):
+      self.assertIsNotNone(bindings['missing'])
+
+    self.assertEquals([(bindings, 'implied'),
+                       (bindings, 'lazy'),
+                       (bindings, 'has_default')],
+                      lazy_evaluator.called_with_bk)
+
+  def test_contains(self):
+    lazy_evaluator = TestLazyEvaluator()
+    builder = ConfigurationBindingsBuilder()
+    builder.add_lazy_initializer('lazy', lazy_evaluator)
+    builder.add_lazy_initializer('shared', lazy_evaluator)
+    builder.add_configs_for_class(ConfigurationBindingsTest)
+    builder.set_override('shared', 'OverridenValue')
+    builder.set_override('overriden', 'OverridenValue')
+    builder.set_default('default', 'DefaultValue')
+
+    bindings = builder.build()
+    self.assertTrue('lazy' in bindings)
+    self.assertTrue('shared' in bindings)
+    self.assertTrue('overriden' in bindings)
+    self.assertTrue('default' in bindings)
+    self.assertTrue('DeFaUlT' in bindings)
+    self.assertTrue('read_configuration_bindings_test' in bindings)
+    self.assertTrue('tests_base_param' in bindings)
+
+    self.assertFalse('missing' in bindings)
+
+    self.assertEquals([], lazy_evaluator.called_with_bk)
+    self.assertFalse('implied' in bindings)
+
 
 if __name__ == '__main__':
-  # pylint: disable=invalid-name
-  loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(ConfigurationBindingsTest)
-  unittest.TextTestRunner(verbosity=2).run(suite)
+  unittest.main()
