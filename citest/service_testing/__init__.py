@@ -45,7 +45,7 @@ from cli_agent import (
     CliRunStatus)
 
 
-# The cli_agent module implements an agent that uses HTTP messaging.
+# The http_agent module implements an agent that uses HTTP messaging.
 from http_agent import (
     HttpAgent,
     HttpDeleteOperation,

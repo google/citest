@@ -59,6 +59,7 @@ the following names and concepts:
      of interest from a testing perspective.
 """
 
+import datetime
 import json
 import types
 
@@ -398,6 +399,9 @@ class JsonSnapshotHelper(object):
 
     if isinstance(value, types.LambdaType):
       return 'Lambda "{0}"'.format(value.func_name)
+
+    if isinstance(value, datetime.datetime):
+      return value.isoformat()
 
     raise TypeError(
         '{0} is not implicitly JsonSnapshotable: {1!r}'.format(

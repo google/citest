@@ -200,13 +200,16 @@ class ObservationVerifyResult(predicate.PredicateResult):
         snapshot, entity)
     builder = snapshot.edge_builder
     builder.make_input(entity, 'Observation', self.__observation)
-    builder.make(entity, 'Failed Constraints', self.__failed_constraints)
-    edge = builder.make(entity, 'Good Results', self.__good_results)
-    if self.__good_results:
-      edge.add_metadata('relation', 'VALID')
-    edge = builder.make(entity, 'Bad Results', self.__bad_results)
-    if self.__bad_results:
-      edge.add_metadata('relation', 'INVALID')
+    if self.__failed_constraints != []:
+      builder.make(entity, 'Failed Constraints', self.__failed_constraints)
+    if self.__good_results != []:
+      edge = builder.make(entity, 'Good Results', self.__good_results)
+      if self.__good_results:
+        edge.add_metadata('relation', 'VALID')
+    if self.__bad_results != []:
+      edge = builder.make(entity, 'Bad Results', self.__bad_results)
+      if self.__bad_results:
+        edge.add_metadata('relation', 'INVALID')
 
   def __str__(self):
     return '{0} Observed {1} good and {2} bad.'.format(

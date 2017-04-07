@@ -529,12 +529,14 @@ class AgentTestCase(BaseTestCase):
           use the default tracing. The intent here is to be able to crank up
           the tracing when needed but not be overwhelmed by data when the
           default tracing is typically sufficient.
+      poll_every_secs: [int] Number of seconds between wait polls. Default=1.
     """
     if context is None:
       context = ExecutionContext()
     timeout_ok = kwargs.pop('timeout_ok', False)
     max_retries = kwargs.pop('max_retries', 0)
     retry_interval_secs = kwargs.pop('retry_interval_secs', 5)
+    poll_every_secs = kwargs.pop('poll_every_secs', 1)
     full_trace = kwargs.pop('full_trace', False)
     if kwargs:
       raise TypeError('Unrecognized arguments {0}'.format(kwargs.keys()))
@@ -572,7 +574,7 @@ class AgentTestCase(BaseTestCase):
         attempt_info = execution_trace.new_attempt()
         status = None
         status = test_case.operation.execute(agent=self.testing_agent)
-        status.wait(trace_every=full_trace)
+        status.wait(poll_every_secs=poll_every_secs, trace_every=full_trace)
 
         summary = status.error or ('Operation status OK' if status.finished_ok
                                    else 'Operation status Unknown')
