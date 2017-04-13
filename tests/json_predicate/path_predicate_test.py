@@ -398,6 +398,26 @@ class JsonPathPredicateTest(unittest.TestCase):
         pred_result.valid_candidates)
     self.assertEqual([], pred_result.path_failures)
 
+  def test_path_conjunction(self):
+    context = ExecutionContext()
+    text = 'x=X, a=A, b=B, z=Z'
+    aA = jp.STR_SUBSTR('a=A')
+    bB = jp.STR_SUBSTR('b=B')
+    conjunction = jp.AND([aA, bB])
+    pred = PathPredicate('value', conjunction)
+    source = {'value': text, 'wrong': 'a=A', 'another': 'b=B'}
+
+    conjunction_result = conjunction(context, text)
+    builder = PathPredicateResultBuilder(source, pred)
+    builder.add_result_candidate(
+        PathValue('value', text),
+        conjunction_result.clone_with_source(source=source,
+                                             base_target_path='value',
+                                             base_value_path='value'))
+    expect = builder.build(True)
+
+    pred_result = pred(context, source)
+    self.assertEqual(expect, pred_result)
 
 if __name__ == '__main__':
   # pylint: disable=invalid-name
