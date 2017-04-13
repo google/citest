@@ -28,7 +28,7 @@ class AwsObjectObserver(jc.ObjectObserver):
     """Construct new observer.
 
     Args:
-      agent: AwsAgent to observe with.
+      agent: AwsCliAgent to observe with.
       args: Command line arguments to pass to aws program.
       filter: If provided, then use this to filter observations.
     """
@@ -71,7 +71,7 @@ class AwsClauseBuilder(jc.ContractClauseBuilder):
 
     Args:
       title: The string title for the clause is only for reporting purposes.
-      gcloud: The AwsAgent to make the observation for the clause to verify.
+      gcloud: The AwsCliAgent to make the observation for the clause to verify.
       retryable_for_secs: Number of seconds that observations can be retried
          if their verification initially fails.
       strict: DEPRECATED flag indicating whether the clauses (added later)
@@ -127,16 +127,16 @@ class AwsClauseBuilder(jc.ContractClauseBuilder):
     return collect_builder
 
 
-class AwsContractBuilder(jc.ContractBuilder):
+class AwsCliContractBuilder(jc.ContractBuilder):
   """Specialized contract builder that facilitates observing AWS."""
 
   def __init__(self, aws):
     """Constructor.
 
     Args:
-      aws: The AwsAgent to use for communicating with AWS.
+      aws: The AwsCliAgent to use for communicating with AWS.
     """
-    super(AwsContractBuilder, self).__init__(
+    super(AwsCliContractBuilder, self).__init__(
         lambda title, retryable_for_secs=0, strict=False:
         AwsClauseBuilder(
             title, aws=aws,

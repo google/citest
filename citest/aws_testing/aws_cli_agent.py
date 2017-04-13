@@ -21,10 +21,10 @@ import json
 import logging
 
 # Our modules.
-from .. import service_testing as st
+import citest.service_testing as st
 
 
-class AwsAgent(st.CliAgent):
+class AwsCliAgent(st.CliAgent):
   """A service_testing.CliAgent that uses the aws tool to interact with AWS.
 
   Attributes:
@@ -50,7 +50,7 @@ class AwsAgent(st.CliAgent):
       region: The AWS region to use by default.
       trace: Whether to trace all I/O by default.
     """
-    super(AwsAgent, self).__init__('aws')
+    super(AwsCliAgent, self).__init__('aws')
     self.__profile = profile
     self.__region = region
     self.trace = trace
@@ -62,7 +62,7 @@ class AwsAgent(st.CliAgent):
     builder.make_control(entity, 'Profile', self.__profile)
     builder.make_control(entity, 'Region', self.__region)
     builder.make_control(entity, 'Trace', self.trace)
-    super(AwsAgent, self).export_to_json_snapshot(snapshot, entity)
+    super(AwsCliAgent, self).export_to_json_snapshot(snapshot, entity)
 
   def build_aws_command_args(self, aws_command, args, aws_module='ec2',
                              profile=None, region=None):
@@ -125,4 +125,3 @@ class AwsAgent(st.CliAgent):
                                        aws_module=aws_module, profile=profile,
                                        region=region)
     return self.run_resource_list_commandline(args, root_key, trace=trace)
-

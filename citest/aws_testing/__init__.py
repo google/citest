@@ -15,5 +15,13 @@
 
 """Citest support modules for testing against Amazon Web Services (AWS)."""
 
-from aws_agent import AwsAgent
-from aws_contract import AwsContractBuilder
+from aws_cli_agent import AwsCliAgent
+from aws_cli_contract import AwsCliContractBuilder
+
+from aws_python_agent import AwsPythonAgent
+from aws_python_contract import AwsPythonContractBuilder
+from aws_python_contract import AwsErrorVerifier
+
+# Deprecated Aliases
+from aws_cli_agent import AwsCliAgent as AwsAgent
+from aws_cli_contract import AwsCliContractBuilder as AwsContractBuilder
