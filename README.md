@@ -144,6 +144,7 @@ service_testing | Introduces the core framework, base classes, and generic utili
 aws_testing | Specializations and extensions to support testing on Amazon Web Services (AWS)
 gcp_testing | Specializations and extensions to support testing on Google Cloud Platform (GCP)
 openstack_testing | Specializations and extensions to support testing on OpenStack
+azure_testing | Specializations and extensions to support testing on Microsoft Azure (AZ)
 tests | Tests for this package
 
 
