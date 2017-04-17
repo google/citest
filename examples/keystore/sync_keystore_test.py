@@ -199,6 +199,56 @@ class SynchronousKeystoreTest(st.AgentTestCase):
     results = contract.verify(context)
     self.assertTrue(results)
 
+  def test_multiple(self):
+    key = self.make_key('MyDictKey')
+    expect_value = {'a': 'A', 'b': 'B', 'c': 'C'}
+    operation = http_agent.HttpPostOperation(
+        title='Writing Key Value',
+        data=json.JSONEncoder().encode(expect_value),
+        path='/put/' + key)
+
+    context = citest.base.ExecutionContext()
+    builder = st.HttpContractBuilder(self.scenario.agent)
+    (builder.new_clause_builder('Check Multiple Key Values using contains_path_eq')
+     .get_url_path('/lookup/' + key)
+     .contains_path_eq('a', 'A')
+     .contains_path_eq('b', 'B'))
+    contract = builder.build()
+    test = st.OperationContract(operation, contract)
+    self.run_test_case(test)
+
+
+  def test_j_just_observe_variants(self):
+    """Example checks a contract without an operation."""
+    key = self.make_key('MyDictKey')
+    context = citest.base.ExecutionContext()
+
+    builder = st.HttpContractBuilder(self.scenario.agent)
+    (builder.new_clause_builder('Check Key Value using contains_path_eq')
+     .get_url_path('/lookup/' + key)
+     .contains_path_eq('a', 'A'))
+
+    # The above is syntactic sugar for this
+    (builder.new_clause_builder('Check Key Value using EXPECT')
+     .get_url_path('/lookup/' + key)
+     .EXPECT(jp.PathPredicate('a', jp.STR_EQ('A'))))
+
+    # Multiple clauses are implicitly anded together.
+    (builder.new_clause_builder('Check Multiple Key Values using contains_path_eq')
+     .get_url_path('/lookup/' + key)
+     .contains_path_eq('a', 'A')
+     .contains_path_eq('b', 'B'))
+
+    # This is a more explicit way to say the above.
+    (builder.new_clause_builder('Check Multiple Key Values using AND')
+     .get_url_path('/lookup/' + key)
+     .EXPECT(jp.PathPredicate('a', jp.STR_EQ('A')))
+     .AND(jp.PathPredicate('b', jp.STR_EQ('B'))))
+
+    contract = builder.build()
+    results = contract.verify(context)
+    self.assertTrue(results)
+
   def test_k_expect_observe_error(self):
     """Example expects the observation itself to fail."""
     key = self.make_key('InvalidKey')
@@ -207,8 +257,7 @@ class SynchronousKeystoreTest(st.AgentTestCase):
     builder = st.HttpContractBuilder(self.scenario.agent)
     (builder.new_clause_builder('Expect Not Found Error')
      .get_url_path('/lookup/' + key)
-     .append_verifier(
-         st.HttpObservationFailureVerifier('Expect 404', 404)))
+     .EXPECT(st.HttpObservationFailureVerifier('Expect 404', 404)))
     contract = builder.build()
     results = contract.verify(context)
     self.assertTrue(results)

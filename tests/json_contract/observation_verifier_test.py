@@ -130,7 +130,7 @@ class ObservationVerifierTest(unittest.TestCase):
           title=i, dnf_verifier=[], result=result)
       verifiers.append(fake_verifier)
       results.append(result)
-      builder.append_verifier(fake_verifier)
+      builder.AND(fake_verifier)
 
     # verify build can work multiple times
     self.assertEqual(builder.build(), builder.build())
@@ -157,7 +157,7 @@ class ObservationVerifierTest(unittest.TestCase):
           title=i, dnf_verifier=[], result=result)
       verifiers.append(fake_verifier)
       results.append(result)
-      builder.append_verifier(fake_verifier)
+      builder.AND(fake_verifier)
 
     # verify build can work multiple times
     self.assertEqual(builder.build(), builder.build())
@@ -184,7 +184,7 @@ class ObservationVerifierTest(unittest.TestCase):
           title=i, dnf_verifier=[], result=result)
       verifiers.append(fake_verifier)
       results.append(result)
-      builder.append_verifier(fake_verifier, new_term=True)
+      builder.OR(fake_verifier)
 
     verifier = builder.build()
     self.assertEqual([verifiers[0:1], verifiers[1:2]], verifier.dnf_verifiers)
@@ -209,7 +209,7 @@ class ObservationVerifierTest(unittest.TestCase):
           title=i, dnf_verifier=[], result=result)
       verifiers.append(fake_verifier)
       results.append(result)
-      builder.append_verifier(fake_verifier, new_term=True)
+      builder.OR(fake_verifier)
 
     verifier = builder.build()
     self.assertEqual([verifiers[0:1], verifiers[1:2]], verifier.dnf_verifiers)

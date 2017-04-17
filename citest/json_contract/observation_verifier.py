@@ -402,19 +402,77 @@ class ObservationVerifierBuilder(JsonSnapshotableEntity):
     super(ObservationVerifierBuilder, self).export_to_json_snapshot(
         snapshot, entity)
 
-  def append_verifier(self, verifier, new_term=False):
-    self.append_verifier_builder(
-        _VerifierBuilderWrapper(verifier), new_term=new_term)
+  def EXPECT(self, verifier):
+    """Starts the verifier expression.
 
-  def append_verifier_builder(self, builder, new_term=False):
-    if new_term and self.__current_builder_conjunction:
+    This starts the first verifier clause. Additional verifiers can be added
+    later by using either AND or OR depending on how to combine them.
+
+    Args:
+       verifier: [ObservationVerifier]
+    Returns:
+       self
+    """
+    if self.__current_builder_conjunction:
+      raise ValueError(
+          'EXPECT (or append_verifier) was already used.'
+          ' Use OR or AND to add more verifiers.')
+
+    if not hasattr(verifier, 'build'):
+      verifier = _VerifierBuilderWrapper(verifier)
+    self.__current_builder_conjunction = [verifier]
+    return self
+
+  def OR(self, verifier):
+    """Starts a new expression containing the verifier.
+
+    The effect of an OR is to say to build a verifier that expects either
+    the previously specified expressions to pass or a new expression
+    consisting of this verifier (and posibly additional ANDed later).
+
+    Args:
+       verifier: [ObservationVerifier]
+    Returns:
+       self
+    """
+    if not hasattr(verifier, 'build'):
+      verifier = _VerifierBuilderWrapper(verifier)
+
+    if self.__current_builder_conjunction:
       self.__dnf_verifier_builders.append(self.__current_builder_conjunction)
-      self.__current_builder_conjunction = None
+      self.__current_builder_conjunction = [verifier]
+    else:
+      self.__current_builder_conjunction = [verifier]
+    return self
+
+  def AND(self, verifier):
+    """Adds the verifier to the current expression.
+
+    If the current expression is empty, then this will be the expression.
+    Otherwise it will AND this verifier to the end of the existing expression.
+    If you want the verifier to start a new expression, see OR().
+
+    Args:
+       verifier: [ObservationVerifier]
+    Returns:
+       self
+    """
+    if not hasattr(verifier, 'build'):
+      verifier = _VerifierBuilderWrapper(verifier)
 
     if not self.__current_builder_conjunction:
-      self.__current_builder_conjunction = [builder]
+      self.__current_builder_conjunction = [verifier]
     else:
-      self.__current_builder_conjunction.append(builder)
+      self.__current_builder_conjunction.append(verifier)
+    return self
+
+  def append_verifier(self, verifier, new_term=False):
+    """Deprecated -- see AND() or OR()."""
+    return self.OR(verifier) if new_term else self.AND(verifier)
+
+  def append_verifier_builder(self, builder, new_term=False):
+    """Deprecated -- see AND() or OR."""
+    return self.OR(builder) if new_term else self.AND(builder)
 
   def build(self):
     if self.__current_builder_conjunction:
