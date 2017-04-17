@@ -68,7 +68,7 @@ class ObservationVerifyResultBuilder(object):
 
     Args:
       has_path_pred_result: [HasPathPredicateResult]  The PredicateResult
-          verified implements HasPathPredicateResult. It indicates which
+          implements HasPathPredicateResult. It indicates which
           particular values were good and bad. The constraint being verified
           is the predicate bound to the result.
     """
@@ -212,18 +212,21 @@ class ObservationVerifyResult(predicate.PredicateResult):
         edge.add_metadata('relation', 'INVALID')
 
   def __str__(self):
-    return '{0} Observed {1} good and {2} bad.'.format(
+    return '{0} Observed {1} good and {2} bad with {3} failed constraints.'.format(
         super(ObservationVerifyResult, self).__str__(),
-        len(self.__good_results), len(self.__bad_results))
+        len(self.__good_results), len(self.__bad_results),
+        len(self.__failed_constraints))
 
   def __repr__(self):
     return ('{0} observation={1!r}'
             '  good_results={2!r}'
-            '  bad_results={3!r}'.format(
+            '  bad_results={3!r}'
+            '  failed_constraints={4!r}'.format(
                 super(ObservationVerifyResult, self).__str__(),
                 self.__observation,
                 self.__good_results,
-                self.__bad_results))
+                self.__bad_results,
+                self.__failed_constraints))
 
   def __eq__(self, state):
     return (super(ObservationVerifyResult, self).__eq__(state)
@@ -336,16 +339,29 @@ class ObservationVerifier(predicate.ValuePredicate):
 
 
 class _VerifierBuilderWrapper(object):
+  """Wraps an existing verifier into a builder.
+
+  This is to simplify the ObservationVerifierBuilder API and implementation.
+  """
   def __init__(self, verifier):
+    """Constructor.
+
+    Args:
+      verifier: [ObservationVerifier] The verifier to wrap.
+    """
     self.__verifier = verifier
 
   def build(self):
+    """Returns the wrapped verifier."""
     return self.__verifier
 
 
 class ObservationVerifierBuilder(JsonSnapshotableEntity):
+  """Builder for an ObservationVerifier."""
+
   @property
   def title(self):
+    """The name of this verifier for reporting purposes."""
     return self.__title
 
   def __eq__(self, builder):
@@ -358,6 +374,11 @@ class ObservationVerifierBuilder(JsonSnapshotableEntity):
             == builder.__current_builder_conjunction)
 
   def __init__(self, title):
+    """Constructor.
+
+    Args:
+      title: [string] The name of this verifier for reporting purposes.
+    """
     self.__title = title
 
     # This is a list of lists acting as a disjunction.
