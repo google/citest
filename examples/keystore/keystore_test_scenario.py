@@ -127,11 +127,15 @@ class KeystoreTestScenario(AgentTestScenario):
 
     log = logging.getLogger(__name__)
     log.info('Forking keystore_server on port %d', port)
-    server = subprocess.Popen(
-        ' '.join(['python',
+    command = ' '.join(['python',
                   os.path.join(os.path.abspath(os.path.dirname(__file__)),
                                'keystore_server.py'),
-                  '--port', str(port), '>&/dev/null']),
+                  '--port', str(port)])
+
+    with open(os.devnull, 'w') as NO_OUTPUT:
+      server = subprocess.Popen(
+        command,
+        stdout=NO_OUTPUT, stderr=NO_OUTPUT,
         preexec_fn=os.setsid,
         shell=True)
 
