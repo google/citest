@@ -115,6 +115,10 @@ use the native platform API rather than calling back into Spinnaker. At least in
 this case, there is no reason to trust Spinnaker since we can perform independent
 verification by obtaining ground truth from the platform itself.
 
+Refer to the [documentation for configuring and running Spinnaker citests]
+(https://github.com/spinnaker/spinnaker/tree/master/testing/citest)
+within [the spinnaker namesake repository](https://github.com/spinnaker/spinnaker/)
+
 ## Example: Configuring the test
 
 Tests will often contain some values that require configuration as opposed to
@@ -550,107 +554,5 @@ class GateTaskStatus(sk.SpinnakerStatus):
               break
 
     self._bind_exception_details(exception_details or gate_exception)
-```
-
-# Appendix
-## Running the Spinnaker Tests
-
-The Spinnaker tests in the repository can serve as examples for citest tests.
-
-To run them, you need to have Spinnaker deployed. See http://spinnaker.io for
-how to do this. A starting point is [Target Deployment Setup]
-(https://spinnaker.readme.io/docs/target-deployment-setup). Citest does not care
-which method you use to deploy or where you deploy. However, different tests are
-testing different providers. You'll need an account with a provider to
-successfully run a test, but you can run tests without a provider and still
-see them fail as long as you can talk to a Spinnaker server.
-
-With the exception of the `bake_and_deploy_test`, which requires special
-configuration of a Jenkins server (described in the test), the tests can all
-be run the same way. A minimum google test looks like this:
-```
-  PYTHONPATH=.:spinnaker \
-  python spinnaker/spinnaker_system/<test> \
-     --native_hostname=<host> \
-     --gce_service_account=<account>
-```
-
-A minimum aws test looks like this:
-```
-  PYTHONPATH=.:spinnaker \
-  python spinnaker/spinnaker_system/<test> \
-     --native_hostname=<host> \
-     --aws_profile=<account>
-```
-
-The `--gce_service_service_account` and `--aws_profile` parameters configure
-the observer with the credentials that it needs.  They require that you have
-added the GCE service account to gcloud using gcloud auth activate-service-account
-or added the AWS credentials for the aws command-line tool to a profile in
-~/.aws/credentials. Note that both these flags are always valid in all the
-spinnaker tests. Also, the credentials parameters can be ommitted if the tools
-are configured with defaults that use the desired accounts already.
-
-If Spinnaker is deployed on GCE then the recommended practice is to tunnel into it
-because the recommended practice for spinnaker deployments is to not expose any
-of the services outside the project for security reasons. If you are not running
-the tests within the same project, then you can use the following parameters
-instead of `--native_hostname` and Spinnaker will use citest to tunnel into the
-server automatically as needed to run the tests. This is particularly convienent
-since you dont have to worry about what ports to forward and citest will map
-unused local ports so that you can run multiple tests concurrently without them
-conflicting, and be assured that you are talking to the exact server you intended,
-and not some other server that you were accidentally tunneled into.
-   `--gce_project=<projectName> --gce_zone=<zone> --gce_instance=<instanceName>`
-If you are not running [ssh-agent](https://en.wikipedia.org/wiki/Ssh-agent) with
-your ssh passphrase added, you can create a file containing the passphrase and
-add it to the test commandline and citest will use it as needed. Be sure to
-`chmod 400` to protect this file.
-
-
-```
-PYTHONPATH=.:spinnaker \
-  python spinnaker/spinnaker_system/google_server_group_test.py \
-  --gce_project=$GCP_PROJECT --gce_zone=$GCE_ZONE --gce_instance=$GCP_INSTANCE \
-  --gce_ssh_passphrase_file=$HOME/.ssh/google_compute_engine.passphrase \
-  --gce_service_account=$GCP_SERVICE_ACCOUNT
-
-PYTHONPATH=.:spinnaker \
-  python spinnaker/spinnaker_system/google_smoke_test.py \
-  --gce_project=$GCP_PROJECT --gce_zone=$GCE_ZONE --gce_instance=$GCP_INSTANCE \
-  --gce_ssh_passphrase_file=$HOME/.ssh/google_compute_engine.passphrase
-  --gce_service_account=$GCP_SERVICE_ACCOUNT
-
-PYTHONPATH=.:spinnaker \
-  python spinnaker/spinnaker_system/google_kato_test.py \
-  --gce_project=$GCP_PROJECT --gce_zone=$GCE_ZONE --gce_instance=$GCP_INSTANCE \
-  --gce_ssh_passphrase_file=$HOME/.ssh/google_compute_engine.passphrase
-  --gce_service_account=$GCP_SERVICE_ACCOUNT
-
-PYTHONPATH=.:spinnaker \
-  python spinnaker/spinnaker_system/aws_kato_test.py \
-  --gce_project=$GCP_PROJECT --gce_zone=$GCE_ZONE --gce_instance=$GCP_INSTANCE \
-  --gce_ssh_passphrase_file=$HOME/.ssh/google_compute_engine.passphrase \
-  --gce_service_account=$GCP_SERVICE_ACCOUNT
-  --aws_profile=$AWS_PROFILE
-
-PYTHONPATH=.:spinnaker \
-  python spinnaker/spinnaker_system/aws_smoke_test.py \
-  --gce_project=$GCP_PROJECT --gce_zone=$GCE_ZONE --gce_instance=$GCP_INSTANCE \
-  --gce_ssh_passphrase_file=$HOME/.ssh/google_compute_engine.passphrase \
-  --gce_service_account=$GCP_SERVICE_ACCOUNT
-  --aws_profile=$AWS_PROFILE
-
-# See test for how to configure Jenkins for this test,
-# and also be sure that spinnaker is configured for your Jenkins server.
-PYTHONPATH=.:spinnaker \
-  python spinnaker/spinnaker_system/bake_and_deploy_test.py \
-  --test_google --test_aws \
-  --jenkins_token=TRIGGER_TOKEN --jenkins_job=TestTriggerProject \
-  --jenkins_url=$JENKINS_URL --jenkins_master=Jenkins \
-  --gce_project=$GCP_PROJECT --gce_zone=$GCE_ZONE --gce_instance=$GCP_INSTANCE \
-  --gce_ssh_passphrase_file=$HOME/.ssh/google_compute_engine.passphrase \
-  --gce_service_account=$GCP_SERVICE_ACCOUNT
-  --aws_profile=$AWS_PROFILE
 ```
 
