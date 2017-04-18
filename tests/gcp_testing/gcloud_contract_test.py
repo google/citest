@@ -104,6 +104,4 @@ class GCloudContractTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-  loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(GCloudContractTest)
-  unittest.TextTestRunner(verbosity=2).run(suite)
+  unittest.main()

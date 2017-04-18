@@ -14,7 +14,6 @@
 
 # pylint: disable=missing-docstring
 
-import json
 import unittest
 from mock import Mock
 
@@ -26,9 +25,7 @@ from citest.json_predicate import (
     KeyedPredicateResultBuilder,
     FieldDifference,
     NUM_GE,
-    PathPredicate,
-    PathValue,
-    PathValueResult)
+    PathPredicate)
 
 from citest.gcp_testing import (
     GcpAgent,
@@ -133,7 +130,8 @@ class GcpQuotaPredicateTest(unittest.TestCase):
 
     mock_service = self.make_mock_service(source, source)
     observer = GcpAgent(service=mock_service, discovery_doc=MOCK_DISCOVERY,
-                        default_variables={'project': 'PROJECT'})
+
+    default_variables={'project': 'PROJECT'})
     project_quota = {'A': 95.0, 'B': 10.0}
     regions = [('region1', project_quota)]
 
@@ -164,7 +162,4 @@ class GcpQuotaPredicateTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-  # pylint: disable=invalid-name
-  loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(GcpQuotaPredicateTest)
-  unittest.TextTestRunner(verbosity=2).run(suite)
+  unittest.main()

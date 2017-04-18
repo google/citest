@@ -130,6 +130,4 @@ class GcpContractTest(st.AgentTestCase):
 
 if __name__ == '__main__':
   new_global_journal_with_path('./gce_contract_test.journal')
-  loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(GcpContractTest)
-  unittest.TextTestRunner(verbosity=2).run(suite)
+  unittest.main()

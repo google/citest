@@ -420,7 +420,4 @@ class JsonPathPredicateTest(unittest.TestCase):
     self.assertEqual(expect, pred_result)
 
 if __name__ == '__main__':
-  # pylint: disable=invalid-name
-  loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(JsonPathPredicateTest)
-  unittest.TextTestRunner(verbosity=2).run(suite)
+  unittest.main()

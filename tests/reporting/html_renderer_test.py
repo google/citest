@@ -18,7 +18,6 @@ import unittest
 
 from citest.base import (JsonSnapshotableEntity, JsonSnapshot)
 from citest.reporting.html_document_manager import HtmlDocumentManager
-from citest.reporting.html_renderer import HtmlRenderer
 from citest.reporting.html_renderer import ProcessToRenderInfo
 from citest.reporting.journal_processor import ProcessedEntityManager
 
@@ -183,6 +182,4 @@ class HtmlRendererTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-  loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(HtmlRendererTest)
-  unittest.TextTestRunner(verbosity=2).run(suite)
+  unittest.main()

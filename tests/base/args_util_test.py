@@ -33,6 +33,4 @@ class ArgsUtilTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-  loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(ArgsUtilTest)
-  unittest.TextTestRunner(verbosity=2).run(suite)
+  unittest.main()

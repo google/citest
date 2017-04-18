@@ -25,7 +25,7 @@ from citest.base import (
     JournalLogger,
     JournalLogHandler,
     Journal)
-from citest.base import RecordInputStream, RecordOutputStream
+from citest.base import RecordInputStream
 from citest.base import set_global_journal
 
 from test_clock import TestClock
@@ -125,6 +125,4 @@ class JournalLoggerTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-  loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(JournalLoggerTest)
-  unittest.TextTestRunner(verbosity=2).run(suite)
+  unittest.main()

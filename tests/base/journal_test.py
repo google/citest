@@ -55,6 +55,7 @@ class TestData(JsonSnapshotableEntity):
 
 
 class TestJournal(Journal):
+
   @property
   def clock(self):
     return self.__clock
@@ -72,6 +73,7 @@ class TestJournal(Journal):
 
 
 class JournalTest(unittest.TestCase):
+
   @staticmethod
   def expect_message_text(_clock, _text, metadata_dict=None):
     entry = {
@@ -141,9 +143,6 @@ class JournalTest(unittest.TestCase):
     expect_obj = decoder.decode(message_json_text)
     got_obj = decoder.decode(input_stream.next())
     self.assertItemsEqual(expect_obj, got_obj)
-      
-      
-
 
   def test_store(self):
     """Verify we store objects as JSON snapshots."""
@@ -202,6 +201,4 @@ class JournalTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-  loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(JournalTest)
-  unittest.TextTestRunner(verbosity=2).run(suite)
+  unittest.main()

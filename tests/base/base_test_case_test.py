@@ -13,16 +13,10 @@
 # limitations under the License.
 
 
-import argparse
-import os.path
-import sys
-import __main__
+import unittest
 
 from citest.base import BaseTestCase
-from citest.base import TestRunner
 
-
-tested_main = False
 
 class BaseTestCaseTest(BaseTestCase):
   def test_logging(self):
@@ -31,8 +25,4 @@ class BaseTestCaseTest(BaseTestCase):
 
 
 if __name__ == '__main__':
-  result = TestRunner.main(test_case_list=[BaseTestCaseTest])
-  if not tested_main:
-     raise Exception("Test Failed.")
-
-  sys.exit(result)
+  unittest.main()

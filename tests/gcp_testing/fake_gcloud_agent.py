@@ -14,7 +14,6 @@
 
 
 import citest.gcp_testing as gcp_testing
-import citest.service_testing as st
 
 
 class FakeGCloudAgent(gcp_testing.GCloudAgent):

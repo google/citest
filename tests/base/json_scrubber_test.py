@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import unittest
-from json import JSONEncoder
 from json import JSONDecoder
 from citest.base import JsonScrubber
 
@@ -111,8 +110,5 @@ class JsonScrubberTest(unittest.TestCase):
     self.assertEqual(expect, decoder.decode(scrubber(original)))
 
 
-
 if __name__ == '__main__':
-  loader = unittest.TestLoader()
-  suite = loader.loadTestsFromTestCase(JsonScrubberTest)
-  unittest.TextTestRunner(verbosity=2).run(suite)
+  unittest.main()
