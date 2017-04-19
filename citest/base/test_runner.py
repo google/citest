@@ -190,9 +190,16 @@ class TestRunner(object):
           to use for bindings.
       test_case_list: If provided, a list of test cases to run.
     """
+    explicit_parser_inits = set(parser_inits or [])
+    implicit_parser_inits = set([])
+    for klass in test_case_list or []:
+      if hasattr(klass, 'init_bindings_builder'):
+        implicit_parser_inits.add(klass.init_bindings_builder)
+
     runner = cls(runner=runner)
     runner.set_default_binding_overrides(default_binding_overrides)
-    runner.set_parser_inits(parser_inits)
+    runner.set_parser_inits(
+        list(explicit_parser_inits.union(implicit_parser_inits)))
     runner.set_config_files(config_files)
 
     # pylint: disable=protected-access
@@ -243,6 +250,19 @@ class TestRunner(object):
                 + '---------------------------\n')
     result = self.run(suite)
 
+    self._terminate_and_flush_journal()
+    return len(result.failures) + len(result.errors)
+
+  def _terminate_and_flush_journal(self):
+    """Helper function to supress when testing.
+
+    This function will terminate the journal. However, the journal
+    is shared with the logging handler so that both write to the same place.
+    When we are testing, we might need to override this so that we can
+    test main() among other functions. We dont want to terminate the journal
+    because in the bigger picture, we need the logger for the remaining tests.
+    """
+    logger = logging.getLogger(__name__)
     if self.__journal:
       # Terminate the journal to close and flush the file.
       # Unbind the global journal so it is no longer referencing here.
@@ -266,8 +286,6 @@ class TestRunner(object):
             os.path.splitext(journal_path)[0]))
       else:
         logger.error('Could not write %s.html\n', journal_path)
-
-    return len(result.failures) + len(result.errors)
 
   def __init__(self, runner=None):
     TestRunner.__global_runner = self
