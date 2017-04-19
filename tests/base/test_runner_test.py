@@ -126,6 +126,9 @@ class TestRunnerTest(BaseTestCase):
     b = TestRunner.get_shared_data(MyData)
     self.assertEquals(a, b)
 
+  def test_default_config_file_bindings(self):
+    """Tests whether the CITEST_CONFIG_PATH bindings are added."""
+
 
 class TestBindingOrParamFixture(BaseTestCase):
   """A Test fixture used to test the TestRunner.
@@ -172,6 +175,15 @@ class TestBindingOrParamFixture(BaseTestCase):
     self.assertEquals('MyTestParamValue', bindings.get('TEST_PARAM'))
     self.assertEquals('MyTestBindingValue', bindings.get('TEST_BINDING'))
 
+  def test_bindings_from_config(self):
+    """Verify bindings from the implied config file in the TestRunner.
+
+    We set the config file in the fixture forking this test.
+    """
+    bindings = TestRunner.global_runner().bindings
+    self.assertEquals('tests/base/bindings_test',
+                      bindings.get('config_location'))
+
 
 class TestParamFixture(TestBindingOrParamFixture):
   """Verify Fixture using initArgumentParser."""
@@ -202,6 +214,10 @@ class TestRunnerTestCase(unittest.TestCase):
 
     test_fixtures = [TestRunnerTest, TestParamFixture, TestBindingsFixture]
     argv = sys.argv
+    old_config = os.environ.get('CITEST_CONFIG_PATH')
+    os.environ['CITEST_CONFIG_PATH'] = os.path.join(
+        os.path.dirname(__file__), 'bindings_test.config')
+
     try:
       in_test_main = True
       sys.argv = [sys.argv[0],
@@ -211,6 +227,10 @@ class TestRunnerTestCase(unittest.TestCase):
     finally:
       in_test_main = False
       sys.argv = argv
+      if old_config:
+        os.environ['CITEST_CONFIG_PATH'] = old_config
+      else:
+        del os.environ['CITEST_CONFIG_PATH']
 
     self.assertEquals(0, result)
     self.assertEquals(call_check, test_fixtures)

@@ -19,6 +19,7 @@ import argparse
 import copy
 import inspect
 import os
+import re
 
 import ConfigParser
 
@@ -30,6 +31,32 @@ def _normalize_key(key):
   be findable. Eventually this should be the identity.
   """
   return key.lower()
+
+
+def _normalize_value(value):
+  """Substitute environment variable references."""
+  if not isinstance(value, basestring):
+    return value
+
+  def replace_var(m):
+      return os.environ.get(m.group(2) or m.group(1), m.group(0))
+  # Either $VAR or ${VAR}, as long as not preceeded by '\'
+  regex = r'(?<!\\)\$(\w+|\{([^}]*)\})'
+
+  return re.sub(regex, replace_var, value)
+
+
+def _normalize_dict_keys(data):
+  """Normalize dictionary keys and values into another dictionary.
+
+  Keys become normalized (lower case) and values have environment
+  variable references replaced with their values..
+
+  Returns:
+    Copy of data with environment variable references expanded.
+  """
+  return {_normalize_key(key): value
+          for key, value in data.items() or {}}
 
 
 class ConfigurationBindings(object):
@@ -47,7 +74,6 @@ class ConfigurationBindings(object):
        The functions compute the value only if/when it is first accessed.
     Defaults - These are static default values if not found in a configuration
        file.
-
 
   The ConfigParser has an additional hierarchy of sections. If the instance
   section attribute is set, then only that section in the ConfigParser will be
@@ -190,7 +216,7 @@ class ConfigurationBindings(object):
     """
     key = _normalize_key(name)
     if key in self.__overrides:
-      return self.__overrides[key]
+      return _normalize_value(self.__overrides[key])
 
     all_sections = ([self.__section]
                     if self.__section
@@ -200,19 +226,20 @@ class ConfigurationBindings(object):
 
     for section in all_sections:
       if self.__config_parser.has_option(section, key):
-        return self.__config_parser.get(section, key) or default_value
+        return _normalize_value(self.__config_parser.get(section, key)
+                                or default_value)
 
     lazy_init = self.__lazy_initializers.get(key)
     if lazy_init is not None:
       lazy_value = lazy_init(self, key)
       if lazy_value is not None:
         self.__overrides[key] = lazy_value
-        return lazy_value
+        return _normalize_value(lazy_value)
 
     if key in self.__config_parser.defaults():
-      return self.__config_parser.defaults()[key]
+      return _normalize_value(self.__config_parser.defaults()[key])
 
-    return self.__defaults.get(key, default_value)
+    return _normalize_value(self.__defaults.get(key, default_value))
 
 
 class ConfigurationBindingsBuilder(object):
@@ -249,8 +276,8 @@ class ConfigurationBindingsBuilder(object):
 
   def __init__(self, **kwargs):
     self.__config_files = list(kwargs.pop('default_config_files', []))
-    self.__defaults = dict(kwargs.pop('defaults', {}))
-    self.__overrides = dict(kwargs.pop('overrides', {}))
+    self.__defaults = _normalize_dict_keys(kwargs.pop('defaults', {}))
+    self.__overrides = _normalize_dict_keys(kwargs.pop('overrides', {}))
     self.__kwargs = copy.deepcopy(kwargs)
     self.__visited_for_config = set([])
     self.__arguments = []
@@ -294,8 +321,7 @@ class ConfigurationBindingsBuilder(object):
     Args:
       default_values: [dict]  All the default values to add.
     """
-    self.__defaults.update({_normalize_key(name): value
-                            for name, value in default_values.items()})
+    self.__defaults.update(_normalize_dict_keys(default_values))
 
   def set_override(self, name, value):
     """Overrides a binding."""
@@ -307,8 +333,7 @@ class ConfigurationBindingsBuilder(object):
     Args:
       values: [dict]  All the values to override.
     """
-    self.__overrides.update({_normalize_key(name): value
-                             for name, value in values.items()})
+    self.__overrides.update(_normalize_dict_keys(values))
 
   def add_lazy_initializer(self, name, func):
     """Adds a lazy initialization function for a bindings.

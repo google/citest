@@ -17,8 +17,10 @@
 import os
 import sys
 import unittest
+import ConfigParser
 
 from citest.base.bindings import (
+    ConfigurationBindings,
     ConfigurationBindingsBuilder)
 
 
@@ -84,6 +86,33 @@ class ConfigurationBindingsTest(unittest.TestCase):
     self.assertEquals('tests/base/bindings_test',
                       bindings.get('config_location'))
 
+  def test_environ_builder_value(self):
+    builder = ConfigurationBindingsBuilder()
+    builder.add_config_file(os.path.join(os.path.dirname(__file__),
+                                         'bindings_test.config'))
+    builder.set_default('up', '$TEST_UP')
+
+    builder.set_override('down', '$TEST_DOWN')
+
+    bindings = builder.build()
+    os.environ['TEST_UP'] = '123'
+    os.environ['TEST_DOWN'] = '321'
+    self.assertEquals(os.environ.get('HOME'), bindings.get('test_home'))
+    self.assertEquals('123', bindings.get('up'))
+    self.assertEquals('321', bindings.get('down'))
+
+  def test_environ_binding_value(self):
+    parser = ConfigParser.RawConfigParser()
+    bindings = ConfigurationBindings(parser, {},
+                                     defaults={'first': '$testFIRST'})
+    bindings['second'] = '$testSECOND'
+    self.assertEquals('$testFIRST', bindings['first'])
+    self.assertEquals('$testSECOND', bindings['second'])
+    os.environ['testFIRST'] = 'first'
+    os.environ['testSECOND'] = 'second'
+    self.assertEquals('first', bindings['first'])
+    self.assertEquals('second', bindings['second'])
+   
   def test_from_file_for_class(self):
     builder = ConfigurationBindingsBuilder()
     builder.add_configs_for_class(ConfigurationBindingsTest)

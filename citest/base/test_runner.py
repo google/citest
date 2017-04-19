@@ -21,6 +21,11 @@ test environment, and delegate to another unittest.TestRunner to run the
 actual tests. This class wraps the delegate by setting up the bindings and
 reporting journal while letting the injected TestRunner perform the actual
 running and standard reporting hooks used by other tools.
+
+There is an experimental feature in which an environment variable
+CITEST_CONFIG_PATH can point to a config file with the default config
+parameters to use. This is likely to change or be removed in the future
+so is not advised to rely on it at this time.
 """
 
 # Standard python modules.
@@ -288,6 +293,7 @@ class TestRunner(object):
         logger.error('Could not write %s.html\n', journal_path)
 
   def __init__(self, runner=None):
+    default_config = os.environ.get('CITEST_CONFIG_PATH')
     TestRunner.__global_runner = self
     self.__delegate = runner or unittest.TextTestRunner(verbosity=2)
     self.__options = None
@@ -297,8 +303,7 @@ class TestRunner(object):
     self.__config_files = []
     self.__default_binding_overrides = {}
     self.__bindings_builder = ConfigurationBindingsBuilder(
-        default_config_files=[os.path.join(os.path.dirname(__file__),
-                                           'base.config')])
+        default_config_files=[default_config] if default_config else [])
 
   def run(self, obj_or_suite):
     """Run tests.
@@ -448,11 +453,22 @@ class TestRunner(object):
     This includes processing command-line arguments to set the bindings in
     the runner, and initializing the reporting journal.
     """
+    # The argparse parser is going to set default values that will override
+    # the config file. That's not what we want. So grab the config file values
+    # as the default values to give to the argparser. The ConfigBindings
+    # will handle all the processing and precedence, so create a private one
+    # for purposes of passing in "default" values while we initialize the
+    # "real" builder we're going to use for the bindings we create.
+    default_config = os.environ.get('CITEST_CONFIG_PATH')
+    init_defaults = ConfigurationBindingsBuilder(
+        default_config_files=[default_config] if default_config else [],
+        defaults=self.default_binding_overrides).build()
+
     for init in self.__parser_inits:
-      init(self.__bindings_builder, defaults=self.default_binding_overrides)
+      init(self.__bindings_builder, defaults=init_defaults)
 
     self.init_bindings_builder(self.__bindings_builder,
-                               defaults=self.default_binding_overrides)
+                               defaults=init_defaults)
     self.__bindings = self.__bindings_builder.build()
     self.start_logging()
 
