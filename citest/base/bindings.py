@@ -39,7 +39,9 @@ def _normalize_value(value):
     return value
 
   def replace_var(m):
-      return os.environ.get(m.group(2) or m.group(1), m.group(0))
+    """helper function"""
+    return os.environ.get(m.group(2) or m.group(1), m.group(0))
+
   # Either $VAR or ${VAR}, as long as not preceeded by '\'
   regex = r'(?<!\\)\$(\w+|\{([^}]*)\})'
 
@@ -56,7 +58,7 @@ def _normalize_dict_keys(data):
     Copy of data with environment variable references expanded.
   """
   return {_normalize_key(key): value
-          for key, value in data.items() or {}}
+          for key, value in (data or {}).items()}
 
 
 class ConfigurationBindings(object):
