@@ -18,9 +18,122 @@ These classes rewrite some of the entities to simplify their reporting
 interpretations to provide a more concise data model.
 """
 
+import copy
+
+
+class PruneEntityTransformer(object):
+  """Transforms a snapshot entity."""
+
+  @property
+  def entity(self):
+    """The SnapshotEntity dictionary bound at construction."""
+    return self.__entity
+
+  @property
+  def entity_manager(self):
+    """The EntityManager bound at construction."""
+    return self.__entity_manager
+
+  @property
+  def valid(self):
+    """Is the entity valid/invalid or None if not applicable."""
+    return self.__valid
+
+  @staticmethod
+  def _find_edge(entity, label_name):
+    """Return the edge with the given label name.
+
+    Args:
+      entity: [dict] The snapshot entity dict
+      label_name: [string] The label name we're looking for.
+    """
+    if entity is None:
+      return None
+    for edge in entity.get('_edges', []):
+      if edge.get('label') == label_name:
+        return edge
+    return None
+
+  @staticmethod
+  def _remove_edge(entity, label_name):
+    """Remove and return the edge with the given label name.
+
+    Args:
+      entity: [dict] The snapshot entity dict
+      label_name: [string] The label name we're looking for.
+    """
+    if entity is None:
+      return None
+    edge_list = entity.get('_edges', [])
+    for index, edge in enumerate(edge_list):
+      if edge.get('label') == label_name:
+        del edge_list[index]
+        return edge
+    return None
+
+  def __init__(self, entity, entity_manager):
+    """Constructor."""
+    self.__entity = entity
+    self.__entity_manager = entity_manager
+    self.__valid = self._find_edge(entity, 'Valid')
+
+  def __call__(self):
+    """Returns transformed entity.
+
+    Args:
+      entity: [dict] The entity dictionary
+
+    Returns:
+      A copy of the entity transformed for abstraction level
+    """
+    return self.__entity
+
+
+class ObservationVerifyResultPruneEntityTransformer(PruneEntityTransformer):
+  """Transformer for ObservationVerifyResult snapshot entities.
+  """
+
+  def __init__(self, entity, entity_manager):
+    """Constructor."""
+    super(ObservationVerifyResultPruneEntityTransformer, self).__init__(
+        entity, entity_manager)
+    self.__good = self._find_edge(entity, 'Good Results')
+    self.__bad = self._find_edge(entity, 'Bad Results')
+    self.__all = self._find_edge(entity, 'Results')
+
+  def __call__(self):
+    """Implements PruneEntityTransformer."""
+    dup = super(
+        ObservationVerifyResultPruneEntityTransformer, self).__call__()
+    if not self.valid:
+      return dup
+    dup = copy.copy(dup)
+    self._remove_edge(dup, 'Bad Results')
+    dup['failed_results_pruned'] = len(self.__bad or [])
+    pruned_all = []
+    for result in self.__all or []:
+      if result.get('relation') == 'INVALID':
+        result = {'relation': 'INVALID',
+                  '_redacted': result.get('_class', 'UNKNOWN')}
+      pruned_all.append(result)
+
+    return dup
+
+
+PRUNE_ENTITY_TRANSFORMER_TYPE = {
+    'type ObservationVerifyResult':
+        ObservationVerifyResultPruneEntityTransformer,
+}
+
+
+def prune_entity(entity, entity_manager):
+  name = entity.get('class', None)
+  return PRUNE_ENTITY_TRANSFORMER_TYPE.get(
+      name, PruneEntityTransformer)(entity, entity_manager)()
+
+
 class EdgeLabelValueTransformer(object):
   """Transforms a snapshot entity edge label and value depending on context.
-
 
   The instance is bound to the original entity and is called with each edge
   to extract the label and value for that edge giving the instance a chance

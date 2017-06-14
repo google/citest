@@ -22,7 +22,18 @@ import datetime
 import json
 
 from .journal_processor import (JournalProcessor, ProcessedEntityManager)
-from .simplify_entity_transforms import get_edge_label_value_transformer
+from .simplify_entity_transforms import (
+    get_edge_label_value_transformer,
+    prune_entity)
+
+class ContainerRelationContext(
+    collections.namedtuple(
+        'ContainerRelationContext', ['container', 'relation'])):
+  """Holds information about the entity parent and its relation.
+
+  This is used to determine whether or not to expand subparts by default.
+  """
+  pass
 
 class RenderedContext(
     collections.namedtuple('RenderedContext', ['control', 'html'])):
@@ -74,7 +85,8 @@ class ProcessToRenderInfo(object):
   """Helper class to convert JSON objets into detail and summary HTML blocks.
   """
 
-  def __init__(self, document_manager, entity_manager):
+  def __init__(self, document_manager, entity_manager,
+               prune=False):
     """Constructor.
 
     Args:
@@ -82,9 +94,13 @@ class ProcessToRenderInfo(object):
          manager is needed to make rendering decisions.
       entity_manager: [ProcessedEntityManager] For access when an entity
          manager is needed to make rendering decisions.
+      prune: [bool] If true, take liberties with pruning the information
+         so that it is more concise and readable for a typical use case
+         of verifying tests passed and investigating why they have not.
     """
     self.__document_manager = document_manager
     self.__entity_manager = entity_manager
+    self.__prune = prune
 
     # The following attributes are used to determine when to render collapsable
     # details vs inline expand for different types of data.
@@ -99,15 +115,6 @@ class ProcessToRenderInfo(object):
     self.max_uncollapsable_metadata_rows = 0  # Num metadata keys.
     self.max_uncollapsable_message_lines = 0  # Always collapse log messages.
     self.max_message_summary_length = 60
-
-  def determine_default_expanded(self, relation):
-    """Determine whether entities should be expanded by default or not.
-
-    Args:
-      relation: [string] The relation to the entity is used as a signal.
-    """
-    # The default policy is to expand verification results and only those.
-    return relation in ['VALID', 'INVALID']
 
   def __html_info_to_tr_tag(self, title_html, info,
                             relation=None, default_expanded=None):
@@ -134,8 +141,6 @@ class ProcessToRenderInfo(object):
       if info.detail_block:
         data_tags = [info.detail_block]
     else:
-      if default_expanded is None:
-        default_expanded = self.determine_default_expanded(relation)
       section_id = document_manager.new_section_id()
       detail_tag_attrs, summary_tag_attrs = (
           self.__document_manager.make_expandable_tag_attr_kwargs_pair(
@@ -207,6 +212,7 @@ class ProcessToRenderInfo(object):
       edge: [dict] The JSON encoding of a JsonSnapshot Edge containing the
          value. This is used for hints as to how to interpret the value.
       value: [obj] The value to render.
+      in_relation: [string] The relation that the parent had with grandparent.
 
     Returns:
       HtmlInfo encoding of value.
@@ -226,7 +232,8 @@ class ProcessToRenderInfo(object):
     else:
       return HtmlInfo(self.__document_manager.make_text_block(str(value)))
 
-  def process_list(self, value, snapshot, edge_to_list, default_expanded=None):
+  def process_list(self, value, snapshot, edge_to_list, in_relation,
+                   default_expanded=None):
     """Renders value as HTML.
 
     The individual elements in the list are interpreted and rendered as well.
@@ -246,19 +253,30 @@ class ProcessToRenderInfo(object):
     table = self.__document_manager.new_tag('table')
     for index, elem in enumerate(value):
         # pylint: disable=bad-indentation
-        elem_info = self.process_list_value(elem, snapshot, edge_to_list)
+        elem_info = self.process_list_value(
+            elem, snapshot, edge_to_list, in_relation)
         elem_relation = edge_to_list.get('relation')
         if isinstance(elem, dict):
           elem_relation = elem.get('_default_relation') or elem_relation
 
+        elem_expanded = default_expanded
+        if elem_expanded is None:
+          if in_relation in ['VALID', 'INVALID', None]:
+            elem_expanded = elem_relation in ['VALID', 'INVALID']
+          elif in_relation in ['CONTROL', 'MECHANISM']:
+            elem_expanded = elem_relation in ['CONTROL', 'MECHANISM']
+          elif in_relation in ['INPUT', 'OUTPUT', 'DATA']:
+            elem_expanded = elem_relation in ['INPUT', 'OUTPUT', 'DATA']
+          else:
+            elem_expanded = None
         table.append(self.__html_info_to_tr_tag(
             '[{0}]'.format(index), elem_info,
-            relation=elem_relation, default_expanded=default_expanded))
+            relation=elem_relation, default_expanded=elem_expanded))
 
     summary = '{0} item{1}'.format(len(value), 's' if len(value) != 1 else '')
     return HtmlInfo(table, self.__document_manager.make_text_block(summary))
 
-  def process_list_value(self, value, snapshot, edge_to_list):
+  def process_list_value(self, value, snapshot, edge_to_list, in_relation):
     """Renders value from within a list as HTML.
 
     Args:
@@ -270,9 +288,11 @@ class ProcessToRenderInfo(object):
       HtmlInfo encoding of value.
     """
     if isinstance(value, list):
-      value_info = self.process_list(value, snapshot, edge_to_list)
+      value_info = self.process_list(
+          value, snapshot, edge_to_list, in_relation)
     elif isinstance(value, dict) and value.get('_type') == 'EntityReference':
-      value_info = self.process_entity_id(value['_id'], snapshot)
+      value_info = self.process_entity_id(value['_id'], snapshot,
+                                          edge_to_list.get('relation'))
     else:
       value_info = self.process_edge_value(edge_to_list, value)
 
@@ -306,7 +326,7 @@ class ProcessToRenderInfo(object):
             if row_count > self.max_uncollapsable_metadata_rows
             else ''))
 
-  def process_entity(self, subject, snapshot):
+  def process_entity(self, subject, snapshot, in_relation):
     """Renders a JsonSnapshot Entity into HtmlInfo
 
     Args:
@@ -314,10 +334,13 @@ class ProcessToRenderInfo(object):
       snapshoft: [dict] Represents JsonSnapshot containing the subject.
          This may be needed if the subject references other entities in
          the snapshot.
+      in_relation: [string] The relation that the parent had with grandparent.
     Returns:
       HtmlInfo encoding of the subject.
     """
     table = self.__document_manager.new_tag('table')
+    if self.__prune:
+      subject = prune_entity(subject, self.__entity_manager)
 
     blacklist = ['_edges']
     meta_info = self.process_metadata(subject, blacklist=blacklist)
@@ -337,10 +360,20 @@ class ProcessToRenderInfo(object):
 
         target_id = None
         value_info = None
+        edge_relation = edge.get('relation')
+        if in_relation in ['MECHANISM', 'CONTROL']:
+          default_expanded = edge_relation in ['MECHANISM', 'CONTROL']
+        elif in_relation in ['INPUT', 'OUTPUT', 'DATA']:
+          default_expanded = edge_relation in ['INPUT', 'OUTPUT', 'DATA']
+        elif in_relation in ['VALID', 'INVALID', None]:
+          default_expanded = edge_relation in ['VALID', 'INVALID']
+        else:
+          default_expanded = None
+
         if value and edge.get('format', None) in ['json', 'pre']:
           value_info = self.process_edge_value(edge, value)
         elif isinstance(value, list):
-          value_info = self.process_list(value, snapshot, edge)
+          value_info = self.process_list(value, snapshot, edge, in_relation)
         elif (isinstance(value, dict)
               and value.get('_type') == 'EntityReference'):
           target_id = value.get('_id')
@@ -350,13 +383,15 @@ class ProcessToRenderInfo(object):
           target_id = edge.get('_to', None)
 
         if target_id is not None:
-          value_info = self.process_entity_id(target_id, snapshot)
+          value_info = self.process_entity_id(
+              target_id, snapshot, edge_relation)
         elif value_info is None:
           value_info = HtmlInfo(
               self.__document_manager.make_tag_text('i', 'empty'))
         table.append(
             self.__html_info_to_tr_tag(label, value_info,
-                                       relation=edge.get('relation')))
+                                       relation=edge_relation,
+                                       default_expanded=default_expanded))
         num_rows += 1
 
     if num_rows > self.max_uncollapsable_entity_rows:
@@ -371,7 +406,7 @@ class ProcessToRenderInfo(object):
         summary=self.__document_manager.make_text_block(
             summary_html))
 
-  def process_entity_id(self, subject_id, snapshot):
+  def process_entity_id(self, subject_id, snapshot, in_relation):
     """Renders a JsonSnapshot Entity into HtmlInfo.
 
     Args:
@@ -379,6 +414,7 @@ class ProcessToRenderInfo(object):
       snapshoft: [dict] Represents JsonSnapshot containing the subject.
          This may be needed if the subject references other entities in
          the snapshot.
+      in_relation: [string] The relation that the parent had with grandparent.
     Returns:
       HtmlInfo encoding of the referenced subject.
     """
@@ -389,7 +425,7 @@ class ProcessToRenderInfo(object):
     try:
       self.__entity_manager.begin_id(subject_id)
       subject = self.__entity_manager.lookup_entity_with_id(subject_id)
-      entity_info = self.process_entity(subject, snapshot)
+      entity_info = self.process_entity(subject, snapshot, in_relation)
     finally:
       self.__entity_manager.end_id(subject_id)
 
@@ -399,7 +435,7 @@ class ProcessToRenderInfo(object):
 class HtmlRenderer(JournalProcessor):
   """Specialized JournalProcessor to produce HTML."""
 
-  def __init__(self, document_manager, registry=None):
+  def __init__(self, document_manager, registry=None, prune=False):
     """Constructor.
 
     Args:
@@ -407,6 +443,9 @@ class HtmlRenderer(JournalProcessor):
          and structure.
       registry: [dict] Registry of processing methods keyed by record type
          in the journal. If not defined, then use the default.
+      prune: [bool] If true, take liberties with pruning the information
+         so that it is more concise and readable for a typical use case
+         of verifying tests passed and investigating why they have not.
     """
     if registry is None:
       registry = {
@@ -425,11 +464,16 @@ class HtmlRenderer(JournalProcessor):
     # well render into the stack. Otherwise we'll render into the document.
     # When we pop a context we'll render it into the parent context until
     # we pop the root context, which will finally render into the document.
-    self.__context_stack = []
+    self.__context_stack = [None]
+    self.__context_stack_timestamp_prefix = [None]
+    self.__prune = prune
+
+  def has_context(self):
+    return len(self.__context_stack) > 1
 
   def terminate(self):
     """Implements JournalProcessor interface."""
-    if self.__context_stack:
+    if self.has_context():
       raise ValueError(
           'Still have {0} open contexts'.format(len(self.__context_stack)))
 
@@ -446,7 +490,7 @@ class HtmlRenderer(JournalProcessor):
       # execute context to promote the actual thing executed to this level.
       # This is a hack, but makes the reporting more readable.
       if rendered_context.html:
-        if self.__context_stack:
+        if self.has_context():
           self.__context_stack[-1].html.extend(rendered_context.html)
       return
 
@@ -484,9 +528,12 @@ class HtmlRenderer(JournalProcessor):
     direction = control['control']
     if direction == 'BEGIN':
       self.__context_stack.append(RenderedContext(control, []))
+      self.__context_stack_timestamp_prefix.append(
+          self.__context_stack_timestamp_prefix[-1])
     elif direction == 'END':
       context = self.__context_stack[-1]
       self.__context_stack.pop()
+      self.__context_stack_timestamp_prefix.pop()
       if (not context.html
           and context.control.get('_title', '') in ['setUp', 'tearDown']):
         return
@@ -507,10 +554,11 @@ class HtmlRenderer(JournalProcessor):
 
     # Delegate the whole thing.
     document_manager = self.__document_manager
-    processor = ProcessToRenderInfo(document_manager, self.__entity_manager)
+    processor = ProcessToRenderInfo(document_manager, self.__entity_manager,
+                                    prune=self.__prune)
 
     try:
-      info = processor.process_entity_id(subject_id, snapshot)
+      info = processor.process_entity_id(subject_id, snapshot, None)
     finally:
       self.__entity_manager.pop_entity_map(entities)
 
@@ -550,7 +598,7 @@ class HtmlRenderer(JournalProcessor):
       detail: [string] This is the full detail for the entry.
     """
     tag = self.render_log_tr_tag(timestamp, summary, detail, **kwargs)
-    if self.__context_stack:
+    if self.has_context():
       self.__context_stack[-1].html.append(tag)
     else:
       self.__document_manager.append_tag(tag)
@@ -565,10 +613,21 @@ class HtmlRenderer(JournalProcessor):
       detail: [string] This is the full detail for the entry.
     """
     document_manager = self.__document_manager
-    date_str = self.timestamp_to_string(timestamp)
+    if self.__context_stack_timestamp_prefix:
+      # If the last "yyyy-mm-dd " part of the date string is the
+      # same as the previous for this scoped block, then strip it out.
+      # otherwise include it.
+      prev_date_prefix = self.__context_stack_timestamp_prefix[-1]
+      date_str = self.timestamp_to_string(timestamp)
+      if prev_date_prefix and date_str.startswith(prev_date_prefix):
+        date_str = date_str[11:]
+      else:
+        self.__context_stack_timestamp_prefix[-1] = date_str[:11]
+    else:
+      date_str = self.timestamp_to_string(timestamp)
 
     tr_tag = document_manager.new_tag('tr')
-    th_tag = document_manager.make_tag_text('th', date_str, class_='nw')
+    th_tag = document_manager.make_tag_text('th', date_str, class_='rj')
     td_tag = document_manager.new_tag('td')
     tr_tag.append(th_tag)
     tr_tag.append(td_tag)
@@ -608,7 +667,8 @@ class HtmlRenderer(JournalProcessor):
     text = message.get('_value').strip()
 
     document_manager = self.__document_manager
-    processor = ProcessToRenderInfo(document_manager, self.__entity_manager)
+    processor = ProcessToRenderInfo(document_manager, self.__entity_manager,
+                                    prune=self.__prune)
 
     html_info = HtmlInfo()
     html_format = message.get('format', None)

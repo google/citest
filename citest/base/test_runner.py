@@ -283,6 +283,7 @@ class TestRunner(object):
       # process for it to decouple the modules when parsing.
       generate_command = ['python',
                           '-m', 'citest.reporting.generate_html_report',
+                          '--prune',
                           '--noindex', journal_path]
       logger.info('Running %s', generate_command)
       retcode = os.system(' '.join(generate_command))

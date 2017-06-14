@@ -38,7 +38,7 @@ from citest.reporting.html_document_manager import HtmlDocumentManager
 from citest.reporting.html_index_renderer import HtmlIndexRenderer
 
 
-def journal_to_html(input_path):
+def journal_to_html(input_path, prune=False):
   """Main program for converting a journal JSON file into HTML.
 
   This will write a file using in the input_path directory with the
@@ -52,7 +52,7 @@ def journal_to_html(input_path):
   document_manager = HtmlDocumentManager(
       title='Report for {0}'.format(os.path.basename(input_path)))
 
-  processor = HtmlRenderer(document_manager)
+  processor = HtmlRenderer(document_manager, prune=prune)
   processor.process(input_path)
   processor.terminate()
   document_manager.wrap_tag(document_manager.new_tag('table'))
@@ -109,12 +109,15 @@ def main(argv):
                       help='Do not genreate an HTML report for the journals.')
   parser.add_argument('--show_memory', default=False, action='store_true',
                       help='Show how much memory we needed.')
+  parser.add_argument('--prune_html', default=False, action='store_true',
+                      help='Prune resulting HTML to make it more concise for'
+                      ' typical verification and debugging use cases.')
 
   options = parser.parse_args(argv[1:])
 
   if options.html:
     for path in options.journals:
-      journal_to_html(path)
+      journal_to_html(path, prune=options.prune_html)
 
   if options.index and len(options.journals) > 1:
     build_index(options.journals)

@@ -197,6 +197,7 @@ _BUILTIN_CSS = """
   th { font-weight:bold;text-align:left;font-family:times }
   th { color:#666666 }
   th.nw, td.nw { white-space:nowrap }
+  th.rj, td.rj { white-space:nowrap; text-align:right }
   a, a.toggle:link, a.toggle:visited {
       background-color:#FFFFFF;color:#000099 }
   a.toggle:hover, a.toggle:active {

@@ -125,9 +125,10 @@ class HtmlRendererTest(unittest.TestCase):
     processor.max_uncollapsable_entity_rows = 20
     processor.default_force_top_level_collapse = False
 
+    in_relation = None
     entity_manager.push_entity_map(json_snapshot['_entities'])
     html_info = processor.process_entity_id(json_snapshot['_subject_id'],
-                                            json_snapshot)
+                                            json_snapshot, in_relation)
     entity_manager.pop_entity_map(json_snapshot['_entities'])
 
     expect = """<table>
@@ -178,7 +179,9 @@ class HtmlRendererTest(unittest.TestCase):
     json_snapshot = snapshot.to_json_object()
     self.assertEqual(1, json_snapshot.get('_subject_id'))
     entity_manager.push_entity_map(json_snapshot.get('_entities'))
-    info = processor.process_entity_id(1, snapshot)
+
+    in_relation = None
+    info = processor.process_entity_id(1, snapshot, in_relation)
 
 
 if __name__ == '__main__':
