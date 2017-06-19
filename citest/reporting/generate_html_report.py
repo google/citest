@@ -155,7 +155,7 @@ def main(argv):
 
   options = parser.parse_args(argv[1:])
 
-  if None and options.html:
+  if options.html:
     for path in options.journals:
       journal_to_html(path, prune=options.prune_html)
 
