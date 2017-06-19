@@ -36,6 +36,7 @@ import sys
 from citest.reporting.html_renderer import HtmlRenderer
 from citest.reporting.html_document_manager import HtmlDocumentManager
 from citest.reporting.html_index_renderer import HtmlIndexRenderer
+from citest.reporting.html_index_table_renderer import HtmlIndexTableRenderer
 
 
 def journal_to_html(input_path, prune=False):
@@ -59,7 +60,40 @@ def journal_to_html(input_path, prune=False):
   document_manager.build_to_path(output_path)
 
 
-def build_index(journal_list):
+def determine_columns(dir_names):
+  if not dir_names:
+    return []
+
+  path_to_parts = {path : path.split('/') for path in dir_names}
+  all_path_parts = path_to_parts.values()
+  first = all_path_parts[0]
+
+  def match_position(index, expect):
+    for path in all_path_parts:
+      if len(path) <= index or path[index] != expect:
+        return False
+    return True
+
+  index = 0
+  while index < len(first):
+    if match_position(index, first[index]):
+      for path in all_path_parts:
+        del path[index]
+    else:
+      index += 1
+  return {name : '/'.join(path_to_parts[name]) for name in dir_names}
+
+
+def build_table(journal_list, output_dir):
+  document_manager = HtmlDocumentManager(title='Journal Summary')
+  document_manager.has_key = False
+  document_manager.has_global_expand = False
+
+  HtmlIndexTableRenderer.process_all(document_manager, journal_list, output_dir)
+  document_manager.build_to_path(os.path.join(output_dir, 'table_index.html'))
+
+  
+def build_index(journal_list, output_dir):
   """Create an index.html file for HTML output from journal list.
 
   Args:
@@ -83,7 +117,7 @@ def build_index(journal_list):
       'table', [tr_tag], style='font-size:12pt')
   document_manager.wrap_tag(table)
 
-  document_manager.build_to_path('index.html')
+  document_manager.build_to_path(os.path.join(output_dir, 'index.html'))
 
 
 def main(argv):
@@ -99,6 +133,10 @@ def main(argv):
   parser = argparse.ArgumentParser()
   parser.add_argument('journals', metavar='PATH', type=str, nargs='+',
                       help='list of journals to process')
+  parser.add_argument('--table', default=False, action='store_true',
+                      help='Build a table where each unique filename is a row'
+                      ' and each directory with a journal file is a column.'
+                      ' The cells are the journal filename for that directory.')
   parser.add_argument('--index', default=True, action='store_true',
                       help='Generate an index.html from all the journals.')
   parser.add_argument('--noindex', dest='index', action='store_false',
@@ -112,15 +150,20 @@ def main(argv):
   parser.add_argument('--prune_html', default=False, action='store_true',
                       help='Prune resulting HTML to make it more concise for'
                       ' typical verification and debugging use cases.')
+  parser.add_argument('--output_dir', default='.',
+                      help='Write index files to this base directory')
 
   options = parser.parse_args(argv[1:])
 
-  if options.html:
+  if None and options.html:
     for path in options.journals:
       journal_to_html(path, prune=options.prune_html)
 
+  if options.table:
+    build_table(options.journals, options.output_dir)
+
   if options.index and len(options.journals) > 1:
-    build_index(options.journals)
+    build_index(options.journals, options.output_dir)
 
   if options.show_memory:
     usage = resource.getrusage(resource.RUSAGE_SELF)

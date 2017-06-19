@@ -203,14 +203,17 @@ _BUILTIN_CSS = """
   a.toggle:hover, a.toggle:active {
       color:#FFFFFF;background-color:#000099 }
   pre { margin:0; background-color:inherit }
-  div.valid, div.invalid, div.error,
-  span.valid, span.invalid, span.error { padding:0.3em }
+  div.valid, div.validI, div.invalid, div.invalidI, div.error, div.errorI,
+  span.valid, span.validI, span.invalid, span.invalidI,
+  span.error, span.errorI { padding:0.3em }
   div.title { font-weight:bold; font-size:14pt;
               color:white; background-color:black;
               text-align:left; font-family:arial;
               padding:0.3em; margin-bottom:0.5em; }
   th.error { color:#FFEEEE; background-color:#990033 }
   *.error { background-color:#FFEEEE; color:#990033 }
+  th.errorI { color:#990033; background-color:#FFEEEE }
+  *.errorI { color:#990033; background-color:#FFEEEE }
   th.data { color:#fffae3; background-color:#996633 }
   *.data { background-color:#fffae3; color:#996633 }
   th.input { color:#efefff; background-color:#000099 }
@@ -223,8 +226,12 @@ _BUILTIN_CSS = """
   *.mechanism { background-color:#dabcff; color:#663399 }
   th.valid { color:#CCFFCC; background-color:#009900 }
   *.valid { background-color:#CCFFCC; color:#006600 }
+  th.validI { color:#009900; background-color:#CCFFCC }
+  *.validI { background-color:#006600; color:#CCFFCC }
   th.invalid { color:#FFCCCC; background-color:#CC0000 }
   *.invalid { background-color:#FFCCCC; color:#CC0000 }
+  th.invalidI { color:#CC0000; background-color:#FFCCCC }
+  *.invalidI { background-color:#CC0000; color:#FFCCCC }
 """
 
 
