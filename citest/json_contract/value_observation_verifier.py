@@ -22,6 +22,7 @@ from ..json_predicate import cardinality_predicate
 from ..json_predicate import logic_predicate
 from ..json_predicate import path_predicate
 from ..json_predicate import predicate
+from . import observation_predicate as op
 from . import observation_verifier as ov
 from . import observation_failure as of
 
@@ -53,34 +54,22 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
     """
     super(ValueObservationVerifierBuilder, self).__init__(title)
     self.__strict = strict
-    self.__constraints = []
 
   def __eq__(self, builder):
     """Specializes interface."""
     # pylint: disable=protected-access
     return (super(ValueObservationVerifierBuilder, self).__eq__(builder)
-            and self.__strict == builder.__strict
-            and self.__constraints == builder.__constraints)
+            and self.__strict == builder.__strict)
 
   def _do_build_generate(self, dnf_verifiers):
     """Constructs the actual instance."""
-    return ValueObservationVerifier(
+    return ov.ObservationVerifier(
         title=self.title,
-        dnf_verifiers=dnf_verifiers,
-        constraints=self.__constraints,
-        strict=self.__strict)
+        dnf_verifiers=dnf_verifiers)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Strict', self.__strict)
-    if len(self.__constraints) == 1:
-      # Optimize model for single-element list
-      snapshot.edge_builder.make_control(
-          entity, 'Constraint', self.__constraints[0])
-    else:
-      snapshot.edge_builder.make_control(
-          entity, 'Constraints', self.__constraints)
-
     super(ValueObservationVerifierBuilder, self).export_to_json_snapshot(
         snapshot, entity)
 
@@ -88,7 +77,10 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
     if not isinstance(constraint, predicate.ValuePredicate):
       raise TypeError('{0} is not predicate.ValuePredicate'.format(
           constraint.__class__))
-    self.__constraints.append(constraint)
+    if not (isinstance(constraint, ov.ObservationVerifier)
+            or isinstance(constraint, op.ObservationPredicate)):
+      constraint = op.ObservationValuePredicate(constraint)
+    self.AND(constraint)
     return self
 
   def contains_path_match(self, path, match_spec, min=1, max=None,
@@ -214,123 +206,3 @@ class ValueObservationVerifierBuilder(ov.ObservationVerifierBuilder):
         cardinality_predicate.CardinalityPredicate(
             conjunction, min=0, max=max))
     return self
-
-
-class ValueObservationVerifier(ov.ObservationVerifier):
-  @property
-  def constraints(self):
-    return self.__constraints
-
-  @property
-  def strict(self):
-    return self.__strict
-
-  def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotableEntity interface."""
-    snapshot.edge_builder.make_control(entity, 'Strict', self.__strict)
-    snapshot.edge_builder.make_control(
-        entity, 'Constraints', self.__constraints)
-    super(ValueObservationVerifier, self).export_to_json_snapshot(
-        snapshot, entity)
-
-  def __str__(self):
-    return '{0} constraints={1} strict={2}'.format(
-        super(ValueObservationVerifier, self).__str__(),
-        [str(x) for x in self.__constraints],
-        self.__strict)
-
-  def __init__(self, title, **kwargs):
-    """Construct instance.
-
-    Args:
-      title: The name of the verifier for reporting purposes only.
-      dnf_verifiers: A list of lists of jc.ObservationVerifier where the outer
-          list are OR'd together and the inner lists are AND'd together
-          (i.e. disjunctive normal form).
-      constraints: A list of jc.ValuePredicate to apply to the
-          observation object list.
-      strict: If True then the verifier requires all the observed elements to
-          satisfy all the constraints (including future added constraints).
-          Otherwise if False then the verifier requires each of the constraints
-          to be satisfied by at least one object. Not necessarily the same
-          object, nor does any object have to satisfy even one constraint.
-
-       See base class (ov.ObservationVerifier) for additional kwargs.
-    """
-    self.__strict = kwargs.pop('strict', False)
-    constraints = kwargs.pop('constraints', None)
-    self.__constraints = constraints
-    self.__value_constraints = []
-    self.__observation_constraints = []
-    for constraint in constraints:
-      if isinstance(constraint, ov.ObservationVerifier):
-        self.__observation_constraints.append(constraint)
-      else:
-        self.__value_constraints.append(constraint)
-    super(ValueObservationVerifier, self).__init__(title, **kwargs)
-
-  def __call__(self, context, observation):
-    valid = True
-    final_builder = ov.ObservationVerifyResultBuilder(observation)
-
-    for constraint in self.__observation_constraints:
-      result = constraint(context, observation)
-      valid = valid and result
-      final_builder.add_observation_verify_result(result)
-
-    if observation.errors:
-      if self.__value_constraints:
-        valid = False
-        logging.getLogger(__name__).debug(
-            'Failing because of observation errors %s', observation.errors)
-        error = of.ObservationFailedError(observation.errors)
-        final_builder.add_observation_verify_result(
-            ov.ObservationVerifyResult(
-                valid=False, observation=observation,
-                good_results=[], bad_results=[error],
-                failed_constraints=[self.__value_constraints]))
-      return final_builder.build(valid)
-
-    all_objects = observation.objects
-    if not all_objects:
-      # If we have no objects, then we will not iterate over anything
-      # so will not check any contracts.
-      # Instead, add a None object to the list so we'll check each contract
-      # against None to see if it is satisfied.
-      logging.getLogger(__name__).debug(
-          'Verifying object None to indicate no objects at all.')
-      object_list = [None]
-    else:
-      object_list = all_objects
-
-    # Every constraint must be satisfied by at least one object.
-    # If strict then every object must be verified by at least one
-    # constraint.
-    final_builder = ov.ObservationVerifyResultBuilder(observation)
-
-    for constraint in self.__value_constraints:
-      logging.getLogger(__name__).debug('Verifying constraint=%s',
-                                        constraint)
-
-      if isinstance(constraint, path_predicate.ProducesPathPredicateResult):
-        constraint_result = constraint(context, object_list)
-      else:
-        constraint_result = (
-            path_predicate.PathPredicate('', constraint)(context, object_list))
-      if not constraint_result:
-        logging.getLogger(__name__).debug('FAILED constraint')
-        valid = False
-
-      final_builder.add_path_predicate_result(constraint_result)
-
-    if valid and self.__strict:
-      len_validated = len(final_builder.validated_object_set)
-      len_objects = len(object_list)
-      valid = len_validated == len_objects
-
-      if not valid:
-        comment = ('Strict verifier "{0}" confirmed {1} of {2} objects.'
-                   .format(self.title, len_validated, len_objects))
-        logging.getLogger(__name__).info(comment)
-
-    return final_builder.build(valid)

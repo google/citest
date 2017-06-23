@@ -54,11 +54,12 @@ class JsonContractTest(unittest.TestCase):
   def test_clause_success(self):
     context = ExecutionContext()
     observation = jc.Observation()
+    observation.add_object('B')
     observation.add_object('A')
     fake_observer = FakeObserver(observation)
 
-    eq_A = jp.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
+    eq_A = jp.LIST_MATCHES([jp.STR_EQ('A')])
+    verifier = jc.ValueObservationVerifierBuilder('Has A').EXPECT(eq_A).build()
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
 
@@ -74,8 +75,8 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('B')
     fake_observer = FakeObserver(observation)
 
-    eq_A = jp.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
+    eq_A = jp.LIST_MATCHES([jp.STR_EQ('A')])
+    verifier = jc.ValueObservationVerifierBuilder('Has A').EXPECT(eq_A).build()
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
 
@@ -91,8 +92,8 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('A')
     fake_observer = FakeObserver(observation)
 
-    eq_A = jp.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
+    eq_A = jp.LIST_MATCHES([jp.STR_EQ('A')])
+    verifier = jc.ValueObservationVerifierBuilder('Has A').EXPECT(eq_A).build()
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
@@ -111,8 +112,8 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('B')
     fake_observer = FakeObserver(observation)
 
-    eq_A = jp.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
+    eq_A = jp.LIST_MATCHES([jp.STR_EQ('A')])
+    verifier = jc.ValueObservationVerifierBuilder('Has A').EXPECT(eq_A).build()
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
@@ -132,8 +133,8 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('B')
     fake_observer = FakeObserver(observation)
 
-    eq_A = jp.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
+    eq_A = jp.LIST_MATCHES([jp.STR_EQ('A')])
+    verifier = jc.ValueObservationVerifierBuilder('Has A').EXPECT(eq_A).build()
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
@@ -152,10 +153,9 @@ class JsonContractTest(unittest.TestCase):
     observation.add_object('A')
     fake_observer = FakeObserver(observation)
 
-    eq_A = jp.STR_EQ('A')
-    eq_B = jp.STR_EQ('B')
-    verifier = jc.ValueObservationVerifier(
-        'Has A and B', constraints=[eq_A, eq_B])
+    verifier = (jc.ValueObservationVerifierBuilder('Has A and B')
+                .contains_match([jp.STR_EQ('A'), jp.STR_EQ('B')])
+                .build())
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()
@@ -231,8 +231,8 @@ class JsonContractTest(unittest.TestCase):
         jp.PredicateResult(False, comment='Observer Failed'))
     fake_observer = FakeObserver(observation)
 
-    eq_A = jp.STR_EQ('A')
-    verifier = jc.ValueObservationVerifier('Has A', constraints=[eq_A])
+    eq_A = jp.LIST_MATCHES([jp.STR_EQ('A')])
+    verifier = jc.ValueObservationVerifierBuilder('Has A').EXPECT(eq_A).build()
 
     clause = jc.ContractClause('TestClause', fake_observer, verifier)
     contract = jc.Contract()

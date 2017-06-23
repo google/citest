@@ -137,3 +137,7 @@ from .cardinality_predicate import (
     FailedCardinalityRangeResult,
     MissingValueCardinalityResult,
     UnexpectedValueCardinalityResult)
+
+from .exception_predicate import (
+    ExceptionMatchesPredicate
+    )

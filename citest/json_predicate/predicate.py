@@ -44,6 +44,9 @@ class ValuePredicate(JsonSnapshotableEntity):
         '__call__() needs to be specialized for {0}'.format(
             self.__class__.__name__))
 
+  def __str__(self):
+    return self.__class__.__name__
+
   def __repr__(self):
     """Specializes interface."""
     return str(self)

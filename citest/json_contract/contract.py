@@ -316,7 +316,7 @@ class ContractClauseBuilder(object):
     self.__title = title
     self.__observer = observer
     self.__verifier_builder = (verifier_builder
-                               or ov.ObservationVerifierBuilder(title))
+                               or ov.ObservationVerifierBuilder(title, warn_nested=False))
 
   def build(self):
     """Build the clause from the builder specification."""

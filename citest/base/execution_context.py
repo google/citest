@@ -145,6 +145,6 @@ class ExecutionContext(JsonSnapshotable):
         return value(self)
       except TypeError as terr:
         logging.getLogger(__name__).error('Error evaluating {0}'.format(value))
-        raise terr
+        raise
     else:
       return value

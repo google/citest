@@ -66,7 +66,7 @@ class AwsObjectObserver(jc.ObjectObserver):
           entity, '#PosArgs', len(self.__pos_args))
     if self.__kwargs:
       snapshot.edge_builder.make_control(
-          entity, 'KwargKeys', self.__kwargs.keys())
+          entity, 'Kwargs', self.__kwargs)
     super(AwsObjectObserver, self).export_to_json_snapshot(snapshot, entity)
 
   def __str__(self):

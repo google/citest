@@ -146,8 +146,10 @@ class JsonObserverTest(unittest.TestCase):
       for index in [2, 3]:
         test_strict = index == 2
         expected = test[index]
-        verifier = jc.ValueObservationVerifier(
-            title='Verifier', constraints=[aA, bB], strict=test_strict)
+        aA_bB = jp.LIST_MATCHES([aA, bB], strict=test_strict)
+        verifier = (jc.ValueObservationVerifierBuilder('verifier')
+                    .EXPECT(aA_bB)
+                    .build())
 
         verify_result = verifier(context, observation)
         try:

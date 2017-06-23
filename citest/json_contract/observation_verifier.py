@@ -21,6 +21,31 @@ import logging
 from ..base import JsonSnapshotableEntity
 from ..json_predicate import map_predicate
 from ..json_predicate import predicate
+from ..json_predicate import LIST_MATCHES
+import observation_predicate as op
+
+
+def _undeprecate_verifier(verifier):
+  if isinstance(verifier, op.ObservationPredicate):
+    return verifier
+
+  site = verifier.__class__.__name__
+  if hasattr(verifier, 'build'):
+    logging.warning('Using DEPRECATED Builder with %s.'
+                    ' Use an ObservationPredicate instead.', site)
+    verifier = verifier.build()
+  if isinstance(verifier, ObservationVerifier):
+    logging.warning('Using DEPRECATED ObservationVerifier with %s.'
+                    ' Use an ObservationPredicate instead.', site)
+    return verifier
+  if (isinstance(verifier, predicate.ValuePredicate)
+      and not isinstance(verifier, op.ObservationValuePredicate)):
+    logging.warning('DEPRECATED use of plain predicate.ValuePredicate'
+                    ' with %s.'
+                    ' Use an ObservationPredicate instead.', site)
+    verifier = op.ObservationValuePredicate(verifier)
+  return verifier
+
 
 class ObservationVerifyResultBuilder(object):
   @property
@@ -120,6 +145,12 @@ class ObservationVerifyResultBuilder(object):
     """
     self.__failed_constraints.append(pred)
     return self
+
+  def add_observation_predicate_result(self, result):
+    if result:
+      self.__good_results.append(result)
+    else:
+      self.__bad_results.append(result)
 
   def add_observation_verify_result(self, result):
     """Fuses results from another ObservationVerifyResult.
@@ -281,7 +312,7 @@ class ObservationVerifier(predicate.ValuePredicate):
 
     builder.make_control(entity, 'Verifiers', disjunction_entity)
 
-  def __init__(self, title, **kwargs):
+  def __init__(self, title, warn_nested=True, **kwargs):
     """Construct instance.
 
     Args:
@@ -291,6 +322,7 @@ class ObservationVerifier(predicate.ValuePredicate):
           (i.e. disjunctive normal form).
     """
     self.__title = title
+    self.__warn_nested = warn_nested
     self.__dnf_verifiers = kwargs.pop('dnf_verifiers', None) or []
     super(ObservationVerifier, self).__init__(**kwargs)
 
@@ -314,12 +346,12 @@ class ObservationVerifier(predicate.ValuePredicate):
       ObservationVerifyResult containing the verification results.
     """
     builder = ObservationVerifyResultBuilder(observation)
-    valid = False
-
     if not self.__dnf_verifiers:
       logging.getLogger(__name__).warn(
-          'No verifiers were set, so "%s" will fail by default.', self.title)
+          'No verifiers were set, so "%s" will pass by default.', self.title)
+      return builder.build(True)
 
+    valid = False
     # Outer terms are or'd together.
     for term in self.__dnf_verifiers:
        # pylint: disable=bad-indentation
@@ -327,7 +359,13 @@ class ObservationVerifier(predicate.ValuePredicate):
        # Inner terms are and'd together.
        for v in term:
           result = v(context, observation)
-          builder.add_observation_verify_result(result)
+          if isinstance(result, ObservationVerifyResult):
+            if self.__warn_nested:
+              logging.warning('Deprecated embedded ObservationVerifyResult')
+            builder.add_observation_verify_result(result)
+          else:
+            builder.add_observation_predicate_result(result)
+
           if not result:
             term_valid = False
             break
@@ -373,13 +411,19 @@ class ObservationVerifierBuilder(JsonSnapshotableEntity):
             and self.__current_builder_conjunction
             == builder.__current_builder_conjunction)
 
-  def __init__(self, title):
+  def __init__(self, title, warn_nested=True):
     """Constructor.
 
     Args:
       title: [string] The name of this verifier for reporting purposes.
+      warn_nested: [bool] If true then warn if we have nested
+         ObservationVerifiers as opposed to ObservationPredicates.
+         Note that this class is also used for contract clauses, which
+         still make sense to nest because they operate on entire observations
+         and not just a focused attribute as the predicates do.
     """
     self.__title = title
+    self.__warn_nested = warn_nested
 
     # This is a list of lists acting as a disjunction.
     # Each embedded list acts as a conjunction.
@@ -420,6 +464,7 @@ class ObservationVerifierBuilder(JsonSnapshotableEntity):
 
     if not hasattr(verifier, 'build'):
       verifier = _VerifierBuilderWrapper(verifier)
+
     self.__current_builder_conjunction = [verifier]
     return self
 
@@ -466,6 +511,51 @@ class ObservationVerifierBuilder(JsonSnapshotableEntity):
       self.__current_builder_conjunction.append(verifier)
     return self
 
+  def expect_value_list_matches(self, list_pred_args, **kwargs):
+    return self.EXPECT(
+        op.ObservationValuePredicate(LIST_MATCHES(list_pred_args, **kwargs)))
+
+  def expect_error_list_matches(self, list_pred_args, **kwargs):
+    return self.EXPECT(
+        op.ObservationErrorPredicate(LIST_MATCHES(list_pred_args, **kwargs)))
+
+  def expect_value_list_contains(self, value_pred):
+    return self.expect_value_list_matches([value_pred])
+
+  def expect_error_list_contains(self, value_pred):
+    return self.expect_error_list_matches([value_pred])
+
+  def or_value_list_matches(self, list_pred_args, **kwargs):
+    return self.OR(
+        op.ObservationValuePredicate(LIST_MATCHES(list_pred_args, **kwargs)))
+
+  def or_error_list_matches(self, list_pred_args, **kwargs):
+    return self.OR(
+        op.ObservationErrorPredicate(LIST_MATCHES(list_pred_args, **kwargs)))
+
+  def or_value_list_contains(self, value_pred):
+    return self.or_value_list_matches([value_pred])
+
+  def or_error_list_contains(self, value_pred):
+    return self.or_error_list_matches([value_pred])
+
+  def and_value_list_matches(self, list_pred_args, **kwargs):
+    return self.AND(
+        op.ObservationValuePredicate(
+           LIST_MATCHES(list_pred_args, **kwargs)))
+
+  def and_error_list_matches(self, list_pred_args, **kwargs):
+    return self.AND(
+        op.ObservationErrorPredicate(
+           LIST_MATCHES(list_pred_args, **kwargs)))
+
+  def and_value_list_contains(self, value_pred):
+    return self.and_value_list_matches([value_pred])
+
+  def and_error_list_contains(self, value_pred):
+    return self.and_error_list_matches([value_pred])
+
+
   def append_verifier(self, verifier, new_term=False):
     """Deprecated -- see AND() or OR()."""
     return self.OR(verifier) if new_term else self.AND(verifier)
@@ -482,11 +572,19 @@ class ObservationVerifierBuilder(JsonSnapshotableEntity):
     disjunction = []
     for conjunction in self.__dnf_verifier_builders:
       verifiers = []
-      for builder in conjunction:
-        verifiers.append(builder.build())
+      for verifier in conjunction:
+        if hasattr(verifier, 'build'):
+          verifier = verifier.build()
+          if self.__warn_nested:
+            verifier = _undeprecate_verifier(verifier)
+          elif hasattr(verifier, 'build'):
+            verifier = verifier.build()
+        verifiers.append(verifier)
       disjunction.append(verifiers)
 
     return self._do_build_generate(disjunction)
 
   def _do_build_generate(self, dnf_verifiers):
-    return ObservationVerifier(title=self.__title, dnf_verifiers=dnf_verifiers)
+    return ObservationVerifier(
+        self.__title, warn_nested=self.__warn_nested, dnf_verifiers=dnf_verifiers)
+

@@ -38,6 +38,19 @@ _DICT_ARRAY = [{}, _LETTER_DICT, _NUMBER_DICT, _COMPOSITE_DICT]
 _MULTI_ARRAY = [_LETTER_DICT, _NUMBER_DICT, _LETTER_DICT, _NUMBER_DICT]
 
 
+_TEST_FOUND_ERROR_COMMENT='Found error.'
+
+class TestObservationFailureVerifier(jc.ObservationFailureVerifier):
+  def __init__(self, title, expect):
+    super(TestObservationFailureVerifier, self).__init__(title)
+    self.__expect = expect
+
+  def _error_comment_or_none(self, error):
+    if error.message == self.__expect:
+      return _TEST_FOUND_ERROR_COMMENT
+    return None
+
+
 class JsonValueObservationVerifierTest(unittest.TestCase):
   def assertEqual(self, expect, have, msg=''):
     if not isinstance(expect, JsonSnapshotableEntity):
@@ -47,16 +60,19 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
     except AssertionError:
       print 'EXPECTED\n{0!r}\nGOT\n{1!r}'.format(expect, have)
+      raise
 
   def test_verifier_builder_add_constraint(self):
     aA = jp.PathPredicate('a', jp.STR_EQ('A'))
     bB = jp.PathPredicate('b', jp.STR_EQ('B'))
     builder = jc.ValueObservationVerifierBuilder('TestAddConstraint')
-    builder.add_constraint(aA)
-    builder.add_constraint(bB)
+    builder.EXPECT(aA).AND(bB)
     verifier = builder.build()
+
     self.assertEqual('TestAddConstraint', verifier.title)
-    self.assertEqual([aA, bB], verifier.constraints)
+    self.assertEqual(
+        [[jc.ObservationValuePredicate(aA), jc.ObservationValuePredicate(bB)]],
+        verifier.dnf_verifiers)
 
   def test_verifier_builder_contains_pred_list(self):
     aA = jp.PathPredicate('a', jp.STR_EQ('A'))
@@ -68,15 +84,19 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
 
     count_aA = jp.CardinalityPredicate(aA, 1, None)
     count_bB = jp.CardinalityPredicate(bB, 1, None)
-    self.assertEqual([count_aA, count_bB], verifier.constraints)
+    self.assertEqual([[jc.ObservationValuePredicate(count_aA),
+                      jc.ObservationValuePredicate(count_bB)]],
+                     verifier.dnf_verifiers)
 
   def test_object_observation_verifier_multiple_constraint_found(self):
     context = ExecutionContext()
     pred_list = [jp.PathPredicate('a', jp.STR_EQ('A')),
                  jp.PathPredicate('b', jp.STR_EQ('B'))]
     # This is our object verifier for these tests.
-    verifier = jc.ValueObservationVerifier(
-        title='Find Both', constraints=pred_list)
+    verifier = (jc.ValueObservationVerifierBuilder('Find Both')
+                .EXPECT(pred_list[0])
+                .AND(pred_list[1])
+                .build())
 
     test_cases = [('dict', _LETTER_DICT),
                   ('array', _DICT_ARRAY),
@@ -92,7 +112,8 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
         observation.add_object(obj)
 
       for pred in pred_list:
-        builder.add_path_predicate_result(pred(context, observation.objects))
+        builder.add_observation_predicate_result(
+            jc.ObservationValuePredicate(pred)(context, observation))
 
       # All of these tests succeed.
       verify_results = builder.build(True)
@@ -109,8 +130,9 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
     pred_list = [jp.PathPredicate('a', jp.STR_EQ('NOT_FOUND'))]
 
     # This is our object verifier for these tests.
-    verifier = jc.ValueObservationVerifier(
-        title='Cannot find one', constraints=pred_list)
+    verifier = (jc.ValueObservationVerifierBuilder('Cannot find one')
+                .contains_match(pred_list)
+                .build())
 
     test_cases = [('array', _DICT_ARRAY),
                   ('dict', _LETTER_DICT),
@@ -146,8 +168,9 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
                  jp.PathPredicate('b', jp.STR_EQ('NOT_FOUND'))]
 
     # This is our object verifier for these tests.
-    verifier = jc.ValueObservationVerifier(
-        title='Cannot find either', constraints=pred_list)
+    verifier = (jc.ValueObservationVerifierBuilder('Cannot find either')
+                .contains_match(pred_list)
+                .build())
 
     test_cases = [('array', _DICT_ARRAY),
                   ('dict', _LETTER_DICT),
@@ -182,8 +205,9 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
                  jp.PathPredicate('b', jp.STR_EQ('B'))]
 
     # This is our object verifier for these tests.
-    verifier = jc.ValueObservationVerifier(
-        title='Find one of two', constraints=pred_list)
+    verifier = (jc.ValueObservationVerifierBuilder('Find one of two')
+                .contains_match(pred_list)
+                .build())
 
     test_cases = [('array', _DICT_ARRAY),
                   ('dict', _LETTER_DICT),
@@ -233,6 +257,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
 
     conditional = jp.IF(name_eq_pred, value_eq_pred)
     pred_list = [jp.PathPredicate('', conditional)]
+
     verifier_builder.add_constraint(conditional)
 
     match_name_value_obj = {'name':'NAME', 'value':'VALUE'}
@@ -254,19 +279,72 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       obj_list = test[1]
       observation.add_all_objects(obj_list)
 
-      for pred in pred_list:
-        result_builder.add_path_predicate_result(
-            pred(context, observation.objects))
+      result_builder.add_observation_predicate_result(
+        jc.ObservationValuePredicate(conditional)(context, observation))
 
       # All of these tests succeed.
       verify_results = result_builder.build(expect_valid)
-
       try:
         self._try_verify(context, verifier, observation,
                          expect_valid, verify_results)
       except:
         print 'testing {0}'.format(obj_list)
         raise
+
+  def test_observation_failure_ok(self):
+    error_text = 'the error'
+    context = ExecutionContext()
+
+    observation = jc.Observation()
+    error = ValueError(error_text)
+    observation.add_error(error)
+
+    ex_pred = jp.ExceptionMatchesPredicate(ValueError, error_text)
+    ex_result = ex_pred(context, error)
+    ex_observation_predicate_result = jc.ObservationPredicateResult(
+      True, observation,
+      jp.LIST_MATCHES([ex_pred]),
+      jp.LIST_MATCHES([ex_pred])(context, [error]))
+
+    expect_failure = jc.ObservationVerifyResult(
+        valid=True, observation=observation,
+        good_results=[ex_observation_predicate_result],
+        bad_results=[], failed_constraints=[])
+
+    builder = jc.ValueObservationVerifierBuilder(title='Test For Error')
+    builder.EXPECT(jc.ObservationErrorPredicate(jp.LIST_MATCHES([ex_pred])))
+    verifier = builder.build()
+
+    self.assertEqual(expect_failure, verifier(context, observation))
+
+
+  def test_observation_failure_or_found(self):
+    context = ExecutionContext()
+    observation = jc.Observation()
+    observation.add_object(_LETTER_DICT)
+
+    failure_predicate = jc.ObservationErrorPredicate(
+        jp.ExceptionMatchesPredicate(ValueError, regex='an error'))
+    failure_result = failure_predicate(context, observation)
+    self.assertFalse(failure_result)
+
+    good_predicate = jc.ObservationValuePredicate(
+        jp.PathPredicate('a', jp.STR_EQ('A')))
+
+    builder = jc.ObservationVerifierBuilder('TestAddConstraint')
+    verifier = (builder
+       .EXPECT(failure_predicate)
+       .OR(good_predicate)
+       .build())
+
+    expect = jc.ObservationVerifyResult(
+        valid=True, observation=observation,
+        bad_results=[failure_result],
+        good_results=[good_predicate(context, observation)],
+        failed_constraints=[])
+
+    got = verifier(context, observation)
+    self.assertEqual(expect, got)
 
   def _try_verify(self, context, verifier, observation,
                   expect_ok, expect_results=None, dump=False):

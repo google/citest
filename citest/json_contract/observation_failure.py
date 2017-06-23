@@ -15,8 +15,11 @@
 
 """Support for notifying and detecting failures in observers."""
 
+import logging
+
 from ..json_predicate import map_predicate
 from ..json_predicate import predicate
+from . import observation_predicate as op
 from . import observation_verifier as ov
 from . import observer
 
@@ -64,6 +67,7 @@ class ObservationFailureVerifier(ov.ObservationVerifier):
       title: Verifier name for reporting purposes only.
     """
     super(ObservationFailureVerifier, self).__init__(title)
+    logging.warning('ObservationFailureVerifier is DEPRECATED.')
 
   def _error_comment_or_none(self, error):
     """Determine if the error is expected or not.
@@ -83,9 +87,12 @@ class ObservationFailureVerifier(ov.ObservationVerifier):
     return ("Observation had no errors."
             if not observation.errors else "Expected error was not found.""")
 
-  def __call__(self, context, observation):
+  def __call__(self, context, value):
+    observation = value
     valid = False
     error = None
+    comment = None
+
     for error in observation.errors:
       comment = self._error_comment_or_none(error)
       if comment != None:
@@ -108,3 +115,36 @@ class ObservationFailureVerifier(ov.ObservationVerifier):
         valid=valid, observation=observation,
         good_results=good_results, bad_results=bad_results,
         failed_constraints=[], comment=comment)
+
+
+class ObservationFailurePredicate(op.ObservationPredicate):
+  @property
+  def title(self):
+    return self.__title
+
+  @property
+  def pred(self):
+    return self.__pred
+
+  def __init__(self, title, pred):
+    super(ObservationFailurePredicate, self).__init__()
+    self.__title = title
+    self.__pred = pred
+
+  def __call__(self, context, value):
+    """Implements ValuePredicate interface where value is an observation.
+
+    This will apply the predicate to the errors in the observation, failing
+    if there are no errors.
+    """
+    observation = value
+    if not observation.errors:
+      pred_result = jp.ValuePredicate(
+          False, comment='Observation had no errors.')
+    else:
+      pred_result = self.__pred(context, observation.errors)
+
+    return op.ObservationPredicateResult(
+      pred_result.valid, observation, pred=self.__pred, pred_result=pred_result)
+
+    

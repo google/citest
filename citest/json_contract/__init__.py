@@ -24,6 +24,17 @@ from observer import (
     Observation)
 
 
+# The predicate module is for operations on Observations
+# these are a specialization of ValuePredicate where the values are
+# Observations as opposed to raw values.
+from observation_predicate import (
+    ObservationPredicate,
+    ObservationPredicateResult,
+    ObservationErrorPredicate,
+    ObservationValuePredicate,
+    )
+
+
 # The verifier module provides support for verifying observations meet
 # expectations.
 from observation_verifier import (
@@ -33,13 +44,15 @@ from observation_verifier import (
     ObservationVerifyResult)
 
 
+# ValueObservation is DEPRECATED
+# Instead use ObservationValuePredicates on ObservationVerifiers
 from value_observation_verifier import (
-    ValueObservationVerifier,
     ValueObservationVerifierBuilder)
 
 
 from observation_failure import (
     ObservationFailedError,
+    ObservationFailurePredicate,
     ObservationFailureVerifier)
 
 

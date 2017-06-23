@@ -27,16 +27,38 @@ import citest.json_predicate as jp
 
 
 _called_verifiers = []
+_TEST_FOUND_ERROR_COMMENT='Found error.'
+
+
+class TestObsoleteObservationFailureVerifier(jc.ObservationFailureVerifier):
+  def __init__(self, title, expect):
+    super(TestObsoleteObservationFailureVerifier, self).__init__(title)
+    self.__expect = expect
+
+  def _error_comment_or_none(self, error):
+    if error.message == self.__expect:
+      return _TEST_FOUND_ERROR_COMMENT
+    return None
+
 
 def _makeObservationVerifyResult(
-    valid, good_results=None, bad_results=None, failed_constraints=None):
-  good_results = good_results or []
-  bad_results = bad_results or []
+    valid, observation=None,
+    good_results=None, bad_results=None, failed_constraints=None):
+  default_result = jp.PredicateResult(valid=valid)
+  good_results = good_results or ([default_result] if valid else [])
+  bad_results = bad_results or ([] if valid else [default_result])
   failed_constraints = failed_constraints or []
 
+  observation = observation or jc.Observation()
+  good_attempt_results = [jp.ObjectResultMapAttempt(observation, result)
+                          for result in good_results]
+  bad_attempt_results = [jp.ObjectResultMapAttempt(observation, result)
+                         for result in bad_results]
   return jc.ObservationVerifyResult(
-      valid=valid, observation=jc.Observation(),
-      good_results=[], bad_results=[], failed_constraints=[])
+      valid=valid, observation=observation,
+      good_results=good_attempt_results,
+      bad_results=bad_attempt_results,
+      failed_constraints=failed_constraints)
 
 
 class FakeObservationVerifier(jc.ObservationVerifier):
@@ -54,6 +76,7 @@ class ObservationVerifierTest(unittest.TestCase):
   def assertEqual(self, expect, have, msg=''):
     if not msg:
       msg = 'EXPECTED\n{0!r}\nGOT\n{1!r}'.format(expect, have)
+
     JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
 
   def test_result_builder_add_good_result(self):
@@ -123,13 +146,15 @@ class ObservationVerifierTest(unittest.TestCase):
     context = ExecutionContext()
     builder = jc.ObservationVerifierBuilder(title='Test')
     verifiers = []
-    results = []
+    pred_results = []
     for i in range(3):
-      result = _makeObservationVerifyResult(valid=True)
+      this_result = jp.PredicateResult(True, comment='Pred {0}'.format(i))
+      pred_results.append(this_result)
+      result = _makeObservationVerifyResult(
+          valid=True, good_results=[this_result])
       fake_verifier = FakeObservationVerifier(
           title=i, dnf_verifier=[], result=result)
       verifiers.append(fake_verifier)
-      results.append(result)
       builder.AND(fake_verifier)
 
     # verify build can work multiple times
@@ -137,7 +162,7 @@ class ObservationVerifierTest(unittest.TestCase):
     verifier = builder.build()
     self.assertEqual([verifiers], verifier.dnf_verifiers)
 
-    expect = _makeObservationVerifyResult(True, good_results=results)
+    expect = _makeObservationVerifyResult(True, good_results=pred_results)
 
     global _called_verifiers
     _called_verifiers = []
@@ -151,8 +176,11 @@ class ObservationVerifierTest(unittest.TestCase):
     builder = jc.ObservationVerifierBuilder(title='Test')
     verifiers = []
     results = []
+    pred_results = [jp.PredicateResult(False, comment='Result %d' % i)
+                                       for i in range(3)]
     for i in range(3):
-      result = _makeObservationVerifyResult(valid=False)
+      result = _makeObservationVerifyResult(
+          valid=False, bad_results=[pred_results[i]])
       fake_verifier = FakeObservationVerifier(
           title=i, dnf_verifier=[], result=result)
       verifiers.append(fake_verifier)
@@ -164,7 +192,8 @@ class ObservationVerifierTest(unittest.TestCase):
     verifier = builder.build()
     self.assertEqual([verifiers], verifier.dnf_verifiers)
 
-    expect = _makeObservationVerifyResult(False, bad_results=[results[0]])
+    expect = _makeObservationVerifyResult(
+        False, bad_results=[pred_results[0]])
 
     global _called_verifiers
     _called_verifiers = []
@@ -178,8 +207,11 @@ class ObservationVerifierTest(unittest.TestCase):
     builder = jc.ObservationVerifierBuilder(title='Test')
     verifiers = []
     results = []
+    pred_results = [jp.PredicateResult(False, comment='Result %d' % i)
+                                       for i in range(2)]
     for i in range(2):
-      result = _makeObservationVerifyResult(valid=True)
+      result = _makeObservationVerifyResult(
+          valid=True, good_results=[pred_results[i]])
       fake_verifier = FakeObservationVerifier(
           title=i, dnf_verifier=[], result=result)
       verifiers.append(fake_verifier)
@@ -189,7 +221,7 @@ class ObservationVerifierTest(unittest.TestCase):
     verifier = builder.build()
     self.assertEqual([verifiers[0:1], verifiers[1:2]], verifier.dnf_verifiers)
 
-    expect = _makeObservationVerifyResult(True, bad_results=[results[0]])
+    expect = _makeObservationVerifyResult(True, good_results=[pred_results[0]])
 
     global _called_verifiers
     _called_verifiers = []
@@ -200,11 +232,15 @@ class ObservationVerifierTest(unittest.TestCase):
 
   def test_result_observation_verifier_disjunction_failure(self):
     context = ExecutionContext()
+    observation = jc.Observation()
     builder = jc.ObservationVerifierBuilder(title='Test')
     verifiers = []
     results = []
+    pred_results = [jp.PredicateResult(False, comment='Result %d' % i)
+                                       for i in range(2)]
     for i in range(2):
-      result = _makeObservationVerifyResult(valid=False)
+      result = _makeObservationVerifyResult(observation=observation,
+          valid=False, bad_results=[pred_results[i]])
       fake_verifier = FakeObservationVerifier(
           title=i, dnf_verifier=[], result=result)
       verifiers.append(fake_verifier)
@@ -214,14 +250,137 @@ class ObservationVerifierTest(unittest.TestCase):
     verifier = builder.build()
     self.assertEqual([verifiers[0:1], verifiers[1:2]], verifier.dnf_verifiers)
 
-    expect = _makeObservationVerifyResult(False, bad_results=[results])
+    expect = _makeObservationVerifyResult(
+        False, observation=observation, bad_results=pred_results)
 
     global _called_verifiers
     _called_verifiers = []
-    got = verifier(context, jc.Observation())
+    got = verifier(context, observation)
 
     self.assertEqual(expect, got)
     self.assertEqual(verifiers, _called_verifiers)
+
+  def test_obsolete_observation_failure_ok(self):
+    error_text = 'the error'
+    context = ExecutionContext()
+
+    observation = jc.Observation()
+    error = ValueError(error_text)
+    observation.add_error(error)
+
+    failure_verifier = TestObsoleteObservationFailureVerifier(
+        'Test', error_text)
+    failure_pred_result = jc.ObservationFailedError([error], valid=True)
+
+    expect_failure = jc.ObservationVerifyResult(
+        valid=True, observation=observation,
+        good_results=[jp.ObjectResultMapAttempt(observation,
+                                                failure_pred_result)],
+        bad_results=[], failed_constraints=[],
+        comment=_TEST_FOUND_ERROR_COMMENT)
+    got = failure_verifier(context, observation)
+    self.assertEqual(expect_failure, got)
+
+    builder = jc.ObservationVerifierBuilder(title='Test')
+    builder.EXPECT(failure_verifier)
+    verifier = builder.build()
+
+    expect = jc.ObservationVerifyResult(
+        valid=True, observation=observation,
+        good_results=expect_failure.good_results,
+        bad_results=[], failed_constraints=[])
+
+    got = verifier(context, observation)
+    self.assertEqual(expect, got)
+
+  def test_observation_failure_ok(self):
+    error_text = 'the error'
+    context = ExecutionContext()
+
+    observation = jc.Observation()
+    error = ValueError(error_text)
+    observation.add_error(error)
+
+    exception_pred = jp.ExceptionMatchesPredicate(
+        ValueError, regex=error_text)
+    builder = jc.ObservationVerifierBuilder(title='Test')
+    builder.EXPECT(jc.ObservationErrorPredicate(jp.LIST_MATCHES([exception_pred])))
+    failure_verifier = builder.build()
+
+    observation_predicate_result = jc.ObservationPredicateResult(
+        True, observation, jp.LIST_MATCHES([exception_pred]),
+        jp.LIST_MATCHES([exception_pred])(context, [error]))
+
+    expect_failure = jc.ObservationVerifyResult(
+        True, observation,
+        good_results=[observation_predicate_result],
+        bad_results=[], failed_constraints=[])
+    got = failure_verifier(context, observation)
+    self.assertEqual(expect_failure, got)
+
+  def test_obsolete_observation_failure_not_ok(self):
+    error_text = 'the error'
+    context = ExecutionContext()
+    observation = jc.Observation()
+    error = ValueError('not the error')
+    observation.add_error(error)
+
+    failure_verifier = TestObsoleteObservationFailureVerifier(
+        'Test', error_text)
+    comment = failure_verifier._error_not_found_comment(observation)
+    failure_pred_result = jp.PredicateResult(valid=False, comment=comment)
+
+    expect_failure = jc.ObservationVerifyResult(
+        valid=False, observation=observation,
+        bad_results=[jp.ObjectResultMapAttempt(observation,
+                                               failure_pred_result)],
+        good_results=[], failed_constraints=[],
+        comment=comment)
+    self.assertEqual(expect_failure, failure_verifier(context, observation))
+
+    builder = jc.ObservationVerifierBuilder(title='Test Verifier')
+    builder.EXPECT(failure_verifier)
+    verifier = builder.build()
+
+    expect = jc.ObservationVerifyResult(
+        valid=False, observation=observation,
+        bad_results=expect_failure.bad_results,
+        good_results=[], failed_constraints=[])
+    got = verifier(context, observation)
+    self.assertEqual(expect, got)
+
+  def test_obsolete_observation_failure_or_found(self):
+    context = ExecutionContext()
+    observation = jc.Observation()
+    observation.add_error(ValueError('not the error'))
+
+    failure_verifier = TestObsoleteObservationFailureVerifier(
+        'Verify', 'NotFound')
+    comment = failure_verifier._error_not_found_comment(observation)
+    failure_result = jp.PredicateResult(valid=False, comment=comment)
+    # We've already established this result is what we expect
+    bad_observation_result = failure_verifier(context, observation)
+
+    success_pred_result = jp.PredicateResult(valid=True)
+    good_observation_result = _makeObservationVerifyResult(
+      valid=True,
+      good_results=[success_pred_result],
+      observation=observation)
+    success_verifier = FakeObservationVerifier(
+          'Found', dnf_verifier=[], result=good_observation_result)
+
+    builder = jc.ObservationVerifierBuilder(title='Observation Verifier')
+    builder.EXPECT(failure_verifier).OR(success_verifier)
+    verifier = builder.build()
+
+    expect = jc.ObservationVerifyResult(
+        valid=True, observation=observation,
+        bad_results=bad_observation_result.bad_results,
+        good_results=good_observation_result.good_results,
+        failed_constraints=[])
+
+    got = verifier(context, observation)
+    self.assertEqual(expect, got)
 
 
 if __name__ == '__main__':
