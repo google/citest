@@ -508,7 +508,7 @@ class ObservationVerifierBuilder(JsonSnapshotableEntity):
     Returns:
        self
     """
-    return EXPECT(pred)
+    return self.EXPECT(pred)
 
   def append_verifier(self, verifier, new_term=False):
     """Deprecated -- see AND() or OR()."""
