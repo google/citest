@@ -23,7 +23,6 @@ from googleapiclient.errors import HttpError
 
 # Our modules.
 from .. import json_contract as jc
-from .gcp_error_predicates import GoogleAgentObservationFailureVerifier
 
 
 class GcpObjectObserver(jc.ObjectObserver):
@@ -113,7 +112,7 @@ class GcpClauseBuilder(jc.ContractClauseBuilder):
 
     return observation_builder
 
-  def inspect_resource(self, resource_type, resource_id, no_resource_ok=False,
+  def inspect_resource(self, resource_type, resource_id,
                        **kwargs):
     """Observe the details of a specific instance.
 
@@ -130,31 +129,19 @@ class GcpClauseBuilder(jc.ContractClauseBuilder):
       A js.ValueObservationVerifier that will collect the requested resource
           when its verify() method is run.
     """
+    if 'no_resource_ok' in kwargs:
+      raise KeyError('no_resource_ok was DEPRECATED and removed.')
+
     self.observer = GcpObjectObserver(
         self.__gcp_agent.get_resource,
         resource_type=resource_type,
         resource_id=resource_id,
         **kwargs)
 
-    if no_resource_ok:
-      error_verifier = GoogleAgentObservationFailureVerifier(
-          title='404 Permitted', http_code=404)
-      disjunction_builder = jc.ObservationVerifierBuilder(
-          'Inspect {0} {1} or 404'.format(resource_type, resource_id))
-      disjunction_builder.append_verifier(error_verifier)
-
-      inspect_builder = jc.ValueObservationVerifierBuilder(
-          'Inspect {0} {1}'.format(resource_type, resource_id),
-          strict=self.__strict)
-      disjunction_builder.append_verifier_builder(
-          inspect_builder, new_term=True)
-      self.verifier_builder.append_verifier_builder(
-          disjunction_builder, new_term=True)
-    else:
-      inspect_builder = jc.ValueObservationVerifierBuilder(
-          'Inspect {0} {1}'.format(resource_type, resource_id),
-          strict=self.__strict)
-      self.verifier_builder.append_verifier_builder(inspect_builder)
+    inspect_builder = jc.ValueObservationVerifierBuilder(
+        'Inspect {0} {1}'.format(resource_type, resource_id),
+        strict=self.__strict)
+    self.verifier_builder.append_verifier_builder(inspect_builder)
 
     return inspect_builder
 

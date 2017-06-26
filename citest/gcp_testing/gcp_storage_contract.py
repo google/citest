@@ -22,8 +22,6 @@ from .gcp_contract import (
     GcpObjectObserver,
     GcpClauseBuilder,
     GcpContractBuilder)
-from .gcp_error_predicates import GoogleAgentObservationFailureVerifier
-
 
 class GcpStorageClauseBuilder(GcpClauseBuilder):
   """A ContractClause that facilitates observing GCE state."""
@@ -64,8 +62,7 @@ class GcpStorageClauseBuilder(GcpClauseBuilder):
 
     return observation_builder
 
-  def retrieve_content(self, bucket, path, no_resource_ok=False,
-                       transform=None):
+  def retrieve_content(self, bucket, path, transform=None):
     """Retrieve actual contents of file at path.
 
     Args:
@@ -77,35 +74,14 @@ class GcpStorageClauseBuilder(GcpClauseBuilder):
                                       bucket=bucket, path=path,
                                       transform=transform)
 
-    if no_resource_ok:
-      # Construct rule "error_verifier OR <user supplied specification>"
-      # where the <user supplied specification> will be returned as our
-      # result so that the caller can populate the criteria.
-      # We'll append the outer disjunction (disjunction builder) to our
-      # verifiers and return the user clause (retrieve_builder) within
-      # that disjunction so that the caller can finish specifying it.
-      error_verifier = GoogleAgentObservationFailureVerifier(
-          title='404 Permitted', http_code=404)
-      disjunction_builder = jc.ObservationVerifierBuilder(
-          'Retrieve {0} bucket={1} path={2} or 404'.format(type, bucket, path))
-      disjunction_builder.append_verifier(error_verifier)
-
-      retrieve_builder = jc.ValueObservationVerifierBuilder(
-          'Retrieve {0} bucket={1} path={2}'.format(type, bucket, path),
-          strict=self.__strict)
-      disjunction_builder.append_verifier_builder(
-          retrieve_builder, new_term=True)
-      self.verifier_builder.append_verifier_builder(
-          disjunction_builder, new_term=True)
-    else:
-      # Construct the rule <user supplied specification>
-      # Here we return the user supplied specification clause as before.
-      # But we dont need the outer disjunction, so we also add it directly
-      # as the verifier.
-      retrieve_builder = jc.ValueObservationVerifierBuilder(
-          'Retrieve bucket={0} path={1}'.format(bucket, path),
-          strict=self.__strict)
-      self.verifier_builder.append_verifier_builder(retrieve_builder)
+    # Construct the rule <user supplied specification>
+    # Here we return the user supplied specification clause as before.
+    # But we dont need the outer disjunction, so we also add it directly
+    # as the verifier.
+    retrieve_builder = jc.ValueObservationVerifierBuilder(
+        'Retrieve bucket={0} path={1}'.format(bucket, path),
+        strict=self.__strict)
+    self.verifier_builder.append_verifier_builder(retrieve_builder)
 
     return retrieve_builder
 

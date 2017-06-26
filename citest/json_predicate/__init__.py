@@ -29,6 +29,7 @@ from .json_error import JsonError
 # returning values, so are heavier weight that would be otherwise.
 from .path_value import (
     PATH_SEP,
+    build_path,
     PathValue)
 
 

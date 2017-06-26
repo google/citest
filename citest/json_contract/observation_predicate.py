@@ -12,11 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
-from ..json_predicate import predicate
-
-
 """Support for applying predicates to Observations.
 
 These predicates mediate between observations and generic ValuePredicates.
@@ -25,7 +20,19 @@ act as a guard to verify that the attribute is set before delegating,
 and calls the delegate with the attribute value rather than the Observation.
 """
 
-class ObservationPredicateResult(predicate.PredicateResult):
+
+import logging
+
+from ..json_predicate import (
+    PredicateResult,
+    ValuePredicate,
+    DICT_MATCHES,
+    LIST_MATCHES,
+    NOT)
+
+
+
+class ObservationPredicateResult(PredicateResult):
   """Specialization of PredicateResult used by ObservationPredicate."""
   @property
   def observation(self):
@@ -75,13 +82,38 @@ class ObservationPredicateResult(predicate.PredicateResult):
         snapshot, entity)
 
 
-class ObservationPredicate(predicate.ValuePredicate):
+class ObservationPredicate(ValuePredicate):
   """A placeholder indicating a type of ObservationPredicate.
 
   ObservationPredicates are ValuePredicates whose value is
   expected to be a json_contract.Observation.
   """
+  # pylint: disable=abstract-method
   pass
+
+
+class NotObservationPredicate(ObservationPredicate):
+  """Negates an observation predicate
+
+  This is used to implement "excludes" predicates.
+  """
+
+  def __init__(self, pred):
+    self.__pred = NOT(pred)
+
+  def __eq__(self, pred):
+    return (self.__class__ == pred.__class__
+            and self.__pred == pred.pred)
+
+  def __call__(self, context, value):
+    return self.__pred(context, value)
+
+  def __str__(self):
+    return str(self.__pred)
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotableEntity interface."""
+    snapshot.edge_builder.make_control(entity, 'Predicate', self.__pred)
 
 
 class ObservationErrorPredicate(ObservationPredicate):
@@ -96,7 +128,7 @@ class ObservationErrorPredicate(ObservationPredicate):
     self.__pred = pred
 
   def __eq__(self, pred):
-    return (super(ObservationErrorPredicate, self).__eq__(pred)
+    return (self.__class__ == pred.__class__
             and self.__pred == pred.pred)
 
   def __call__(self, context, value):
@@ -105,7 +137,7 @@ class ObservationErrorPredicate(ObservationPredicate):
     if not observation.errors:
       logging.getLogger(__name__).debug(
           'Failing because of observation had no errors')
-      return predicate.PredicateResult(
+      return PredicateResult(
           False,
           comment='Automatically fails because observation had no errors.')
 
@@ -156,7 +188,7 @@ class ObservationValuePredicate(ObservationPredicate):
     if observation.errors:
       logging.getLogger(__name__).debug(
           'Failing because of observation errors %s', observation.errors)
-      return predicate.PredicateResult(
+      return PredicateResult(
           False, comment='Automatically fails because observation failed.')
     pred_result = self.__pred(context, observation.objects)
     return ObservationPredicateResult(
@@ -166,3 +198,84 @@ class ObservationValuePredicate(ObservationPredicate):
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_control(entity, 'Predicate', self.__pred)
+
+
+class ObservationPredicateFactory(object):
+  """Factory for creating ObservationPredicates
+
+  This is to provide higher level constructors for predicates
+  to pass to an ObservationVerifyResultBuilder.
+  """
+
+  def value_list_matches(self, list_pred_args, **kwargs):
+    """An ObservationValuePredicate that LIST_MATCHES.
+
+    Args:
+      list_pred_args: [list of ValuePredicates] The predicates to apply to
+          the observation.values
+      kwargs: [kwargs] Passed through the the LIST_MATCHES constructor
+    """
+    return ObservationValuePredicate(LIST_MATCHES(list_pred_args, **kwargs))
+
+  def value_list_contains(self, pred):
+    """Shortcut for expect_value_list_matches where the list is just one pred.
+
+    Args:
+      pred: [ValuePredicate] The value predicate to look for in the list.
+    """
+    return self.value_list_matches([pred])
+
+  def value_list_excludes(self, pred):
+    """Shortcut for expect_value_list_matches where the list is just one pred.
+
+    Args:
+      pred: [ValuePredicate] The value predicate to look for in the list.
+    """
+    return NotObservationPredicate(self.value_list_matches([pred]))
+
+  def value_list_path_contains(self, path, pred):
+    """Shortcut for finding a particular pattern within some observed value.
+
+    Essentially this results in an ObservationValuePredicate
+      that LIST_MATCHES
+      with an element whose dictionary contains a |path| matching |pred|.
+
+    Args:
+      path: [path] A path to a dictionary element. This can be nested.
+         It should comply with json_predicate.PathPredicate syntax.
+      pred: [ValuePredicates] The predicates to apply to the observation.values
+    """
+    return self.value_list_matches([DICT_MATCHES({path: pred})])
+
+  def value_list_path_excludes(self, path, pred):
+    """Shortcut for finding a particular pattern within some observed value.
+
+    Essentially this results in an ObservationValuePredicate
+      that LIST_MATCHES
+      with an element whose dictionary contains a |path| matching |pred|.
+
+    Args:
+      path: [path] A path to a dictionary element. This can be nested.
+         It should comply with json_predicate.PathPredicate syntax.
+      pred: [ValuePredicates] The predicates to apply to the observation.values
+    """
+    return NotObservationPredicate(
+        self.value_list_matches([DICT_MATCHES({path: pred})]))
+
+  def error_list_matches(self, list_pred_args, **kwargs):
+    """An ObservationErrorPredicate that LIST_MATCHES.
+
+    Args:
+      list_pred_args: [list of ValuePredicates] The predicates to apply to
+          the observation.errors
+      kwargs: [kwargs] Passed through the the LIST_MATCHES constructor
+    """
+    return ObservationErrorPredicate(LIST_MATCHES(list_pred_args, **kwargs))
+
+  def error_list_contains(self, pred):
+    """Shortcut for error_list_matches where the list is just one pred.
+
+    Args:
+      pred: [ValuePredicate] The value predicate to look for in the list.
+    """
+    return self.error_list_matches([pred])

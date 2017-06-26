@@ -24,13 +24,13 @@ from gcp_compute_agent import (
     COMPUTE_READ_ONLY_SCOPE,
     COMPUTE_READ_WRITE_SCOPE,
     GcpComputeAgent)
-    
+
 from gcp_storage_agent import (
     GcpStorageAgent,
     STORAGE_FULL_SCOPE,
     STORAGE_READ_ONLY_SCOPE,
     STORAGE_READ_WRITE_SCOPE)
-    
+
 from gcp_storage_contract import GcpStorageContractBuilder
 
 from gcloud_agent import GCloudAgent
@@ -42,7 +42,6 @@ from quota_predicate import (
     verify_quota)
 
 from gcp_error_predicates import (
-    GoogleAgentObservationFailureVerifier,
     HttpErrorPredicate,
     HttpErrorPredicateResult,
     )

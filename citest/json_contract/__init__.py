@@ -29,6 +29,7 @@ from observer import (
 # Observations as opposed to raw values.
 from observation_predicate import (
     ObservationPredicate,
+    ObservationPredicateFactory,
     ObservationPredicateResult,
     ObservationErrorPredicate,
     ObservationValuePredicate,

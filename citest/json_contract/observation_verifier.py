@@ -21,7 +21,7 @@ import logging
 from ..base import JsonSnapshotableEntity
 from ..json_predicate import map_predicate
 from ..json_predicate import predicate
-from ..json_predicate import LIST_MATCHES
+from ..json_predicate.logic_predicate import NOT
 import observation_predicate as op
 
 
@@ -243,10 +243,11 @@ class ObservationVerifyResult(predicate.PredicateResult):
         edge.add_metadata('relation', 'INVALID')
 
   def __str__(self):
-    return '{0} Observed {1} good and {2} bad with {3} failed constraints.'.format(
-        super(ObservationVerifyResult, self).__str__(),
-        len(self.__good_results), len(self.__bad_results),
-        len(self.__failed_constraints))
+    return ('{0} Observed {1} good and {2} bad with {3} failed constraints.'
+            .format(
+                super(ObservationVerifyResult, self).__str__(),
+                len(self.__good_results), len(self.__bad_results),
+                len(self.__failed_constraints)))
 
   def __repr__(self):
     return ('{0} observation={1!r}'
@@ -446,122 +447,75 @@ class ObservationVerifierBuilder(JsonSnapshotableEntity):
     super(ObservationVerifierBuilder, self).export_to_json_snapshot(
         snapshot, entity)
 
-  def EXPECT(self, verifier):
-    """Starts the verifier expression.
+  def EXPECT(self, pred):
+    """Starts the verification expression with a predicate.
 
-    This starts the first verifier clause. Additional verifiers can be added
-    later by using either AND or OR depending on how to combine them.
+    This acts as an AND to the existing expression, or starts the first one
+    if there are no expressions.
+
+    Additional predicates can be added later by using either AND (or EXPECT),
+    or OR depending on how to combine them.
 
     Args:
-       verifier: [ObservationVerifier]
+       pred: [ObservationPredicate]
     Returns:
        self
     """
-    if self.__current_builder_conjunction:
-      raise ValueError(
-          'EXPECT (or append_verifier) was already used.'
-          ' Use OR or AND to add more verifiers.')
+    if not hasattr(pred, 'build'):
+      pred = _VerifierBuilderWrapper(pred)
 
-    if not hasattr(verifier, 'build'):
-      verifier = _VerifierBuilderWrapper(verifier)
-
-    self.__current_builder_conjunction = [verifier]
+    if not self.__current_builder_conjunction:
+      self.__current_builder_conjunction = [pred]
+    else:
+      self.__current_builder_conjunction.append(pred)
     return self
 
-  def OR(self, verifier):
-    """Starts a new expression containing the verifier.
+  def OR(self, pred):
+    """Starts a new expression containing the predicate.
 
     The effect of an OR is to say to build a verifier that expects either
     the previously specified expressions to pass or a new expression
-    consisting of this verifier (and posibly additional ANDed later).
+    consisting of this predicate (and posibly additional ANDed later).
 
     Args:
-       verifier: [ObservationVerifier]
+       pred: [ObservationPredicate] First predicate in th new expression
+
     Returns:
        self
     """
-    if not hasattr(verifier, 'build'):
-      verifier = _VerifierBuilderWrapper(verifier)
+    if not hasattr(pred, 'build'):
+      pred = _VerifierBuilderWrapper(pred)
 
     if self.__current_builder_conjunction:
       self.__dnf_verifier_builders.append(self.__current_builder_conjunction)
-      self.__current_builder_conjunction = [verifier]
+      self.__current_builder_conjunction = [pred]
     else:
-      self.__current_builder_conjunction = [verifier]
+      self.__current_builder_conjunction = [pred]
     return self
 
-  def AND(self, verifier):
-    """Adds the verifier to the current expression.
+  def AND(self, pred):
+    """Adds the predicate to the current expression.
+
+    This is an alias of EXPECT clarifying multiple calls act as a
+    conjunction to be ANDed together.
 
     If the current expression is empty, then this will be the expression.
-    Otherwise it will AND this verifier to the end of the existing expression.
+    Otherwise it will AND this predicate to the end of the existing expression.
     If you want the verifier to start a new expression, see OR().
 
     Args:
-       verifier: [ObservationVerifier]
+       pred: [ObservationPredicate]
     Returns:
        self
     """
-    if not hasattr(verifier, 'build'):
-      verifier = _VerifierBuilderWrapper(verifier)
-
-    if not self.__current_builder_conjunction:
-      self.__current_builder_conjunction = [verifier]
-    else:
-      self.__current_builder_conjunction.append(verifier)
-    return self
-
-  def expect_value_list_matches(self, list_pred_args, **kwargs):
-    return self.EXPECT(
-        op.ObservationValuePredicate(LIST_MATCHES(list_pred_args, **kwargs)))
-
-  def expect_error_list_matches(self, list_pred_args, **kwargs):
-    return self.EXPECT(
-        op.ObservationErrorPredicate(LIST_MATCHES(list_pred_args, **kwargs)))
-
-  def expect_value_list_contains(self, value_pred):
-    return self.expect_value_list_matches([value_pred])
-
-  def expect_error_list_contains(self, value_pred):
-    return self.expect_error_list_matches([value_pred])
-
-  def or_value_list_matches(self, list_pred_args, **kwargs):
-    return self.OR(
-        op.ObservationValuePredicate(LIST_MATCHES(list_pred_args, **kwargs)))
-
-  def or_error_list_matches(self, list_pred_args, **kwargs):
-    return self.OR(
-        op.ObservationErrorPredicate(LIST_MATCHES(list_pred_args, **kwargs)))
-
-  def or_value_list_contains(self, value_pred):
-    return self.or_value_list_matches([value_pred])
-
-  def or_error_list_contains(self, value_pred):
-    return self.or_error_list_matches([value_pred])
-
-  def and_value_list_matches(self, list_pred_args, **kwargs):
-    return self.AND(
-        op.ObservationValuePredicate(
-           LIST_MATCHES(list_pred_args, **kwargs)))
-
-  def and_error_list_matches(self, list_pred_args, **kwargs):
-    return self.AND(
-        op.ObservationErrorPredicate(
-           LIST_MATCHES(list_pred_args, **kwargs)))
-
-  def and_value_list_contains(self, value_pred):
-    return self.and_value_list_matches([value_pred])
-
-  def and_error_list_contains(self, value_pred):
-    return self.and_error_list_matches([value_pred])
-
+    return EXPECT(pred)
 
   def append_verifier(self, verifier, new_term=False):
     """Deprecated -- see AND() or OR()."""
     return self.OR(verifier) if new_term else self.AND(verifier)
 
   def append_verifier_builder(self, builder, new_term=False):
-    """Deprecated -- see AND() or OR."""
+    """Deprecated -- see AND() or OR()."""
     return self.OR(builder) if new_term else self.AND(builder)
 
   def build(self):
@@ -586,5 +540,6 @@ class ObservationVerifierBuilder(JsonSnapshotableEntity):
 
   def _do_build_generate(self, dnf_verifiers):
     return ObservationVerifier(
-        self.__title, warn_nested=self.__warn_nested, dnf_verifiers=dnf_verifiers)
-
+        self.__title,
+        warn_nested=self.__warn_nested,
+        dnf_verifiers=dnf_verifiers)

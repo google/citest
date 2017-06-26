@@ -131,7 +131,7 @@ class NegationPredicate(ValuePredicate):
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
-    snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.__pred)
+    snapshot.edge_builder.make_mechanism(entity, 'Not', self.__pred)
 
   def __call__(self, context, value):
     base_result = self.__pred(context, value)

@@ -30,6 +30,7 @@ import citest.gcp_testing as gt
 import citest.json_predicate as jp
 import citest.json_contract as jc
 import citest.service_testing as st
+ov_factory = jc.ObservationPredicateFactory()
 
 from test_gcp_agent import (
     FakeGcpService,
@@ -92,9 +93,9 @@ class GcpContractTest(st.AgentTestCase):
     contract_builder = gt.GcpContractBuilder(agent)
 
     c1 = contract_builder.new_clause_builder('TITLE')
-    verifier = c1.inspect_resource(
-        'regions', resource_id='us-central1-f', no_resource_ok=True)
-    verifier.contains_path_value('field', 'value')
+    verifier = c1.inspect_resource('regions', resource_id='us-central1-f')
+    verifier.EXPECT(
+        ov_factory.error_list_contains(gt.HttpErrorPredicate(http_code=404)))
     self.assertTrue(isinstance(verifier, jc.ValueObservationVerifierBuilder))
 
     contract = contract_builder.build()
@@ -115,9 +116,8 @@ class GcpContractTest(st.AgentTestCase):
 
     c1 = contract_builder.new_clause_builder('TITLE')
     verifier = c1.inspect_resource(
-        'regions', resource_id=lambda x: x['test_id'],
-        no_resource_ok=True)
-    verifier.contains_path_value('', 'Hello, World')
+        'regions', resource_id=lambda x: x['test_id'])
+    verifier.EXPECT(ov_factory.value_list_contains(jp.STR_EQ('Hello, World')))
     self.assertTrue(isinstance(verifier, jc.ValueObservationVerifierBuilder))
 
     contract = contract_builder.build()

@@ -75,7 +75,7 @@ class HttpErrorPredicate(jp.ValuePredicate):
     self.__content_regex = content_regex
     super(HttpErrorPredicate, self).__init__(**kwargs)
 
-  def __call__(self, value):
+  def __call__(self, context, value):
     if not isinstance(value, HttpError):
       return jp.PredicateResult(
           valid=False,
@@ -125,58 +125,3 @@ class HttpErrorPredicate(jp.ValuePredicate):
     if self.__content_regex is not None:
       parts.append('contains={0}'.format(self.__content_regex))
     return ', '.join(parts)
-
-
-class GoogleAgentObservationFailureVerifier(jc.ObservationVerifier):
-  """An ObservationVerifier that expects specific errors from stderr."""
-
-  def __init__(self, title, http_code=None, content_regex=None):
-    """Constructs the clause with the acceptable status and/or error regex.
-
-    Args:
-      title: Verifier name for reporting purposes only.
-      http_code: [int] The specific HTTP status code that is expected or None.
-      content_regex: [string] Regex pattern expected in error response content
-          or None.
-    """
-    super(GoogleAgentObservationFailureVerifier, self).__init__(title)
-    self.__pred = HttpErrorPredicate(http_code, content_regex)
-
-  def export_to_json_snapshot(self, snapshot, entity):
-    """Implements JsonSnapshotableEntity interface."""
-    snapshot.edge_builder.make_control(entity, 'Expect', self.__pred)
-    super(GoogleAgentObservationFailureVerifier, self).export_to_json_snapshot(
-        snapshot, entity)
-
-  def __call__(self, context, observation):
-    """Check if observation contains the expected HTTP error.
-
-    Args:
-      observation: [Observation] The observation.
-      context: [ExecutionContext] The execution context.
-    """
-    good_results = []
-    bad_results = []
-
-    if not observation.errors:
-      bad_results.append(jp.PredicateResult(
-          False, comment='No errors observed.'))
-
-    for error in observation.errors:
-      result = self.__pred(error)
-      if result:
-        good_results.append(result)
-      else:
-        bad_results.append(result)
-
-    if good_results:
-      failed_constraints = []
-      comment = 'Observed expected error.'
-    else:
-      failed_constraints = [self.__pred]
-      comment = 'Did not observe expected error.'
-
-    return jc.ObservationVerifyResult(
-        valid=good_results != [], observation=observation,
-        good_results=good_results, bad_results=bad_results,
-        failed_constraints=failed_constraints, comment=comment)

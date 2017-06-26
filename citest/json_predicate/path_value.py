@@ -23,6 +23,10 @@ from ..base import JsonSnapshotableEntity
 PATH_SEP = '/'
 
 
+def build_path(*parts):
+  return PATH_SEP.join(parts)
+
+
 class PathValue(collections.namedtuple('PathValue', ['path', 'value']),
                 JsonSnapshotableEntity):
   """A path, value pair.
