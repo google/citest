@@ -15,6 +15,7 @@
 """Specialized binary predicates for simple/atomic types."""
 
 import logging
+import re
 
 from .base_binary_predicate import (
     BinaryPredicate)
@@ -103,6 +104,9 @@ STR_EQ = SimpleBinaryPredicateFactory(
     '==', lambda a, b: a == b, operand_type=basestring)
 STR_NE = SimpleBinaryPredicateFactory(
     '!=', lambda a, b: a != b, operand_type=basestring)
+
+STR_REGEX = SimpleBinaryPredicateFactory(
+    'RegEx', lambda a, b: re.search(b, a) != None, operand_type=basestring)
 
 
 class StandardBinaryPredicate(SimpleBinaryPredicate):

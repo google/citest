@@ -95,9 +95,24 @@ class JsonSimpleBinaryPredicateTest(unittest.TestCase):
     self.assertBad('abc', substr_q)
     self.assertBad('xyz', substr_q)
 
+  def test_string_regex(self):
+    initial_hello = jp.STR_REGEX('^Hello.*')
+    hello = jp.STR_REGEX('.*Hello.*')
+    hello_world = jp.STR_REGEX('Hello, World')
+    hello_world_exact = jp.STR_REGEX('^Hello, World$')
+    self.assertGood('Hello, World', hello)
+    self.assertGood('Hello, World', initial_hello)
+    self.assertGood('Hello, World', hello_world)
+    self.assertGood('Hello, World', hello_world_exact)
+    self.assertGood('Hello, World!', hello_world)
+    self.assertBad('Hello, World!', hello_world_exact)
+    self.assertBad('Helllo, World', hello)
+    self.assertBad('um Hello', initial_hello)
+    self.assertGood('um Hello', hello)
+
   def simple_operand_type_mismatch_helper(self,
-                                            context, expected_type, factory,
-                                            good_operand, bad_operand):
+                                          context, expected_type, factory,
+                                          good_operand, bad_operand):
     """Helper method used to generate operand type mismatch errors.
 
     Args:

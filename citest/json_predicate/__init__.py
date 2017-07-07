@@ -85,6 +85,7 @@ from .simple_binary_predicate import (
     NUM_GE,
     NUM_EQ,
     NUM_NE,
+    STR_REGEX,
     STR_SUBSTR,
     STR_EQ,
     STR_NE)
