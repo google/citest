@@ -69,33 +69,18 @@ from .path_predicate import (
 from .path_transforms import (
     FieldDifference)
 
-from .binary_predicate import (
-    BinaryPredicate,
-    ContainsPredicate,
-    DictMatchesPredicate,
-    DictSubsetPredicate,
-    DifferentPredicate,
-    EquivalentPredicate,
-    ListMatchesPredicate,
-    ListMembershipPredicate,
-    ListSubsetPredicate,
-    StandardBinaryPredicate,
-    StandardBinaryPredicateFactory,
+from .base_binary_predicate import (
+    BinaryPredicate)
 
-    CONTAINS,
-    DIFFERENT,
-    EQUIVALENT,
-
+from .simple_binary_predicate import (
+    SimpleBinaryPredicate,
+    SimpleBinaryPredicateFactory,
+    StandardBinaryPredicate,          # deprecated
+    StandardBinaryPredicateFactory,   # deprecated
     DICT_EQ,
     DICT_NE,
-    DICT_MATCHES,
-    DICT_SUBSET,
     LIST_EQ,
-    LIST_MATCHES,
-    LIST_MEMBER,
     LIST_NE,
-    LIST_SIMILAR,
-    LIST_SUBSET,
     NUM_LE,
     NUM_GE,
     NUM_EQ,
@@ -103,6 +88,29 @@ from .binary_predicate import (
     STR_SUBSTR,
     STR_EQ,
     STR_NE)
+
+from .matches_predicate import (
+    DictMatchesPredicate,
+    ListMatchesPredicate,
+    DICT_MATCHES,
+    LIST_MATCHES)
+
+from .binary_predicate import (
+    ContainsPredicate,
+    DictSubsetPredicate,
+    DifferentPredicate,
+    EquivalentPredicate,
+    ListMembershipPredicate,
+    ListSubsetPredicate,
+
+    CONTAINS,
+    DIFFERENT,
+    EQUIVALENT,
+
+    DICT_SUBSET,
+    LIST_MEMBER,
+    LIST_SIMILAR,
+    LIST_SUBSET)
 
 from .path_predicate_helpers import (
     PathContainsPredicate,
