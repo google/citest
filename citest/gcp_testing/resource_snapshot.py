@@ -994,7 +994,14 @@ class Processor(object):
       name = elem
       if aggregated:
         name = elem[1]
-        param_name, param_value = elem[0].split('/', 1)
+        try:
+          param_name, param_value = elem[0].split('/', 1)
+        except ValueError as vex:
+          print 'Ignoring error {0}'.format(vex)
+          print '   type={0}, name={1}: ELEM[0] was {2!r}'.format(
+            resource_type, name, elem[0])
+          continue
+
         if param_name[-1] == 's':
           param_name = param_name[:-1]
 
