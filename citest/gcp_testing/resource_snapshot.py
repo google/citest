@@ -1044,6 +1044,19 @@ class Processor(object):
         else:
           print ('  Ignoring error deleting "{type}" "{name}": {msg}'
                  .format(type=resource_type, name=name, msg=http_error))
+      except ValueError as value_error:
+        # NOTE(ewiseblatt): 20170928
+        # This is a quick fix because instanceGroupManagers.aggregatedList
+        # is returning some regions but the delete only takes zones. The
+        # region results are missing the zone value. Ignore those errors.
+        # This isnt the best place to handle this, but is the easiest for
+        # now and I dont have time to devise a cleaner solution right now.
+        print 'Ignoring error with "delete {0} {1} {2}": {3}'.format(
+            resource_type, name, params, value_error)
+        if -1 in result_by_code:
+          result_by_code[-1].append(elem)
+        else:
+          result_by_code[-1] = [elem]
 
     return result_by_code if self.__options.delete_for_real else {}
 
