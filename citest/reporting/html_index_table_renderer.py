@@ -165,7 +165,8 @@ class HtmlIndexTableRenderer(JournalProcessor):
     html_filename = os.path.splitext(basename)[0] + '.html'
     all_test_names = set([])
     dirname_stats = {}
-    for dirname in dir_to_column_name.keys():
+    column_keys = sorted(dir_to_column_name.keys())
+    for dirname in column_keys:
       dirname_stats[dirname] = TestStats.new()
       details = journal_to_details.get(os.path.join(dirname, basename))
       if not details:
@@ -180,7 +181,7 @@ class HtmlIndexTableRenderer(JournalProcessor):
                 'a', dir_to_column_name[path],
                 href=os.path.join(path, 'index.html'))],
             class_='toggle')
-         for path in dir_to_column_name.keys()])
+         for path in column_keys])
     header_cols.append(document_manager.make_tag_text('th', 'Summary'))
     header_tr_tag = document_manager.make_tag_container('tr', header_cols)
 
@@ -193,7 +194,7 @@ class HtmlIndexTableRenderer(JournalProcessor):
               'th',
               document_manager.make_tag_text('a', test_name, class_='toggle'))
         ]
-      for dirname in dir_to_column_name.keys():
+      for dirname in column_keys:
         details = journal_to_details.get(os.path.join(dirname, basename))
         if not details or test_name not in details:
           row.append(document_manager.make_tag_text('td', ''))
@@ -213,7 +214,7 @@ class HtmlIndexTableRenderer(JournalProcessor):
     # Write summary row at the bottom that sumarizes each column.
     row = [document_manager.make_tag_text('th', 'Summary')]
     total_stats = TestStats.new()
-    for dirname in dir_to_column_name.keys():
+    for dirname in column_keys:
       stats = dirname_stats[dirname]
       total_stats.aggregate(stats)
       column_index_path = os.path.join(dirname, html_filename)
@@ -247,14 +248,15 @@ class HtmlIndexTableRenderer(JournalProcessor):
     journal_to_stats = {}
     journal_to_details = {}
 
-    column_stats = {key: TestStats.new() for key in dir_to_column_name.keys()}
+    column_keys = sorted(dir_to_column_name.keys())
+    column_stats = {key: TestStats.new() for key in column_keys}
     row_stats = {key: TestStats.new() for key in file_names}
 
     processor = HtmlIndexTableRenderer(document_manager)
 
     # Process all the journals to get the stats that we're going
     # to render into the table cells.
-    for journal in journal_list:
+    for journal in sorted(journal_list):
       summary, stats, details = processor.process(journal)
       journal_to_cell[journal] = summary
       journal_to_stats[journal] = stats
@@ -274,13 +276,13 @@ class HtmlIndexTableRenderer(JournalProcessor):
                 'a', dir_to_column_name[path],
                 href=os.path.join(path, 'index.html'))],
             class_='toggle')
-         for path in dir_to_column_name.keys()])
+         for path in column_keys])
     header_cols.append(document_manager.make_tag_text('th', 'Summary'))
     header_tr_tag = document_manager.make_tag_container('tr', header_cols)
 
     # Write a row into the table for a given test case.
     table_rows = [header_tr_tag]
-    for test_name in file_names:
+    for test_name in sorted(file_names):
       test_basename = os.path.splitext(test_name)[0]
       test_summary_path = test_basename + '_index.html'
       row = [
@@ -291,7 +293,7 @@ class HtmlIndexTableRenderer(JournalProcessor):
                   href=test_summary_path,
                   class_='toggle')])]
 
-      for path in dir_to_column_name.keys():
+      for path in column_keys:
         source = os.path.join(path, test_name)
         if source in journal_list:
           source_dir = os.path.dirname(source)
@@ -310,7 +312,7 @@ class HtmlIndexTableRenderer(JournalProcessor):
     # Write summary row at the bottom that sumarizes each column.
     row = [document_manager.make_tag_text('th', 'Summary')]
     total_stats = TestStats.new()
-    for path in dir_to_column_name.keys():
+    for path in column_keys:
       stats = column_stats[path]
       total_stats.aggregate(stats)
       column_index_path = os.path.join(path, 'index.html')
