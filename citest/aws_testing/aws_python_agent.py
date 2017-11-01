@@ -43,6 +43,7 @@ class PythonAgent(BaseAgent):
     self.logger = logging.getLogger(self.__class__.__module__)
 
   def _log_call_method_response(self, method, response):
+    # pylint: disable=unused-argument
     JournalLogger.journal_or_log(
         json.JSONEncoder(
             encoding='utf-8', separators=(',', ': ')).encode(response),
@@ -72,32 +73,35 @@ class PythonAgent(BaseAgent):
     else:
       method_name = str(method)
 
+    return JournalLogger.execute_in_context(
+        'Call {0}'.format(method_name),
+        lambda: self.__do_call_method(
+            method_name, method, context, *pos_args, **kwargs))
+
+  def __do_call_method(self, method_name, method, context, *pos_args, **kwargs):
+    """Helper function implementing call_method()."""
     eval_pos_args = context.eval(pos_args)
     eval_kwargs = context.eval(kwargs)
-    JournalLogger.begin_context('Call {0}'.format(method_name))
 
-    try:
-      arg_text_list = [repr(arg) for arg in eval_pos_args]
-      arg_text_list.extend(['{0}={1!r}'.format(key, value)
-                            for key, value in eval_kwargs.items()])
-      arg_text = ','.join(arg_text_list)
+    arg_text_list = [repr(arg) for arg in eval_pos_args]
+    arg_text_list.extend(['{0}={1!r}'.format(key, value)
+                          for key, value in eval_kwargs.items()])
+    arg_text = ','.join(arg_text_list)
 
-      JournalLogger.journal_or_log(
-          '{0}({1})'.format(method_name, arg_text),
-          _module=self.logger.name,
-          _context='request')
-      response = method(*eval_pos_args, **eval_kwargs)
-      self._log_call_method_response(method, response)
-      return response
-    finally:
-      JournalLogger.end_context()
+    JournalLogger.journal_or_log(
+        '{0}({1})'.format(method_name, arg_text),
+        _module=self.logger.name,
+        _context='request')
+    response = method(*eval_pos_args, **eval_kwargs)
+    self._log_call_method_response(method, response)
+    return response
 
 
 class AwsJsonEncoder(json.JSONEncoder):
-  def default(self, obj):
-    if isinstance(obj, datetime.datetime):
-      return obj.isoformat()
-    return json.JSONEncoder.default(self, obj)
+  def default(self, o):
+    if isinstance(o, datetime.datetime):
+      return o.isoformat()
+    return json.JSONEncoder.default(self, o)
 
 
 
@@ -159,7 +163,7 @@ class AwsPythonAgent(PythonAgent):
       del kwargs['_exactly_one']
 
     kwargs['_response_field'] = _response_field
-    response = call_method(_method, context, *pos_args, **kwargs)
+    response = self.call_method(context, _method, *pos_args, **kwargs)
     if _exactly_one and len(response) != 1:
       raise ValueError('Unexpected exactly response.')
     elif len(response) > 1:
