@@ -18,6 +18,7 @@
 
 import json as json_module
 import logging
+import sys
 
 from .global_journal import (get_global_journal, new_global_journal_with_path)
 
@@ -141,6 +142,35 @@ class JournalLogger(logging.Logger):
     JournalLogger.journal_or_log(
         _msg='{0}\n{1}'.format(_msg, json_text), levelno=levelno,
         _module=_module, _alwayslog=_alwayslog, **kwargs)
+
+  @staticmethod
+  def execute_in_context(_title, _callable, **kwargs):
+    """
+    Shorthand to begin and end a context around a callable.
+
+    This performs additional logging beyond the begin/end context calls
+    by logging exceptions thrown out of the context.
+
+    Args:
+      _title: [string] The title of the context.
+      _callable: [callable] The code to execute in the context.
+      kwargs: [kwargs] Passed through to both begin_context and end_context.
+
+    Returns:
+      The result of _callable
+    """
+    ok = False
+    JournalLogger.begin_context(_title, **kwargs)
+    try:
+      result = _callable()
+      ok = True
+    finally:
+      if not ok:
+        ex_type, ex_value, ex_stack = sys.exc_info()
+        logging.getLogger(__name__).error(
+          'Throwing "%s" out of context=%s: %s', ex_type, _title, ex_value)
+      JournalLogger.end_context()
+    return result
 
   @staticmethod
   def begin_context(_title, **kwargs):
