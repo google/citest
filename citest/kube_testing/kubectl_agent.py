@@ -17,8 +17,8 @@
 import logging
 
 # Our modules.
-from ..service_testing import cli_agent
-from ..base.json_scrubber import JsonScrubber
+import citest.service_testing.cli_agent as cli_agent
+from citest.base.json_scrubber import JsonScrubber
 
 class KubeCtlAgent(cli_agent.CliAgent):
   """Agent that uses kubectl program to interact with Kubernetes."""

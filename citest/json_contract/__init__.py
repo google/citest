@@ -19,7 +19,7 @@
 
 # The observer module contains support for specifying observers and making
 # observations onto a system to collect the data supporting verification.
-from observer import (
+from .observer import (
     ObjectObserver,
     Observation)
 
@@ -27,7 +27,7 @@ from observer import (
 # The predicate module is for operations on Observations
 # these are a specialization of ValuePredicate where the values are
 # Observations as opposed to raw values.
-from observation_predicate import (
+from .observation_predicate import (
     ObservationPredicate,
     ObservationPredicateFactory,
     ObservationPredicateResult,
@@ -38,7 +38,7 @@ from observation_predicate import (
 
 # The verifier module provides support for verifying observations meet
 # expectations.
-from observation_verifier import (
+from .observation_verifier import (
     ObservationVerifier,
     ObservationVerifierBuilder,
     ObservationVerifyResultBuilder,
@@ -47,11 +47,11 @@ from observation_verifier import (
 
 # ValueObservation is DEPRECATED
 # Instead use ObservationValuePredicates on ObservationVerifiers
-from value_observation_verifier import (
+from .value_observation_verifier import (
     ValueObservationVerifierBuilder)
 
 
-from observation_failure import (
+from .observation_failure import (
     ObservationFailedError,
     ObservationFailurePredicate,
     ObservationFailureVerifier)
@@ -59,7 +59,7 @@ from observation_failure import (
 
 # The contract module provides a means to specify and verify contracts on
 # expected system state, and how to collect that state using observations.
-from contract import (
+from .contract import (
     Contract,
     ContractBuilder,
     ContractVerifyResult,

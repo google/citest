@@ -24,8 +24,8 @@ import httplib2
 from oauth2client.client import GoogleCredentials
 from oauth2client.service_account import ServiceAccountCredentials
 
-from ..base import JournalLogger
-from ..service_testing import BaseAgent
+from citest.base import JournalLogger
+from citest.service_testing import BaseAgent
 import citest
 
 # This doesnt belong here, but this library insists on logging

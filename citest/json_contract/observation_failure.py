@@ -17,8 +17,8 @@
 
 import logging
 
-from ..json_predicate import map_predicate
-from ..json_predicate import predicate
+import citest.json_predicate.map_predicate as map_predicate
+import citest.json_predicate.predicate as predicate
 from . import observation_predicate as op
 from . import observation_verifier as ov
 from . import observer

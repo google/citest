@@ -17,7 +17,7 @@
 
 import logging
 
-from ..json_predicate import (
+from citest.json_predicate import (
     CardinalityPredicate,
     PathPredicate,
     ValuePredicate,

@@ -21,8 +21,8 @@ import sys
 import threading
 
 # Our modules.
-from ..service_testing import cli_agent
-from ..base.json_scrubber import JsonScrubber
+import citest.service_testing.cli_agent as cli_agent
+from citest.base.json_scrubber import JsonScrubber
 
 class PassphraseInjector(object):
   """Monitors a file descriptor and injects passphrases as requested."""

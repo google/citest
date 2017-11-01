@@ -30,9 +30,9 @@ import logging
 import sys
 import time
 
-from ..base import JsonScrubber
-from ..base import JsonSnapshotableEntity
-from ..base import JournalLogger
+from citest.base import JsonScrubber
+from citest.base import JsonSnapshotableEntity
+from citest.base import JournalLogger
 
 
 class AgentError(Exception, JsonSnapshotableEntity):

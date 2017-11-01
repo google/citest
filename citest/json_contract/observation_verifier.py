@@ -18,11 +18,12 @@
 
 import logging
 
-from ..base import JsonSnapshotableEntity
-from ..json_predicate import map_predicate
-from ..json_predicate import predicate
-from ..json_predicate.logic_predicate import NOT
-import observation_predicate as op
+from citest.base import JsonSnapshotableEntity
+import citest.json_predicate.map_predicate as map_predicate
+import citest.json_predicate.predicate as predicate
+from citest.json_predicate.logic_predicate import NOT
+
+from . import observation_predicate as op
 
 
 def _undeprecate_verifier(verifier):

@@ -14,7 +14,7 @@
 
 """A no-op operation does nothing. It is intended for observing invariants."""
 
-import base_agent
+from citest.service_testing import base_agent
 
 
 class ConstantOperationStatus(base_agent.AgentOperationStatus):

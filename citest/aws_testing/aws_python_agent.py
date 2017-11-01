@@ -28,8 +28,8 @@ import logging
 import boto3
 
 # Our modules.
-from ..base import JournalLogger
-from ..service_testing import BaseAgent
+from citest.base import JournalLogger
+from citest.service_testing import BaseAgent
 
 
 # This is here for now because it isnt that useful yet in general.

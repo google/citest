@@ -8,7 +8,7 @@ import logging
 
 # CITest Modules
 
-from ..service_testing import cli_agent
+import citest.service_testing.cli_agent as cli_agent
 
 class AzAgent(cli_agent.CliAgent):
   """ The Agent that uses az 2.0 cli to interact with Azure Cloud. """

@@ -16,7 +16,7 @@
 """Track the accumulation of Path/Value pairs found."""
 
 import collections
-from ..base import JsonSnapshotableEntity
+from citest.base import JsonSnapshotableEntity
 
 # Denotes the seperator used when specifying paths to JSON attributes
 # in an object hierarchy.

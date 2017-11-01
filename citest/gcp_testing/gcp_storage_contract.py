@@ -17,7 +17,7 @@
 
 
 # Our modules.
-from .. import json_contract as jc
+import citest.json_contract as jc
 from .gcp_contract import (
     GcpObjectObserver,
     GcpClauseBuilder,

@@ -22,7 +22,7 @@ import traceback
 from googleapiclient.errors import HttpError
 
 # Our modules.
-from .. import json_contract as jc
+import citest.json_contract as jc
 
 
 class GcpObjectObserver(jc.ObjectObserver):

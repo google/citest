@@ -16,7 +16,7 @@
 """Observers make observations that are a collection of data to be verified."""
 
 
-from ..base import JsonSnapshotableEntity
+from citest.base import JsonSnapshotableEntity
 
 class Observation(JsonSnapshotableEntity):
   """Tracks details for ObjectObserver and ObservationVerifier."""

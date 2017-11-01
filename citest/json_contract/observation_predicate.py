@@ -23,7 +23,7 @@ and calls the delegate with the attribute value rather than the Observation.
 
 import logging
 
-from ..json_predicate import (
+from citest.json_predicate import (
     PredicateResult,
     ValuePredicate,
     DICT_MATCHES,

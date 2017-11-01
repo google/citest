@@ -15,7 +15,7 @@
 """Implements ValuePredicate that determines when a given value is 'valid'."""
 
 
-from ..base import JsonSnapshotableEntity
+from citest.base import JsonSnapshotableEntity
 
 
 class ValuePredicate(JsonSnapshotableEntity):

@@ -29,7 +29,7 @@ import socket
 import time
 import urllib2
 
-from ..base import ExecutionContext
+from citest.base import ExecutionContext
 
 
 def _unused_port():

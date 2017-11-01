@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bindings import (
+from .bindings import (
     ConfigurationBindings,
     ConfigurationBindingsBuilder)
 
-from snapshot import (
+from .snapshot import (
     JsonSnapshotable,
     JsonSnapshotableEntity,
     JsonSnapshotHelper,
@@ -24,24 +24,24 @@ from snapshot import (
     Edge,
     SnapshotEntity)
 
-from record_stream import (
+from .record_stream import (
     RecordInputStream,
     RecordOutputStream)
 
-from journal import Journal
-from journal_logger import (
+from .journal import Journal
+from .journal_logger import (
     JournalLogger,
     JournalLogHandler)
 
-from global_journal import (
+from .global_journal import (
     get_global_journal,
     new_global_journal_with_path,
     set_global_journal,
     unset_global_journal)
 
-from execution_context import ExecutionContext
-from json_scrubber import JsonScrubber
-from base_test_case import BaseTestCase
-from test_runner import TestRunner
+from .execution_context import ExecutionContext
+from .json_scrubber import JsonScrubber
+from .base_test_case import BaseTestCase
+from .test_runner import TestRunner
 
-from test_package import run_all_tests_in_dir
+from .test_package import run_all_tests_in_dir

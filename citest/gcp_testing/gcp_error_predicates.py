@@ -19,8 +19,8 @@ import re
 
 from googleapiclient.errors import HttpError
 
-from .. import json_contract as jc
-from .. import json_predicate as jp
+import citest.json_contract as jc
+import citest.json_predicate as jp
 
 
 class HttpErrorPredicateResult(jp.PredicateResult):

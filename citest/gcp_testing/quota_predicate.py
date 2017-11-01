@@ -18,12 +18,12 @@ import logging
 
 from .gcp_contract import GcpContractBuilder
 
-from ..base import (
+from citest.base import (
     ExecutionContext,
     JournalLogger,
     get_global_journal)
 
-from ..json_predicate import (
+from citest.json_predicate import (
     KeyedPredicateResultBuilder,
     DONT_ENUMERATE_TERMINAL,
     NUM_GE,

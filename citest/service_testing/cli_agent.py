@@ -17,9 +17,9 @@ import collections
 import re
 import subprocess
 
-from ..base import JournalLogger
-from ..base import JsonSnapshotableEntity
-from .. import json_contract as jc
+from citest.base import JournalLogger
+from citest.base import JsonSnapshotableEntity
+import citest.json_contract as jc
 from . import base_agent
 
 

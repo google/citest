@@ -22,7 +22,7 @@ import traceback
 
 from botocore.exceptions import (BotoCoreError, ClientError)
 
-from .. import json_contract as jc
+import citest.json_contract as jc
 
 
 class AwsErrorVerifier(jc.ObservationFailureVerifier):

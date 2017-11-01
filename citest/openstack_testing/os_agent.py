@@ -21,7 +21,7 @@ import json
 import logging
 
 # Our modules.
-from .. import service_testing as st
+import citest.service_testing as st
 
 
 class OsAgent(st.CliAgent):

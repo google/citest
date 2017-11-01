@@ -17,7 +17,7 @@
 
 import collections
 
-from ..base import JsonSnapshotableEntity
+from citest.base import JsonSnapshotableEntity
 from .sequenced_predicate_result import SequencedPredicateResult
 from . import predicate
 

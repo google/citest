@@ -21,9 +21,9 @@ import logging
 import traceback
 
 # Our modules.
-from .. import json_contract as jc
-from ..json_predicate import JsonError
-from ..service_testing import cli_agent
+import citest.json_contract as jc
+from citest.json_predicate import JsonError
+import citest.service_testing.cli_agent as cli_agent
 
 class GCloudObjectObserver(jc.ObjectObserver):
   """Observe GCP resources."""

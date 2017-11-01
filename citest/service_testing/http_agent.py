@@ -22,8 +22,8 @@ import json
 import traceback
 import urllib2
 
-from ..base import JournalLogger
-from ..base import JsonSnapshotableEntity
+from citest.base import JournalLogger
+from citest.base import JsonSnapshotableEntity
 from .http_scrubber import HttpScrubber
 
 from . import base_agent

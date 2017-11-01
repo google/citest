@@ -39,7 +39,7 @@ import time
 import traceback as traceback_module
 
 # Our modules.
-from ..base import (
+from citest.base import (
     args_util,
     BaseTestCase,
     ConfigurationBindingsBuilder,

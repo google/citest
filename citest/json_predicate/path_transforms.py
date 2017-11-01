@@ -14,7 +14,7 @@
 
 """Common transforms to use with PathPredicate that provide journaling."""
 
-from ..base import JsonSnapshotableEntity
+from citest.base import JsonSnapshotableEntity
 from .path_value import PATH_SEP
 
 class FieldDifference(JsonSnapshotableEntity):

@@ -15,7 +15,7 @@
 
 """Specifies test cases using BaseAgents."""
 
-from ..base import JsonSnapshotableEntity
+from citest.base import JsonSnapshotableEntity
 
 
 class OperationContract(JsonSnapshotableEntity):

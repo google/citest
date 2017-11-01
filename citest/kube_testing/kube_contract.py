@@ -21,9 +21,9 @@ import logging
 import traceback
 
 # Our modules.
-from .. import json_predicate as jp
-from .. import json_contract as jc
-from ..service_testing import cli_agent
+import citest.json_predicate as jp
+import citest.json_contract as jc
+import citest.service_testing.cli_agent as cli_agent
 
 class KubeObjectObserver(jc.ObjectObserver):
   """Observe Kubernetes resources."""

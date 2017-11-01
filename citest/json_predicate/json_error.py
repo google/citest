@@ -16,7 +16,7 @@
 """Common errors the the citest.json_contract package."""
 
 
-from ..base import JsonSnapshotableEntity
+from citest.base import JsonSnapshotableEntity
 
 
 class JsonError(ValueError, JsonSnapshotableEntity):

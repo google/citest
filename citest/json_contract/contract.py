@@ -26,9 +26,9 @@ attempting to make it (e.g. the observed resource does not exist).
 import logging
 import time
 
-from ..base import JournalLogger
-from ..base import JsonSnapshotableEntity
-from ..json_predicate import predicate
+from citest.base import JournalLogger
+from citest.base import JsonSnapshotableEntity
+import citest.json_predicate.predicate as predicate
 from . import observer as ob
 from . import observation_verifier as ov
 

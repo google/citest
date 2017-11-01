@@ -22,8 +22,8 @@ import re
 import traceback
 
 # citest modules.
-from .. import json_contract as jc
-from ..json_predicate import JsonError
+import citest.json_contract as jc
+from citest.json_predicate import JsonError
 from . import AgentError
 
 

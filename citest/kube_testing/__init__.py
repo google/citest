@@ -16,5 +16,5 @@
 """Citest support modules for testing against Kubernetes (Kube)."""
 
 
-from kube_contract import KubeContractBuilder
-from kubectl_agent import KubeCtlAgent
+from .kube_contract import KubeContractBuilder
+from .kubectl_agent import KubeCtlAgent

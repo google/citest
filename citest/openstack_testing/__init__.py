@@ -15,5 +15,5 @@
 
 """Citest support modules for testing against OpenStack."""
 
-from os_agent import OsAgent
-from os_contract import OsContractBuilder
+from .os_agent import OsAgent
+from .os_contract import OsContractBuilder
