@@ -259,34 +259,38 @@ class GcpAgent(BaseAgent):
       kwargs: [kwargs] Additional parameters may be required depending
          on the resource type and method.
     """
+    return JournalLogger.execute_in_context(
+      'Invoke "{method}" {type}'.format(method=method, type=resource_type),
+      lambda: self.__do_invoke_resource(
+          context, method, resource_type, resource_id=resource_id, **kwargs))
+
+  def __do_invoke_resource(self, context, method, resource_type,
+                      resource_id=None, **kwargs):
+    """Implements invoke_resource()."""
     variables = self.resource_method_to_variables(
         method, resource_type, resource_id=resource_id, **kwargs)
     variables = context.eval(variables)
 
     resource_obj = self.resource_type_to_resource_obj(resource_type)
-    JournalLogger.begin_context('Invoke "{method}" {type}'
-                                .format(method=method, type=resource_type))
-    try:
-      JournalLogger.journal_or_log(
-          'Requesting {type} {method} {vars}'.format(
-              type=resource_type, method=method, vars=variables),
-          _module=self.logger.name,
-          _context='request')
+    logging.info('Calling %s.%s', resource_type, method)
+    JournalLogger.journal_or_log(
+        'Requesting {type} {method} {vars}'.format(
+            type=resource_type, method=method, vars=variables),
+        _module=self.logger.name,
+        _context='request')
 
-      request = getattr(resource_obj(), method)(**variables)
-      response = request.execute()
-      JournalLogger.journal_or_log(
-          json.JSONEncoder(
-              encoding='utf-8', separators=(',', ': ')).encode(response),
-          _module=self.logger.name, _context='response',
-          format='json')
-    finally:
-      JournalLogger.end_context()
+    request = getattr(resource_obj(), method)(**variables)
+    response = request.execute()
+    JournalLogger.journal_or_log(
+        json.JSONEncoder(
+            encoding='utf-8', separators=(',', ': ')).encode(response),
+        _module=self.logger.name, _context='response',
+        format='json')
 
     return response
 
   def list_resource(self, context, resource_type, method_variant='list',
-                    item_list_transform=None, **kwargs):
+                    item_list_transform=None, **kwargs):   
     """List the contents of the specified resource.
 
     Args:
@@ -300,6 +304,15 @@ class GcpAgent(BaseAgent):
     Returns:
       A list of resources.
     """
+    return JournalLogger.execute_in_context(
+        'List {}'.format(resource_type),
+        lambda: self.__do_list_resource(
+            context, resource_type, method_variant=method_variant,
+            item_list_transform=item_list_transform, **kwargs))
+
+  def __do_list_resource(self, context, resource_type, method_variant='list',
+                    item_list_transform=None, **kwargs):
+    """Helper function implementing list_resource()."""
     resource_obj = self.resource_type_to_resource_obj(resource_type)
     method_container = resource_obj()
     variables = self.resource_method_to_variables(
@@ -307,43 +320,43 @@ class GcpAgent(BaseAgent):
     variables = context.eval(variables)
     request = getattr(method_container, method_variant)(**variables)
 
-    JournalLogger.begin_context('List {0}'.format(resource_type))
-    try:
-      all_objects = []
-      more = ''
-      while request:
-        JournalLogger.journal_or_log(
-            'Listing {0}{1}'.format(more, resource_type),
-            _module=self.logger.name,
-            _context='request')
-        response = request.execute()
-        JournalLogger.journal_or_log(
-            json.JSONEncoder(
-                encoding='utf-8', separators=(',', ': ')).encode(response),
-            _module=self.logger.name, _context='response',
-            format='json')
+    all_objects = []
+    more = ''
+    while request:
+      logging.info('Calling %s.%s', resource_type, method_variant,
+                   extra={'citest_journal':{'nojournal':True}})
+      JournalLogger.journal_or_log(
+          'Listing {0}{1}'.format(more, resource_type),
+          _module=self.logger.name,
+          _context='request')
+      response = request.execute()
+      JournalLogger.journal_or_log(
+          json.JSONEncoder(
+              encoding='utf-8', separators=(',', ': ')).encode(response),
+          _module=self.logger.name, _context='response',
+          format='json')
 
-        response_items = response.get('items', None)
-        if response_items is None:
-          # Assume item reponse is named by the type being listed.
-          response_items = response.get(resource_type.split('.')[-1], [])
+      response_items = response.get('items', None)
+      if response_items is None:
+        # Assume item reponse is named by the type being listed.
+        response_items = response.get(resource_type.split('.')[-1], [])
 
-        all_items = (item_list_transform(response_items)
-                     if item_list_transform
-                     else response_items)
-        if not isinstance(all_items, list):
-          all_items = [all_items]
-        all_objects.extend(all_items)
-        try:
-          request = method_container.list_next(request, response)
-        except AttributeError:
-          request = None
-        more = ' more '
+      all_items = (item_list_transform(response_items)
+                   if item_list_transform
+                   else response_items)
+      if not isinstance(all_items, list):
+        all_items = [all_items]
+      all_objects.extend(all_items)
+      try:
+        request = method_container.list_next(request, response)
+        if request:
+          logging.debug('Iterate over another page of %s', resource_type,
+                        extra={'citest_journal':{'nojournal':True}})
+      except AttributeError:
+        request = None
+      more = ' more '
 
-      self.logger.info('Found total=%d %s', len(all_objects), resource_type)
-    finally:
-      JournalLogger.end_context()
-
+    self.logger.info('Found total=%d %s', len(all_objects), resource_type)
     return all_objects
 
   def resource_type_to_discovery_info(self, resource_type):

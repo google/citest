@@ -123,6 +123,50 @@ class JournalLoggerTest(unittest.TestCase):
       json_dict = json_module.JSONDecoder(encoding='utf-8').decode(json_str)
       self.assertEqual(expect, json_dict)
 
+  def test_context_logging(self):
+      offset = len(_journal_file.getvalue())
+      logger = JournalLogger('test_journal_logger')
+      logger.addHandler(JournalLogHandler(path=None))
+      citest_extra = {'foo':'bar'}
+      start_time = _journal_clock.last_time
+
+      JournalLogger.execute_in_context(
+        'The Test Context',
+        lambda: {logger.debug('Test Log Message')},
+        **citest_extra)
+
+      expect_sequence = [
+        {
+          '_title': 'The Test Context',
+          '_type': 'JournalContextControl',
+          '_timestamp': start_time + 1,
+          '_thread': thread.get_ident(),
+          'control': 'BEGIN',
+          'foo': 'bar',
+        },
+        {
+          '_value': 'Test Log Message',
+          '_type': 'JournalMessage',
+          '_level': logging.DEBUG,
+          '_timestamp': start_time + 2,
+          '_thread': thread.get_ident(),
+          'format': 'pre'
+        },
+        {
+          '_type': 'JournalContextControl',
+          '_timestamp': start_time + 3,
+          '_thread': thread.get_ident(),
+          'control': 'END'
+        }
+      ]
+
+      entry_str = _journal_file.getvalue()[offset:]
+      input_stream = RecordInputStream(StringIO(entry_str))
+      for expect in expect_sequence:
+        json_str = input_stream.next()
+        json_dict = json_module.JSONDecoder(encoding='utf-8').decode(json_str)
+        self.assertEqual(expect, json_dict)
+
 
 if __name__ == '__main__':
   unittest.main()
