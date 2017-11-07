@@ -34,12 +34,15 @@ def collect_suites_in_dir(dirname):
     A list of test suites loaded from all the modules named *_test.py in
     dirname.
   """
-  prefix = dirname.replace('/', '.') + '.'
   test_file_names = glob.glob(dirname + '/*_test.py')
   module_names = [os.path.basename(test_file[0:-3])
                   for test_file in test_file_names]
   if not module_names:
     return []
+
+  if dirname.startswith('./'):
+    dirname = dirname[2:]
+  prefix = dirname.replace('/', '.') + '.'
 
   return [unittest.defaultTestLoader.loadTestsFromName(prefix + test_file)
           for test_file in module_names]
@@ -54,7 +57,7 @@ def run_all_tests_in_dir(dirname=None, recurse=False):
     recurse: True if should recurse the directory tree for all the tests.
   """
   if not dirname:
-    dirname = os.path.dirname(__main__.__file__)
+    dirname = os.path.dirname(__main__.__file__) or '.'
 
   if recurse:
     # pylint: disable=unused-variable
