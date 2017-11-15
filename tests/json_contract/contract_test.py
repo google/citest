@@ -40,7 +40,7 @@ class FakeObserver(jc.ObjectObserver):
     self.__fake_observation = fake_observation
 
 
-  def collect_observation(self, context, observation, trace=True):
+  def collect_observation(self, context, observation):
     observation.extend(self.__fake_observation)
     return observation.objects
 

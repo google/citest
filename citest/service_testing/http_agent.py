@@ -312,8 +312,7 @@ class HttpAgent(base_agent.BaseAgent):
     status_class = operation.status_class or self.__status_class
     return status_class(operation, http_response)
 
-  def __send_http_request(self, path, http_type,
-                          data=None, headers=None, trace=True):
+  def __send_http_request(self, path, http_type, data=None, headers=None):
     """Send an HTTP message.
 
     Args:
@@ -321,7 +320,6 @@ class HttpAgent(base_agent.BaseAgent):
       http_type: [string] The HTTP message type (e.g. POST)
       data: [string] Data payload to send, if any.
       headers: [dict] Headers to write, if any.
-      trace: [bool] True if should log request and response.
 
     Returns:
       HttpResponseType
@@ -341,17 +339,18 @@ class HttpAgent(base_agent.BaseAgent):
 
     scrubbed_url = self.__http_scrubber.scrub_url(url)
     scrubbed_data = self.__http_scrubber.scrub_request(data)
+    alwayslog = self.alwayslog
 
     if data is not None:
       JournalLogger.journal_or_log_detail(
           '{type} {url}'.format(type=http_type, url=scrubbed_url),
           scrubbed_data,
-          _module=self.logger.name, _alwayslog=trace,
+          _module=self.logger.name, _alwayslog=alwayslog,
           _context='request')
     else:
       JournalLogger.journal_or_log(
           '{type} {url}'.format(type=http_type, url=scrubbed_url),
-          _module=self.logger.name, _alwayslog=trace, _context='request')
+          _module=self.logger.name, _alwayslog=alwayslog, _context='request')
 
     code = None
     output = None
@@ -365,7 +364,9 @@ class HttpAgent(base_agent.BaseAgent):
       JournalLogger.journal_or_log_detail(
           'HTTP {code}'.format(code=code),
           scrubbed_output,
-          _module=self.logger.name, _alwayslog=trace, _context='response')
+          _module=self.logger.name,
+          _alwayslog=alwayslog,
+          _context='response')
 
     except urllib2.HTTPError as ex:
       code = ex.getcode()
@@ -373,7 +374,9 @@ class HttpAgent(base_agent.BaseAgent):
       scrubbed_error = self.__http_scrubber.scrub_response(output)
       JournalLogger.journal_or_log_detail(
           'HTTP {code}'.format(code=code), scrubbed_error,
-          _module=self.logger.name, _alwayslog=trace, _context='response')
+          _module=self.logger.name,
+          _alwayslog=alwayslog,
+          _context='response')
 
     except urllib2.URLError as ex:
       JournalLogger.journal_or_log(
@@ -382,33 +385,33 @@ class HttpAgent(base_agent.BaseAgent):
       exception = ex
     return HttpResponseType(code, output, exception)
 
-  def patch(self, path, data, content_type='application/json', trace=True):
+  def patch(self, path, data, content_type='application/json'):
     """Perform an HTTP PATCH."""
     return self.__send_http_request(
         path, 'PATCH', data=data,
-        headers={'Content-Type': content_type}, trace=trace)
+        headers={'Content-Type': content_type})
 
-  def post(self, path, data, content_type='application/json', trace=True):
+  def post(self, path, data, content_type='application/json'):
     """Perform an HTTP POST."""
     return self.__send_http_request(
         path, 'POST', data=data,
-        headers={'Content-Type': content_type}, trace=trace)
+        headers={'Content-Type': content_type})
 
-  def put(self, path, data, content_type='application/json', trace=True):
+  def put(self, path, data, content_type='application/json'):
     """Perform an HTTP PUT."""
     return self.__send_http_request(
         path, 'PUT', data=data,
-        headers={'Content-Type': content_type}, trace=trace)
+        headers={'Content-Type': content_type})
 
-  def delete(self, path, data, content_type='application/json', trace=True):
+  def delete(self, path, data, content_type='application/json'):
     """Perform an HTTP DELETE."""
     return self.__send_http_request(
         path, 'DELETE', data=data,
-        headers={'Content-Type': content_type}, trace=trace)
+        headers={'Content-Type': content_type})
 
-  def get(self, path, trace=True):
+  def get(self, path):
     """Perform an HTTP GET."""
-    return self.__send_http_request(path, 'GET', trace=trace)
+    return self.__send_http_request(path, 'GET')
 
 
 class BaseHttpOperation(base_agent.AgentOperation):
@@ -474,48 +477,48 @@ class BaseHttpOperation(base_agent.AgentOperation):
         raise TypeError('agent no HttpAgent: ' + agent.__class__.__name__)
       self.bind_agent(agent)
 
-    status = self._send_message(agent, trace=True)
+    status = self._send_message(agent)
     return status
 
-  def _send_message(self, agent, trace):
+  def _send_message(self, agent):
     """Placeholder for specializations to perform actual HTTP messaging."""
     raise NotImplementedError()
 
 
 class HttpPostOperation(BaseHttpOperation):
   """Specialization of AgentOperation that performs HTTP POST."""
-  def _send_message(self, agent, trace):
+  def _send_message(self, agent):
     """Implements BaseHttpOperation interface."""
     # pylint: disable=protected-access
-    http_response = agent.post(self.path, self.data, trace=trace)
+    http_response = agent.post(self.path, self.data)
     status = agent._new_messaging_status(self, http_response)
     return status
 
 
 class HttpDeleteOperation(BaseHttpOperation):
   """Specialization of AgentOperation that performs HTTP DELETE."""
-  def _send_message(self, agent, trace):
+  def _send_message(self, agent):
     """Implements BaseHttpOperation interface."""
     # pylint: disable=protected-access
-    http_response = agent.delete(self.path, self.data, trace=trace)
+    http_response = agent.delete(self.path, self.data)
     status = agent._new_messaging_status(self, http_response)
     return status
 
 
 class HttpPutOperation(BaseHttpOperation):
   """Specialization of AgentOperation that performs HTTP PUT."""
-  def _send_message(self, agent, trace):
+  def _send_message(self, agent):
     """Implements BaseHttpOperation interface."""
     # pylint: disable=protected-access
-    http_response = agent.put(self.path, self.data, trace=trace)
+    http_response = agent.put(self.path, self.data)
     status = agent._new_messaging_status(self, http_response)
     return status
 
 class HttpPatchOperation(BaseHttpOperation):
   """Specialization of AgentOperation that performs HTTP PATCH."""
-  def _send_message(self, agent, trace):
+  def _send_message(self, agent):
     """Implements BaseHttpOperation interface."""
     # pylint: disable=protected-access
-    http_response = agent.patch(self.path, self.data, trace=trace)
+    http_response = agent.patch(self.path, self.data)
     status = agent._new_messaging_status(self, http_response)
     return status

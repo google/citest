@@ -84,7 +84,7 @@ class FakeStatus(st.AgentOperationStatus):
     self.got_sleep_secs = secs
     self.got_sleep_count += 1
 
-  def refresh(self, trace=True):
+  def refresh(self):
     self.got_refresh_count += 1
     if self.calls_remaining >= 0:
       self.calls_remaining -= 1

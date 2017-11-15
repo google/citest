@@ -39,9 +39,9 @@ class AwsObjectObserver(jc.ObjectObserver):
   def __str__(self):
     return 'AwsObjectObserver({0})'.format(self.__args)
 
-  def collect_observation(self, context, observation, trace=True):
+  def collect_observation(self, context, observation):
     args = context.eval(self.__args)
-    aws_response = self.__aws.run(args, trace=trace)
+    aws_response = self.__aws.run(args)
     if not aws_response.ok():
       observation.add_error(
           cli_agent.CliAgentRunError(self.__aws, aws_response))

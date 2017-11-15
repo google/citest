@@ -72,7 +72,7 @@ class AwsObjectObserver(jc.ObjectObserver):
   def __str__(self):
     return 'AwsObjectObserver({0})'.format(self.__kwargs)
 
-  def collect_observation(self, context, observation, trace=True):
+  def collect_observation(self, context, observation):
     try:
       doc = self.__method(context, *self.__pos_args, **self.__kwargs)
     except (BotoCoreError, ClientError) as error:

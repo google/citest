@@ -76,10 +76,10 @@ class HttpObjectObserver(jc.ObjectObserver):
     snapshot.edge_builder.make_control(entity, 'Path', self.__path)
     super(HttpObjectObserver, self).export_to_json_snapshot(snapshot, entity)
 
-  def collect_observation(self, context, observation, trace=True):
+  def collect_observation(self, context, observation):
     # This is where we'd use an HttpAgent to get a URL then
     # collect some thing out of the results.
-    result = self.agent.get(context.eval(self.__path), trace=trace)
+    result = self.agent.get(context.eval(self.__path))
     if not result.ok():
       http_agent_error = HttpAgentError(result)
       logging.getLogger(__name__).info(http_agent_error)

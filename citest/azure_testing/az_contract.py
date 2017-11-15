@@ -32,9 +32,9 @@ class AzObjectObserver(jc.ObjectObserver):
   def __str__(self):
     return 'AzObjectObserver({0})'.format(self.__args)
 
-  def collect_observation(self, context, observation, trace=True):
+  def collect_observation(self, context, observation):
     args = context.eval(self.__args)
-    az_response = self.__az.run(args, trace=trace)
+    az_response = self.__az.run(args)
     if not az_response.ok():
         observation.add_error(
             cli_agent.CliAgentRunError(self.__az, az_response))

@@ -19,6 +19,7 @@
 import json as json_module
 import logging
 import sys
+import threading
 
 from .global_journal import (get_global_journal, new_global_journal_with_path)
 
@@ -48,6 +49,9 @@ def _to_json_if_possible(value):
 
 class JournalLogger(logging.Logger):
   """This class is only providing Journal-aware convienence functions."""
+
+  __thread_data = threading.local()
+  __thread_data.context_stack = []
 
   @staticmethod
   def delegate(method, *positional_args, **kwargs):
@@ -183,8 +187,12 @@ class JournalLogger(logging.Logger):
     Args:
       _title: [string] The title of the context.
     """
+    context_stack = JournalLogger.__thread_data.context_stack
     logging.getLogger(__name__).debug(
-        '+context %s', _title, extra={'citest_journal':{'nojournal':True}})
+        '+context[%d]: %s', len(context_stack), _title,
+        extra={'citest_journal':{'nojournal':True}})
+    context_stack.append(_title)
+
     journal = get_global_journal()
     if journal is not None:
       journal.begin_context(_title, **kwargs)
@@ -192,8 +200,10 @@ class JournalLogger(logging.Logger):
   @staticmethod
   def end_context(**kwargs):
     """Mark the ending of the current context within the journal."""
+    context_stack = JournalLogger.__thread_data.context_stack
+    context_stack.pop()
     logging.getLogger(__name__).debug(
-        '-context',
+        '-context[%d]', len(context_stack),
         extra={'citest_journal':{'nojournal':True}})
     journal = get_global_journal()
     if journal is not None:
