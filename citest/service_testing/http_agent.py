@@ -232,13 +232,14 @@ class HttpAgent(base_agent.BaseAgent):
     payload_dict = kwargs
     return json.JSONEncoder().encode(payload_dict)
 
-  def __init__(self, base_url):
+  def __init__(self, base_url, logger=None):
     """Constructs instance.
 
     Args:
       base_url: [string] Specifies the base url to this agent's HTTP endpoint.
+      logger: [Logger] The logger to inject if other than the default.
     """
-    super(HttpAgent, self).__init__()
+    super(HttpAgent, self).__init__(logger=logger)
     self.__base_url = base_url
     self.__status_class = HttpOperationStatus
     self.__headers = {}

@@ -38,9 +38,9 @@ from citest.service_testing import BaseAgent
 class PythonAgent(BaseAgent):
   """An agent that is built using python libraries."""
 
-  def __init__(self):
-    super(PythonAgent, self).__init__()
-    self.logger = logging.getLogger(self.__class__.__module__)
+  def __init__(self, logger=None):
+    logger = logger or logging.getLogger(self.__class__.__module__)
+    super(PythonAgent, self).__init__(logger=logger)
 
   def _log_call_method_response(self, method, response):
     # pylint: disable=unused-argument

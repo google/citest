@@ -34,8 +34,8 @@ class FakeAgent(st.BaseAgent):
     self._time_series = self._time_series[1:]
     return next_time
 
-  def __init__(self, time_series=None):
-    super(FakeAgent, self).__init__()
+  def __init__(self, time_series=None, logger=None):
+    super(FakeAgent, self).__init__(logger=logger)
     self._time_series = time_series or [0] * 100
 
 

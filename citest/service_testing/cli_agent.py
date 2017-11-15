@@ -129,13 +129,14 @@ class CliAgentRunError(base_agent.AgentError):
 class CliAgent(base_agent.BaseAgent):
   """A specialization of BaseAgent for invoking command-line programs."""
 
-  def __init__(self, program, output_scrubber=None):
+  def __init__(self, program, output_scrubber=None, logger=None):
     """Standard constructor.
 
     Args:
       program: A path of the program to execute.
+      logger: The logger if other than the default.
     """
-    super(CliAgent, self).__init__()
+    super(CliAgent, self).__init__(logger=logger)
     self.__program = program
     self.__output_scrubber = output_scrubber
 

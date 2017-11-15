@@ -87,10 +87,24 @@ class BaseAgent(JsonSnapshotableEntity):
     """
     self.__default_max_wait_secs = secs
 
-  def __init__(self):
-    self.logger = logging.getLogger(__name__)
-    self.nojournal_logger = logging.LoggerAdapter(
-        self.logger, {'citest_journal': {'nojournal':True}})
+  @property
+  def logger(self):
+    """Return logging.Logger for this agent."""
+    return self.__logger
+
+  @property
+  def nojournal_logger(self):
+    """Return logging.Logger for this agent."""
+    return self.__nojournal_logger
+
+  def __init__(self, logger=None):
+    if logger is None:
+      logger = logging.getLogger(__name__)
+      logger.setLevel(logging.INFO)
+
+    self.__logger = logger
+    self.__nojournal_logger = logging.LoggerAdapter(
+        self.__logger, {'citest_journal': {'nojournal':True}})
     self.__default_max_wait_secs = None
     self.__config_dict = {}
 
@@ -174,6 +188,11 @@ class AgentOperationStatus(JsonSnapshotableEntity):
     """A reference to the BaseAgent that executed the |operation|."""
     return self.__operation.agent
 
+  @property
+  def logger(self):
+    """Returns the logger to use for events ralated to this status."""
+    return self.agent.logger
+
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
@@ -253,7 +272,6 @@ class AgentOperationStatus(JsonSnapshotableEntity):
       max_secs: [float] How long to poll before giving up. None is indefinite.
       trace_every: [bool] Whether to log each attempt.
     """
-    logger = logging.getLogger(__name__)
     now = self._now()
     end_time = sys.float_info.max if max_secs is None else now + max_secs
     next_log_secs = now + 60
@@ -262,7 +280,7 @@ class AgentOperationStatus(JsonSnapshotableEntity):
         now = self._now()
         secs_remaining = end_time - now
         if secs_remaining <= 0:
-          logger.debug('Timed out')
+          self.logger.debug('Timed out')
           return False
 
         sleep_secs = (poll_every_secs if max_secs is None
@@ -271,10 +289,10 @@ class AgentOperationStatus(JsonSnapshotableEntity):
         # Write something into the log file to indicate we are still here.
         if now >= next_log_secs:
           if max_secs is None:
-            logger.debug(
+            self.logger.debug(
                 'Still waiting (no timeout). Check in %r secs', sleep_secs)
           else:
-            logger.debug(
+            self.logger.debug(
                 'Still waiting (approx %d left). Check in %r secs',
                 secs_remaining, sleep_secs)
           # Hardcoded once-a-minute confirmation that we're still waiting.
@@ -339,7 +357,7 @@ class AgentOperation(JsonSnapshotableEntity):
       agent: [BaseAgent] If None then unbind.
     """
     if self.__agent:
-      logging.getLogger(__name__).warning('Rebinding agent on ' + str(self))
+      self.__agent.logger.warning('Rebinding agent on ' + str(self))
     self.__agent = agent
 
   def __init__(self, title, agent=None, max_wait_secs=None):

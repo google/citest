@@ -41,7 +41,7 @@ class AwsObjectObserver(jc.ObjectObserver):
 
   def collect_observation(self, context, observation, trace=True):
     args = context.eval(self.__args)
-    aws_response = self.__aws.run(args, trace)
+    aws_response = self.__aws.run(args, trace=trace)
     if not aws_response.ok():
       observation.add_error(
           cli_agent.CliAgentRunError(self.__aws, aws_response))

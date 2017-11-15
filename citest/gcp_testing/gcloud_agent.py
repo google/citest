@@ -28,7 +28,7 @@ class PassphraseInjector(object):
   """Monitors a file descriptor and injects passphrases as requested."""
   # pylint: disable=too-few-public-methods
 
-  def __init__(self, fd, ssh_passphrase_file=None, daemon=False):
+  def __init__(self, fd, ssh_passphrase_file=None, daemon=False, logger=None):
     """Constructor
 
     Args:
@@ -38,11 +38,12 @@ class PassphraseInjector(object):
           then this could be nullptr.
       daemon: If true then the injector should never terminate.
           Otherwise, it will terminate once there is no more input.
+      logger: The logger to use if other than the default.
     """
     self.__fd = fd
     self.__ssh_passphrase_file = ssh_passphrase_file
     self.__daemon = daemon
-    self.__logger = logging.getLogger(__name__)
+    self.__logger = logger or logging.get_logger(__name__)
 
   def __call__(self):
     """Reads from the bound fd and injects the passphrase when asked.
@@ -150,7 +151,7 @@ class GCloudAgent(cli_agent.CliAgent):
     return self.__zone
 
   def __init__(self, project, zone, service_account=None,
-               ssh_passphrase_file='', trace=True):
+               ssh_passphrase_file='', trace=True, logger=None):
     """Construct instance.
 
     Args:
@@ -168,14 +169,16 @@ class GCloudAgent(cli_agent.CliAgent):
           You can run ssh-agent as an alternative.
           The file should be made user read-only (400) for security.
       trace: Whether to trace all the calls by default for debugging.
+      logger: The logger to inject if other than the default.
     """
-    super(GCloudAgent, self).__init__('gcloud', output_scrubber=JsonScrubber())
+    logger = logger or logging.getLogger(__name__)
+    super(GCloudAgent, self).__init__(
+        'gcloud', output_scrubber=JsonScrubber(), logger=logger)
     self.__project = project
     self.__zone = zone
     self.__ssh_passphrase_file = ssh_passphrase_file
     self.__service_account = service_account
     self.trace = trace
-    self.logger = logging.getLogger(__name__)
 
   def _args_to_full_commandline(self, args):
     if self.__service_account:
@@ -281,14 +284,14 @@ class GCloudAgent(cli_agent.CliAgent):
     cmdline.extend(arg_array)
 
     bash_command = ['/bin/bash', '-c', ' '.join(cmdline)]
-    if self.trace:
-      self.logger.debug(bash_command)
+    self.logger.debug(bash_command)
     pid, fd = os.forkpty()
     if not pid:
       os.execv(bash_command[0], bash_command)
     if async:
       pi = PassphraseInjector(
-          fd=fd, ssh_passphrase_file=self.__ssh_passphrase_file, daemon=async)
+          fd=fd, ssh_passphrase_file=self.__ssh_passphrase_file, daemon=async,
+          logger=self.logger)
       t = threading.Thread(target=pi)
       t.setDaemon(True)
       t.start()

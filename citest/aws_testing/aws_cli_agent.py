@@ -42,19 +42,20 @@ class AwsCliAgent(st.CliAgent):
     """The default AWS region to interact with."""
     return self.__region
 
-  def __init__(self, profile, region, trace=True):
+  def __init__(self, profile, region, trace=True, logger=None):
     """Construct instance.
 
     Args:
       profile: The aws command --profile name to use by default.
       region: The AWS region to use by default.
       trace: Whether to trace all I/O by default.
+      logger: Inject this logger into the agent rather than using the default.
     """
-    super(AwsCliAgent, self).__init__('aws')
+    logger = logger or logging.getLogger(__name__)
+    super(AwsCliAgent, self).__init__('aws', logger=logger)
     self.__profile = profile
     self.__region = region
     self.trace = trace
-    self.logger = logging.getLogger(__name__)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
@@ -104,7 +105,7 @@ class AwsCliAgent(st.CliAgent):
     Returns:
       List of objects from the command.
     """
-    aws_response = self.run(command_args, trace)
+    aws_response = self.run(command_args, trace=trace)
     if not aws_response.ok():
       raise ValueError(aws_response.error)
 

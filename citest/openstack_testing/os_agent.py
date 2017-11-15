@@ -41,17 +41,18 @@ class OsAgent(st.CliAgent):
     return self.__os_cloud
 
 
-  def __init__(self, os_cloud, trace=True):
+  def __init__(self, os_cloud, trace=True, logger=None):
     """Construct instance.
 
     Args:
       profile: The OpenStackClient command --os-cloud name to use by default.
       trace: Whether to trace all I/O by default.
+      logger: The logger to inject if other than the default.
     """
-    super(OsAgent, self).__init__('openstack')
+    logger = logger or logging.getLogger(__name__)
+    super(OsAgent, self).__init__('openstack', logger=logger)
     self.__os_cloud = os_cloud
     self.trace = trace
-    self.logger = logging.getLogger(__name__)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
@@ -95,7 +96,7 @@ class OsAgent(st.CliAgent):
     Returns:
       List of objects from the command.
     """
-    os_response = self.run(command_args, trace)
+    os_response = self.run(command_args, trace=trace)
     if not os_response.ok():
       raise ValueError(os_response.error)
 

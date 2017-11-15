@@ -94,19 +94,20 @@ class GcpAgent(BaseAgent):
 
   @classmethod
   def make_service(cls, api=None, version=None,
-                   scopes=None, credentials_path=None):
+                   scopes=None, credentials_path=None,
+                   logger=None):
     """Instantiate a client service instance.
 
     Args:
       version: [string] The version of the API to use.
       scopes: [string] List of scopes to authorize, or None.
       credentials_path: [string] Path to json file with credentials, or None.
-
+      logger: [Logger] The logger to inject into the agent if not the default.
     Returns:
       Service
     """
     credentials_path = credentials_path or None
-    logger = logging.getLogger(__name__)
+    logger = logger or logging.getLogger(__name__)
     if (scopes is None) != (credentials_path is None):
       raise ValueError(
           'Either provide both scopes and credentials_path or neither')
@@ -137,7 +138,8 @@ class GcpAgent(BaseAgent):
   @classmethod
   def make_agent(cls, api=None, version=None,
                  scopes=None, credentials_path=None,
-                 default_variables=None, **kwargs):
+                 default_variables=None, logger=None,
+                 **kwargs):
     """Factory method to create a new agent instance.
 
     This is a convienence method to create a new instance with standard
@@ -151,6 +153,7 @@ class GcpAgent(BaseAgent):
       default_variables: [dict] Default variable values to pass to methods.
          These are only used when the method has a parameter that was not
          explicitly provided in the invocation.
+      logger: [Logger] The logger to inject if other than the default.
     Returns:
       Agent
     """
@@ -177,7 +180,8 @@ class GcpAgent(BaseAgent):
     """Default variables for method invocations."""
     return self.__default_variables
 
-  def __init__(self, service, discovery_doc, default_variables=None):
+  def __init__(self, service, discovery_doc, default_variables=None,
+               logger=None):
     """Constructor.
 
     Args:
@@ -187,7 +191,8 @@ class GcpAgent(BaseAgent):
          These are only used when the method has a parameter that was not
          explicitly provided in the invocation.
     """
-    super(GcpAgent, self).__init__()
+    logger = logger or logging.getLogger(__name__)
+    super(GcpAgent, self).__init__(logger=logger)
     self.__service = service
     self.__discovery_doc = discovery_doc
     self.__default_variables = dict(default_variables or {})
