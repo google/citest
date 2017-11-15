@@ -97,11 +97,6 @@ class BaseAgent(JsonSnapshotableEntity):
     """Return logging.Logger for this agent."""
     return self.__nojournal_logger
 
-  @property
-  def alwayslog(self):
-    """Return True if the logger level is DEBUG."""
-    return self.__logger.getEffectiveLevel() <= logging.DEBUG
-
   def __init__(self, logger=None):
     if logger is None:
       logger = logging.getLogger(__name__)

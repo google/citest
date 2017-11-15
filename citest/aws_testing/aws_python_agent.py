@@ -47,8 +47,7 @@ class PythonAgent(BaseAgent):
     JournalLogger.journal_or_log(
         json.JSONEncoder(
             encoding='utf-8', separators=(',', ': ')).encode(response),
-        _module=self.logger.name, _context='response',
-        format='json')
+        _logger=self.logger, _context='response', format='json')
 
   def call_method(self, method, context, *pos_args, **kwargs):
     """Invokes method and returns result.
@@ -90,8 +89,7 @@ class PythonAgent(BaseAgent):
 
     JournalLogger.journal_or_log(
         '{0}({1})'.format(method_name, arg_text),
-        _module=self.logger.name,
-        _context='request')
+        _logger=self.logger, _context='request')
     response = method(*eval_pos_args, **eval_kwargs)
     self._log_call_method_response(method, response)
     return response
@@ -147,8 +145,7 @@ class AwsPythonAgent(PythonAgent):
     JournalLogger.journal_or_log(
         AwsJsonEncoder(
             encoding='utf-8', separators=(',', ':')).encode(response),
-        _module=self.logger.name, _context='response',
-        format='json')
+        _logger=self.logger, _context='response', format='json')
 
   def call_method(self, context, _method, *pos_args, **kwargs):
     _response_field = kwargs.get('_response_field', None)

@@ -366,9 +366,9 @@ class AgentTestScenario(object):
 class AgentTestCase(BaseTestCase):
   """Base class for agent integration tests."""
 
-  def report(self, obj):
+  def report(self, obj, **kwargs):
     """Write the object state into the test report."""
-    JournalLogger.store_or_log(obj)
+    JournalLogger.store_or_log(obj, **kwargs)
 
   @property
   def scenario(self):

@@ -70,82 +70,61 @@ class JournalLogger(logging.Logger):
     getattr(journal, method)(*positional_args, **kwargs)
 
   @staticmethod
-  def store_or_log(_obj, levelno=logging.INFO,
-                   _module=None, _alwayslog=False, **kwargs):
-    """Store the object into the underlying journal, or log it if no journal.
+  def store_or_log(_obj, levelno=logging.INFO, _logger=None, **kwargs):
+    """Store the object into the underlying journal (if any), and log it.
 
     Args:
       _obj: The JsonSnapshotable object to store.
       levelno: [int] The logging debug level.
-      _module: [string] The logging module name, or none for this.
-      _alwayslog [bool] If True then always log.
-          Otherwise only journal but only log if there is no journal.
+      _logger: [Logging] The logger to use if overriding this module.
       kwargs: Additional metadata to pass through to the journal.
    """
     journal = get_global_journal()
     if journal is not None:
       journal.store(_obj)
-    if _alwayslog or journal is None:
-      logging.getLogger(_module or __name__).log(
-          levelno, repr(_obj), extra={'citest_journal': kwargs})
+    logger = _logger or logging.getLogger(__name__)
+    logger.log(levelno, repr(_obj), extra={'citest_journal': kwargs})
 
   @staticmethod
-  def journal_or_log(_msg, levelno=logging.DEBUG,
-                     _module=None, _alwayslog=False, **kwargs):
-    """Writes a log message into the journal (if there is one) or logging API.
+  def journal_or_log(_msg, levelno=logging.DEBUG, _logger=None, **kwargs):
+    """Writes a log message into the journal (if any) and log it.
 
     This API is an alternative to logger.log that permits Journal metadata
-    to be added. If there is no journal, then the message will be written into
-    the normal logger API without the additional metadata.
+    to be added. The message is also written into the normal logger API
+    but without the additional metadata.
 
     Args:
       _msg: [string] The log message to write
       levelno: [int] The logging debug level.
-      _module: [string] The logging module name, or none for this.
-      _alwayslog [bool] If True then always log.
-          Otherwise only journal but only log if there is no journal.
+      _logger: [Logging] The logger to use if overriding this module.
       kwargs: Additional metadata to pass through to the journal.
     """
     if 'format' not in kwargs:
       # If a format was not specified, then default to 'pre'
       kwargs = dict(kwargs)
       kwargs['format'] = 'pre'
-    JournalLogger._helper(
-        _msg, levelno=levelno, _alwayslog=_alwayslog, _module=_module,
-        metadata=kwargs)
 
-  @staticmethod
-  def _helper(_msg, levelno, _alwayslog, _module, metadata):
-    """Helper class for log()"""
-    journal = get_global_journal()
-    if _alwayslog or journal is None:
-      logging.getLogger(_module or __name__).log(
-          levelno, _msg, extra={'citest_journal': metadata})
-    else:
-      journal.write_message(_msg, _level=levelno, **metadata)
+    logger = _logger or logging.getLogger(__name__)
+    logger.log(levelno, _msg, extra={'citest_journal': kwargs})
 
   @staticmethod
   def journal_or_log_detail(_msg, _detail, levelno=logging.DEBUG,
-                            _module=None, _alwayslog=False, **kwargs):
+                            _logger=None, **kwargs):
     """Log a message and detail.
 
-    If there is a global journal and not _alwayslog then writes this there.
-    Otherwise log it. The reason for the distinction is so that we can filter
-    down normal logs.
+    This will write into the global journal if any, as well as log it.
 
     Args:
       _msg: [string] The log message to write.
       _detail: [any] The data detail to log.
       levelno: [int] The logging debug level.
-      _module: [string] The logging module name, or none for this.
-      _alwayslog [bool] If True then always log.
-          Otherwise only journal but only log if there is no journal.
+      _logger: [Logging] The logger to use if overriding this module.
       kwargs: Additional metadata to pass through to the journal.
     """
     json_text = _to_json_if_possible(_detail)
     JournalLogger.journal_or_log(
         _msg='{0}\n{1}'.format(_msg, json_text), levelno=levelno,
-        _module=_module, _alwayslog=_alwayslog, **kwargs)
+        _logger=_logger, **kwargs)
 
   @staticmethod
   def execute_in_context(_title, _callable, **kwargs):

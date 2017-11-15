@@ -168,12 +168,10 @@ class CliAgent(base_agent.BaseAgent):
     Returns:
       CliResponseType tuple containing program execution results.
     """
-    alwayslog = self.alwayslog
     command = self._args_to_full_commandline(args)
     log_msg = 'spawn {0} "{1}"'.format(command[0], '" "'.join(command[1:]))
     JournalLogger.journal_or_log(log_msg,
-                                 _module=self.logger.name,
-                                 _alwayslog=alwayslog,
+                                 _logger=self.logger,
                                  _context='request')
 
     process = subprocess.Popen(
@@ -184,9 +182,7 @@ class CliAgent(base_agent.BaseAgent):
     scrubber = output_scrubber or self.__output_scrubber
     if scrubber:
       log_msg = 'Scrubbing output with {0}'.format(scrubber.__class__.__name__)
-      JournalLogger.journal_or_log(log_msg,
-                                   _module=self.logger.name,
-                                   _alwayslog=alwayslog)
+      JournalLogger.journal_or_log(log_msg, _logger=self.logger)
       stdout = scrubber(stdout)
 
     # Strip leading/trailing eolns that program may add to errors and output.
@@ -204,12 +200,11 @@ class CliAgent(base_agent.BaseAgent):
     if output_json:
       JournalLogger.journal_or_log_detail(
           'Result Code {0} / {1}'.format(code, which), output_json,
-          _module=self.logger.name, _alwayslog=alwayslog,
-          _context='response')
+          _logger=self.logger, _context='response')
     else:
       JournalLogger.journal_or_log(
           'Result Code {0} / no ouptut'.format(code),
-          _module=self.logger.name, _alwayslog=alwayslog,
+          _logger=self.logger,
           _context='response')
 
     return CliResponseType(code, stdout, stderr)

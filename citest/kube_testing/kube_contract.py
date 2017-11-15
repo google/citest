@@ -49,7 +49,7 @@ class KubeObjectObserver(jc.ObjectObserver):
 
   def collect_observation(self, context, observation):
     args = context.eval(self.__args)
-    kube_response = self.__kubectl.run(arg)
+    kube_response = self.__kubectl.run(args)
     if not kube_response.ok():
       observation.add_error(
           cli_agent.CliAgentRunError(self.__kubectl, kube_response))

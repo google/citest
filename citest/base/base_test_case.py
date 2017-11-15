@@ -152,7 +152,7 @@ class BaseTestCase(unittest.TestCase):
       if error_details is not None:
         JournalLogger.journal_or_log_detail(
             'Raised Exception', error_details[1],
-            levelno=logging.ERROR, format='pre', _alwayslog=True)
+            levelno=logging.ERROR, format='pre', _logger=self.logger)
 
       self.__end_step_context(relation=test_relation)
       self.__in_step = None

@@ -339,18 +339,18 @@ class HttpAgent(base_agent.BaseAgent):
 
     scrubbed_url = self.__http_scrubber.scrub_url(url)
     scrubbed_data = self.__http_scrubber.scrub_request(data)
-    alwayslog = self.alwayslog
 
     if data is not None:
       JournalLogger.journal_or_log_detail(
           '{type} {url}'.format(type=http_type, url=scrubbed_url),
           scrubbed_data,
-          _module=self.logger.name, _alwayslog=alwayslog,
+          _logger=self.logger,
           _context='request')
     else:
       JournalLogger.journal_or_log(
           '{type} {url}'.format(type=http_type, url=scrubbed_url),
-          _module=self.logger.name, _alwayslog=alwayslog, _context='request')
+          _logger=self.logger,
+          _context='request')
 
     code = None
     output = None
@@ -364,8 +364,7 @@ class HttpAgent(base_agent.BaseAgent):
       JournalLogger.journal_or_log_detail(
           'HTTP {code}'.format(code=code),
           scrubbed_output,
-          _module=self.logger.name,
-          _alwayslog=alwayslog,
+          _logger=self.logger,
           _context='response')
 
     except urllib2.HTTPError as ex:
@@ -374,14 +373,14 @@ class HttpAgent(base_agent.BaseAgent):
       scrubbed_error = self.__http_scrubber.scrub_response(output)
       JournalLogger.journal_or_log_detail(
           'HTTP {code}'.format(code=code), scrubbed_error,
-          _module=self.logger.name,
-          _alwayslog=alwayslog,
+          _logger=self.logger,
           _context='response')
 
     except urllib2.URLError as ex:
       JournalLogger.journal_or_log(
           'Caught exception: {ex}\n{stack}'.format(
-              ex=ex, stack=traceback.format_exc()))
+              ex=ex, stack=traceback.format_exc()),
+          _logger=self.logger)
       exception = ex
     return HttpResponseType(code, output, exception)
 
