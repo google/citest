@@ -23,17 +23,15 @@ from citest.base.json_scrubber import JsonScrubber
 class KubeCtlAgent(cli_agent.CliAgent):
   """Agent that uses kubectl program to interact with Kubernetes."""
 
-  def __init__(self, trace=True, logger=None):
+  def __init__(self, logger=None):
     """Construct instance.
 
     Args:
-      trace: Whether to trace all the calls by default for debugging.
       logger: The logger to inject if other than the default.
     """
     logger = logger or logging.getLogger(__name__)
     super(KubeCtlAgent, self).__init__(
         'kubectl', output_scrubber=JsonScrubber(), logger=logger)
-    self.trace = trace
 
   @staticmethod
   def build_kubectl_command_args(action, resource=None, args=None):
@@ -65,4 +63,4 @@ class KubeCtlAgent(cli_agent.CliAgent):
     args = context.eval(args)
     cmdline = self.build_kubectl_command_args(
         action='get', resource=kube_type, args=args)
-    return self.run(cmdline, trace=self.trace)
+    return self.run(cmdline)

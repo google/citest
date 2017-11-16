@@ -38,6 +38,6 @@ class FakeGCloudAgent(gcp_testing.GCloudAgent):
     return FakeGCloudAgent('FAKE_PROJECT', 'FAKE_ZONE',
                            default_repsonse=response)
 
-  def run(self, params, trace=True):
+  def run(self, params):
     self.last_run_params = list(params)
     return self.__default_response

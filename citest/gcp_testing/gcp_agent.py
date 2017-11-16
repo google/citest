@@ -281,7 +281,7 @@ class GcpAgent(BaseAgent):
     JournalLogger.journal_or_log(
         'Requesting {type} {method} {vars}'.format(
             type=resource_type, method=method, vars=variables),
-        _module=self.logger.name,
+        _logging=self.logger.name,
         _context='request')
 
     request = getattr(resource_obj(), method)(**variables)
@@ -289,8 +289,7 @@ class GcpAgent(BaseAgent):
     JournalLogger.journal_or_log(
         json.JSONEncoder(
             encoding='utf-8', separators=(',', ': ')).encode(response),
-        _module=self.logger.name, _context='response',
-        format='json')
+        _logger=self.logger, _context='response', format='json')
 
     return response
 
@@ -332,14 +331,12 @@ class GcpAgent(BaseAgent):
                    extra={'citest_journal':{'nojournal':True}})
       JournalLogger.journal_or_log(
           'Listing {0}{1}'.format(more, resource_type),
-          _module=self.logger.name,
-          _context='request')
+          _logger=self.logger,_context='request')
       response = request.execute()
       JournalLogger.journal_or_log(
           json.JSONEncoder(
               encoding='utf-8', separators=(',', ': ')).encode(response),
-          _module=self.logger.name, _context='response',
-          format='json')
+          _logger=self.logger, _context='response', format='json')
 
       response_items = response.get('items', None)
       if response_items is None:

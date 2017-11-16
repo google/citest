@@ -159,12 +159,11 @@ class CliAgent(base_agent.BaseAgent):
     """
     return [self.__program] + args
 
-  def run(self, args, trace=True, output_scrubber=None):
+  def run(self, args, output_scrubber=None):
     """Run the specified command.
 
     Args:
       args: The list of command-line arguments for self.__program.
-      trace: If True then we should trace the call/response.
 
     Returns:
       CliResponseType tuple containing program execution results.
@@ -172,7 +171,7 @@ class CliAgent(base_agent.BaseAgent):
     command = self._args_to_full_commandline(args)
     log_msg = 'spawn {0} "{1}"'.format(command[0], '" "'.join(command[1:]))
     JournalLogger.journal_or_log(log_msg,
-                                 _module=self.logger.name, _alwayslog=trace,
+                                 _logger=self.logger,
                                  _context='request')
 
     process = subprocess.Popen(
@@ -183,8 +182,7 @@ class CliAgent(base_agent.BaseAgent):
     scrubber = output_scrubber or self.__output_scrubber
     if scrubber:
       log_msg = 'Scrubbing output with {0}'.format(scrubber.__class__.__name__)
-      JournalLogger.journal_or_log(log_msg,
-                                   _module=self.logger.name, _alwayslog=trace)
+      JournalLogger.journal_or_log(log_msg, _logger=self.logger)
       stdout = scrubber(stdout)
 
     # Strip leading/trailing eolns that program may add to errors and output.
@@ -202,11 +200,12 @@ class CliAgent(base_agent.BaseAgent):
     if output_json:
       JournalLogger.journal_or_log_detail(
           'Result Code {0} / {1}'.format(code, which), output_json,
-          _module=self.logger.name, _alwayslog=trace, _context='response')
+          _logger=self.logger, _context='response')
     else:
       JournalLogger.journal_or_log(
           'Result Code {0} / no ouptut'.format(code),
-          _module=self.logger.name, _alwayslog=trace, _context='response')
+          _logger=self.logger,
+          _context='response')
 
     return CliResponseType(code, stdout, stderr)
 
@@ -226,17 +225,16 @@ class CliRunOperation(base_agent.AgentOperation):
     snapshot.edge_builder.make_control(entity, 'Args', self.__args)
     super(CliRunOperation, self).export_to_json_snapshot(snapshot, entity)
 
-  def execute(self, agent=None, trace=True):
+  def execute(self, agent=None):
     if not agent:
       agent = self.agent
     elif not isinstance(agent, CliAgent):
       raise TypeError(
           'agent is not CliAgent: {0}'.format(agent.__class__))
 
-    cli_response = agent.run(self.__args, trace=trace)
+    cli_response = agent.run(self.__args)
     status = agent._new_status(self, cli_response)
-    if trace:
-      agent.nojournal_logger.debug('Returning status %s', status)
+    agent.nojournal_logger.debug('Returning status %s', status)
     return status
 
 

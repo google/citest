@@ -41,24 +41,21 @@ class OsAgent(st.CliAgent):
     return self.__os_cloud
 
 
-  def __init__(self, os_cloud, trace=True, logger=None):
+  def __init__(self, os_cloud, logger=None):
     """Construct instance.
 
     Args:
       profile: The OpenStackClient command --os-cloud name to use by default.
-      trace: Whether to trace all I/O by default.
       logger: The logger to inject if other than the default.
     """
     logger = logger or logging.getLogger(__name__)
     super(OsAgent, self).__init__('openstack', logger=logger)
     self.__os_cloud = os_cloud
-    self.trace = trace
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     builder.make_control(entity, 'Cloud', self.__os_cloud)
-    builder.make_control(entity, 'Trace', self.trace)
     super(OsAgent, self).export_to_json_snapshot(snapshot, entity)
 
   def build_os_command_args(self, os_command, args,
@@ -83,7 +80,7 @@ class OsAgent(st.CliAgent):
 
     return preamble + [os_command] + args
 
-  def run_resource_list_commandline(self, command_args, root_key, trace=True):
+  def run_resource_list_commandline(self, command_args, root_key):
     """Runs the given command and returns the json resource list.
 
     Args:
@@ -96,7 +93,7 @@ class OsAgent(st.CliAgent):
     Returns:
       List of objects from the command.
     """
-    os_response = self.run(command_args, trace=trace)
+    os_response = self.run(command_args)
     if not os_response.ok():
       raise ValueError(os_response.error)
 
@@ -105,7 +102,7 @@ class OsAgent(st.CliAgent):
     return doc[root_key] if root_key else doc
 
   def get_resource_list(self, context, root_key, os_command, args,
-                        os_cloud=None, trace=True):
+                        os_cloud=None):
     """Returns a resource list returned when executing the openstack commandline.
 
     This is a combination of build_os_command_args and
@@ -114,7 +111,7 @@ class OsAgent(st.CliAgent):
     args = context.eval(args)
     args = self.build_os_command_args(os_command=os_command, args=args,
                                       os_cloud=os_cloud)
-    return self.run_resource_list_commandline(args, root_key, trace=trace)
+    return self.run_resource_list_commandline(args, root_key)
 
   def get_resource(self, os_command, resource_name, os_cloud=None):
     """Provides information of the OpenStack resource in a json format

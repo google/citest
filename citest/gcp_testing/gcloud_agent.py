@@ -58,9 +58,10 @@ class PassphraseInjector(object):
           passphrase = f.read()
           if passphrase[-1] != '\n':
             passphrase += '\n'
-    except IOError:
+    except IOError as ioex:
       self.__logger.error(
-          '--ssh_passphrase_file=%s not found', self.__ssh_passphrase_file)
+          'ERROR with --ssh_passphrase_file=%s: %s',
+          self.__ssh_passphrase_file, ioex)
       sys.exit(-1)
 
     return self.__read_process_output(passphrase)
@@ -151,7 +152,7 @@ class GCloudAgent(cli_agent.CliAgent):
     return self.__zone
 
   def __init__(self, project, zone, service_account=None,
-               ssh_passphrase_file='', trace=True, logger=None):
+               ssh_passphrase_file='', logger=None):
     """Construct instance.
 
     Args:
@@ -168,7 +169,6 @@ class GCloudAgent(cli_agent.CliAgent):
           gain access to test internal subsystems or execute remote commands.
           You can run ssh-agent as an alternative.
           The file should be made user read-only (400) for security.
-      trace: Whether to trace all the calls by default for debugging.
       logger: The logger to inject if other than the default.
     """
     logger = logger or logging.getLogger(__name__)
@@ -178,7 +178,6 @@ class GCloudAgent(cli_agent.CliAgent):
     self.__zone = zone
     self.__ssh_passphrase_file = ssh_passphrase_file
     self.__service_account = service_account
-    self.trace = trace
 
   def _args_to_full_commandline(self, args):
     if self.__service_account:
@@ -192,7 +191,6 @@ class GCloudAgent(cli_agent.CliAgent):
     builder.make_control(entity, 'Project', self.__project)
     builder.make_control(entity, 'Zone', self.__zone)
     builder.make_control(entity, 'Passphrase File', self.__ssh_passphrase_file)
-    builder.make(entity, 'Trace', self.trace)
     super(GCloudAgent, self).export_to_json_snapshot(snapshot, entity)
 
   @staticmethod
@@ -298,13 +296,12 @@ class GCloudAgent(cli_agent.CliAgent):
 
     return (pid, fd)
 
-  def remote_command(self, instance, command, trace=True):
+  def remote_command(self, instance, command):
     """Run a command on the instance.
 
     Args:
       instance: The instance to run on.
       command: The command to run as a string.
-      trace: False to suppress tracing, otherwise use default.
 
     Returns:
       cli.CliResponseType with execution results.
@@ -336,7 +333,7 @@ class GCloudAgent(cli_agent.CliAgent):
     cmdline = self.build_gcloud_command_args(
         gce_type, args, format=format, project=self.__project,
         zone=self.__zone if needs_zone else None)
-    return self.run(cmdline, trace=self.trace)
+    return self.run(cmdline)
 
   def describe_resource(self, context, gce_type, name,
                         format='json', extra_args=None):
@@ -358,4 +355,4 @@ class GCloudAgent(cli_agent.CliAgent):
         gce_type, args, format=format, project=self.__project,
         zone=self.__zone if needs_zone else None)
 
-    return self.run(cmdline, trace=self.trace)
+    return self.run(cmdline)

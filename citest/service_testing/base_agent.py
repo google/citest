@@ -222,12 +222,8 @@ class AgentOperationStatus(JsonSnapshotableEntity):
     """
     self.__operation = operation
 
-  def refresh(self, trace=True):
-    """Refresh the status with the current data.
-
-    Args:
-      trace: [bool] Whether or not to trace the call through the agent update.
-    """
+  def refresh(self):
+    """Refresh the status with the current data."""
     # pylint: disable=unused-argument
     if self.finished:
       return
@@ -235,16 +231,13 @@ class AgentOperationStatus(JsonSnapshotableEntity):
     raise NotImplementedError(
         self.__class__.__name__ + '.refresh() needs to be specialized.')
 
-  def wait(self, poll_every_secs=1, max_secs=None,
-           trace_every=False, trace_first=True):
+  def wait(self, poll_every_secs=1, max_secs=None):
     """Wait until the status reaches a final state.
 
     Args:
       poll_every_secs: [float] Interval to refresh() from the proxy.
       max_secs: [float] Most seconds to wait before giving up.
           0 is a poll, None is unbounded. Otherwise, number of seconds.
-      trace_every: [bool] Whether or not to log every poll request.
-      trace_first: [bool] Whether to log the first poll request.
     """
     if self.finished:
       return
@@ -258,19 +251,18 @@ class AgentOperationStatus(JsonSnapshotableEntity):
     JournalLogger.begin_context(message)
     context_relation = 'ERROR'
     try:
-      self.refresh(trace=trace_first)
-      self.__wait_helper(poll_every_secs, max_secs, trace_every)
+      self.refresh()
+      self.__wait_helper(poll_every_secs, max_secs)
       context_relation = 'VALID' if self.finished_ok else 'INVALID'
     finally:
       JournalLogger.end_context(relation=context_relation)
 
-  def __wait_helper(self, poll_every_secs, max_secs, trace):
+  def __wait_helper(self, poll_every_secs, max_secs):
     """Helper function for wait to keep its try/finally block simple.
 
     Args:
       poll_every_secs: [float] Frequency to poll.
       max_secs: [float] How long to poll before giving up. None is indefinite.
-      trace_every: [bool] Whether to log each attempt.
     """
     now = self._now()
     end_time = sys.float_info.max if max_secs is None else now + max_secs
@@ -299,7 +291,7 @@ class AgentOperationStatus(JsonSnapshotableEntity):
           next_log_secs = now + 60
 
         self._do_sleep(sleep_secs)
-        self.refresh(trace=trace)
+        self.refresh()
 
     return True
 

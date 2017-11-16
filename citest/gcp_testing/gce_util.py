@@ -291,7 +291,7 @@ def establish_network_connectivity(gcloud, instance, target_port):
            ' This should close at exit.'.format(port=local_port, pid=pid))
     atexit.register(_ProcessKiller(pid).safe_kill)
 
-  logger.debug('Confirming tunnel is working')
+  logger.info('Confirming tunnel is working')
   url = 'http://localhost:%d/health' % local_port
 
   # It takes some time for the subprocess to establish the tunnel.

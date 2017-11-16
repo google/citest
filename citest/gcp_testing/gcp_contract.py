@@ -49,7 +49,7 @@ class GcpObjectObserver(jc.ObjectObserver):
   def __str__(self):
     return 'GcpObjectObserver({0})'.format(self.__kwargs)
 
-  def collect_observation(self, context, observation, trace=True):
+  def collect_observation(self, context, observation):
     try:
       doc = self.__method(context, **self.__kwargs)
       if not isinstance(doc, list):

@@ -42,27 +42,24 @@ class AwsCliAgent(st.CliAgent):
     """The default AWS region to interact with."""
     return self.__region
 
-  def __init__(self, profile, region, trace=True, logger=None):
+  def __init__(self, profile, region, logger=None):
     """Construct instance.
 
     Args:
       profile: The aws command --profile name to use by default.
       region: The AWS region to use by default.
-      trace: Whether to trace all I/O by default.
       logger: Inject this logger into the agent rather than using the default.
     """
     logger = logger or logging.getLogger(__name__)
     super(AwsCliAgent, self).__init__('aws', logger=logger)
     self.__profile = profile
     self.__region = region
-    self.trace = trace
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
     builder = snapshot.edge_builder
     builder.make_control(entity, 'Profile', self.__profile)
     builder.make_control(entity, 'Region', self.__region)
-    builder.make_control(entity, 'Trace', self.trace)
     super(AwsCliAgent, self).export_to_json_snapshot(snapshot, entity)
 
   def build_aws_command_args(self, aws_command, args, aws_module='ec2',
@@ -92,7 +89,7 @@ class AwsCliAgent(st.CliAgent):
 
     return preamble + [aws_module, aws_command] + args
 
-  def run_resource_list_commandline(self, command_args, root_key, trace=True):
+  def run_resource_list_commandline(self, command_args, root_key):
     """Runs the given command and returns the json resource list.
 
     Args:
@@ -105,7 +102,7 @@ class AwsCliAgent(st.CliAgent):
     Returns:
       List of objects from the command.
     """
-    aws_response = self.run(command_args, trace=trace)
+    aws_response = self.run(command_args)
     if not aws_response.ok():
       raise ValueError(aws_response.error)
 
@@ -115,7 +112,7 @@ class AwsCliAgent(st.CliAgent):
 
   def get_resource_list(self, context, root_key, aws_command, args,
                         aws_module='ec2',
-                        profile=None, region=None, trace=True):
+                        profile=None, region=None):
     """Returns a resource list returned when executing the aws commandline.
 
     This is a combination of build_aws_command_args and
@@ -125,4 +122,4 @@ class AwsCliAgent(st.CliAgent):
     args = self.build_aws_command_args(aws_command=aws_command, args=args,
                                        aws_module=aws_module, profile=profile,
                                        region=region)
-    return self.run_resource_list_commandline(args, root_key, trace=trace)
+    return self.run_resource_list_commandline(args, root_key)

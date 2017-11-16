@@ -30,7 +30,7 @@ from fake_agent import (
 
 
 class FakeObserver(jc.ObjectObserver):
-  def collect_observation(self, context, observation, trace=True):
+  def collect_observation(self, context, observation):
     pass
 
 
