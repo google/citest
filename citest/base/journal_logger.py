@@ -82,6 +82,9 @@ class JournalLogger(logging.Logger):
     journal = get_global_journal()
     if journal is not None:
       journal.store(_obj)
+      kwargs = dict(kwargs)
+      kwargs['nojournal'] = True
+
     logger = _logger or logging.getLogger(__name__)
     logger.log(levelno, repr(_obj), extra={'citest_journal': kwargs})
 
@@ -104,8 +107,15 @@ class JournalLogger(logging.Logger):
       kwargs = dict(kwargs)
       kwargs['format'] = 'pre'
 
+    journal = get_global_journal()
+    if journal is not None:
+      journal.write_message(_msg, _level=levelno, **kwargs)
+      kwargs = dict(kwargs)
+      kwargs['nojournal'] = True
+
     logger = _logger or logging.getLogger(__name__)
     logger.log(levelno, _msg, extra={'citest_journal': kwargs})
+
 
   @staticmethod
   def journal_or_log_detail(_msg, _detail, levelno=logging.DEBUG,

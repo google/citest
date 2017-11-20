@@ -368,7 +368,7 @@ class AgentTestCase(BaseTestCase):
 
   def report(self, obj, **kwargs):
     """Write the object state into the test report."""
-    JournalLogger.store_or_log(obj, **kwargs)
+    JournalLogger.store_or_log(obj, levelno=logging.DEBUG, **kwargs)
 
   @property
   def scenario(self):
