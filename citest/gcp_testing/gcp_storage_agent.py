@@ -15,6 +15,7 @@
 """Implements an Agent that interacts with Google Cloud Storage."""
 
 import io
+import time
 
 from apiclient.http import MediaIoBaseDownload
 from .gcp_agent import GcpAgent
@@ -111,5 +112,6 @@ class GcpStorageAgent(GcpAgent):
       status, done = downloader.next_chunk()
       if status:
         self.logger.debug('Download %d%%', int(status.progress() * 100))
+
     result = data.getvalue()
     return result if transform is None else transform(result)

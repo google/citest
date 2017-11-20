@@ -98,7 +98,7 @@ ListedResources = collections.namedtuple(
     'ListedResources', ['params', 'method_name', 'resources'])
 
 AttemptedResourceDeletes = collections.namedtuple(
-  'AttemptedResourcesDeletes', ['agent', 'aggregated', 'code_to_results'])
+    'AttemptedResourcesDeletes', ['agent', 'aggregated', 'code_to_results'])
 
 
 def get_all_zones():
@@ -749,7 +749,7 @@ class Processor(object):
 
         try:
           params, method_name, instances = self.__list_resource_helper(
-            agent, method_name, resource, transform)
+              agent, method_name, resource, transform)
           if item_filter:
             if method_name == 'aggregatedList':
               instances = [item for item in instances if item_filter(item[1])]
@@ -914,7 +914,7 @@ class Processor(object):
                   agent, resource_type, elems, aggregated))
 
   def __wait_on_delete(
-        self, agent, resource_type, results, aggregated, timeout=180):
+      self, agent, resource_type, results, aggregated, timeout=180):
     """Wait for outstanding results to finish deleting or timeout."""
     awaiting_list = results.get(httplib.OK, [])
     retryable_elems = []
@@ -927,7 +927,7 @@ class Processor(object):
     approx_secs_so_far = 0   # used to print every secs
     if awaiting_list:
       print 'Waiting for {0} items to finish deleting ...'.format(
-        len(awaiting_list))
+          len(awaiting_list))
 
       while awaiting_list and time.time() < wait_until:
         awaiting_list = [elem for elem in awaiting_list
@@ -972,11 +972,11 @@ class Processor(object):
       if http_error.resp.status in _RETRYABLE_DELETE_HTTP_CODES:
         return True
       print 'Unexpected error while waiting for delete: {0} {1}={2}'.format(
-        resource_type, name, http_error)
+          resource_type, name, http_error)
     return False
 
   def __try_delete_all(
-        self, agent, resource_type, results_to_delete, aggregated):
+      self, agent, resource_type, results_to_delete, aggregated):
     """Implements the actual delete heuristics.
 
     Args:
@@ -999,7 +999,7 @@ class Processor(object):
         except ValueError as vex:
           print 'Ignoring error {0}'.format(vex)
           print '   type={0}, name={1}: ELEM[0] was {2!r}'.format(
-            resource_type, name, elem[0])
+              resource_type, name, elem[0])
           continue
 
         if param_name[-1] == 's':
@@ -1107,7 +1107,8 @@ class Main(object):
     parser.add_argument(
         '--list', default=False, action='store_true',
         help='List the resource instances.')
-    parser.add_argument('--name', default=None,
+    parser.add_argument(
+        '--name', default=None,
         help='The regular expression for resource instance names to include.'
              ' The default is none (dont consider)')
     parser.add_argument(
@@ -1135,7 +1136,8 @@ class Main(object):
         '--delete_list', default=False, action='store_true',
         help='Delete the specified resources.')
 
-    parser.add_argument('--dry_run', default=False, action='store_true',
+    parser.add_argument(
+        '--dry_run', default=False, action='store_true',
         help='Show proposed changes (deletes), dont actually perform them.')
 
     parser.add_argument(

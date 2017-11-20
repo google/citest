@@ -90,7 +90,6 @@ class GcpAgent(BaseAgent):
     if not response.get('items'):
       raise ValueError('Unknown API "{0}".'.format(api))
     return response['items'][0]['version']
-    
 
   @classmethod
   def make_service(cls, api=None, version=None,
@@ -138,7 +137,7 @@ class GcpAgent(BaseAgent):
   @classmethod
   def make_agent(cls, api=None, version=None,
                  scopes=None, credentials_path=None,
-                 default_variables=None, logger=None,
+                 default_variables=None,
                  **kwargs):
     """Factory method to create a new agent instance.
 
@@ -265,12 +264,13 @@ class GcpAgent(BaseAgent):
          on the resource type and method.
     """
     return JournalLogger.execute_in_context(
-      'Invoke "{method}" {type}'.format(method=method, type=resource_type),
-      lambda: self.__do_invoke_resource(
-          context, method, resource_type, resource_id=resource_id, **kwargs))
+        'Invoke "{method}" {type}'.format(method=method, type=resource_type),
+        lambda: self.__do_invoke_resource(
+            context, method, resource_type,
+            resource_id=resource_id, **kwargs))
 
   def __do_invoke_resource(self, context, method, resource_type,
-                      resource_id=None, **kwargs):
+                           resource_id=None, **kwargs):
     """Implements invoke_resource()."""
     variables = self.resource_method_to_variables(
         method, resource_type, resource_id=resource_id, **kwargs)
@@ -294,7 +294,7 @@ class GcpAgent(BaseAgent):
     return response
 
   def list_resource(self, context, resource_type, method_variant='list',
-                    item_list_transform=None, **kwargs):   
+                    item_list_transform=None, **kwargs):
     """List the contents of the specified resource.
 
     Args:
@@ -315,7 +315,7 @@ class GcpAgent(BaseAgent):
             item_list_transform=item_list_transform, **kwargs))
 
   def __do_list_resource(self, context, resource_type, method_variant='list',
-                    item_list_transform=None, **kwargs):
+                         item_list_transform=None, **kwargs):
     """Helper function implementing list_resource()."""
     resource_obj = self.resource_type_to_resource_obj(resource_type)
     method_container = resource_obj()
@@ -331,7 +331,7 @@ class GcpAgent(BaseAgent):
                    extra={'citest_journal':{'nojournal':True}})
       JournalLogger.journal_or_log(
           'Listing {0}{1}'.format(more, resource_type),
-          _logger=self.logger,_context='request')
+          _logger=self.logger, _context='request')
       response = request.execute()
       JournalLogger.journal_or_log(
           json.JSONEncoder(
@@ -362,6 +362,15 @@ class GcpAgent(BaseAgent):
     return all_objects
 
   def resource_type_to_discovery_info(self, resource_type):
+    """Find the discovery document section for a resource type.
+
+    Args:
+      resource_type: [string]  A particular resource type anme defined
+          in this agent's discovery document. This could be a subtype
+          if the name is in a '<parent>.<sub>' form of arbitrary depth.
+    Returns:
+       The 'resources' section for the specified resource_type.
+    """
     parts = resource_type.split('.')
     node = self.discovery_document
     found = [self.__api_name]
@@ -380,6 +389,12 @@ class GcpAgent(BaseAgent):
     return node
 
   def resource_type_to_resource_obj(self, resource_type):
+    """Get the API on this instance to operate on the given resource_type.
+
+    Args:
+      resource_type: [string] The resource type we are looking for as defined
+          in the discovery document. This can be a nested type.
+    """
     parts = resource_type.split('.')
     name = parts.pop(0)
     resource_obj = vars(self.__service).get(name, None)
