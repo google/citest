@@ -15,6 +15,12 @@
 """Various journal iterators to facilitate navigating through journal JSON."""
 
 import json
+import os
+
+try:
+  from StringIO import StringIO
+except ImportError:
+  from io import StringIO
 
 from .record_stream import RecordInputStream
 
@@ -22,15 +28,30 @@ from .record_stream import RecordInputStream
 class JournalNavigator(object):
   """Iterates over journal JSON."""
 
-  def __init__(self):
-    """Constructor"""
-    self.__input_stream = None
-    self.__decoder = json.JSONDecoder()
+  @property
+  def journal_id(self):
+    """Returns identifier specifying original location of content."""
+    raise NotImplementedError('{0}.journal_id not implemented'.format(
+        self.__class__.__name__))
 
-  def __iter__(self):
-    """Iterate over the contents of the journal."""
-    self.__check_open()
-    return self
+  @property
+  def journal_name(self):
+    """Provides the name of the journal, typically the file basename."""
+    raise NotImplementedError('{0}.journal_name not implemented'.format(
+        self.__class__.__name__))
+
+  def next(self):
+    """Return the next item in the journal.
+
+    Raises:
+      StopIteration when there are no more elements.
+    """
+    raise NotImplementedError('{0}.next() not implemented'.format(
+        self.__class__.__name__))
+
+
+class StreamJournalNavigator(JournalNavigator):
+  """Iterates over journal JSON from a stream."""
 
   def __next__(self):
     return self.next()
@@ -41,15 +62,50 @@ class JournalNavigator(object):
     Args:
       path: [string] The path to load the journal from.
     """
-    if self.__input_stream != None:
+    if self.__input_stream is not None:
       raise ValueError('Navigator is already open.')
     self.__input_stream = RecordInputStream(open(path, 'rb'))
 
-  def close(self):
-    """Close the journal."""
-    self.__check_open()
-    self.__input_stream.close()
-    self.__input_stream = None
+  @staticmethod
+  def new_from_path(path):
+    """Create a new navigator using the contents of a file.
+
+    Args:
+      path: [string] Path to journal file.
+    """
+    with open(path, 'rb') as stream:
+      return StreamJournalNavigator.new_from_bytes(path, stream.read())
+
+  @staticmethod
+  def new_from_bytes(journal_id, contents):
+    """Create a new navigator using the given record-encoded journal.
+
+    Args:
+      journal_id: [string] Identifies the source of the bytes.
+      contents: [string] Raw byte contents of a record-encoded journal file.
+    """
+    return StreamJournalNavigator(
+        journal_id, RecordInputStream(StringIO(contents)))
+
+  @property
+  def journal_id(self):
+    return self.__id
+
+  @property
+  def journal_name(self):
+    basename = os.path.basename(self.__id)
+    if basename.endswith('.journal'):
+      basename = os.path.splitext(basename)[0]
+    return basename
+
+  def __init__(self, journal_id, stream):
+    """Constructor"""
+    self.__id = journal_id
+    self.__input_stream = stream
+    self.__decoder = json.JSONDecoder()
+
+  def __iter__(self):
+    return self
 
   def next(self):
     """Return the next item in the journal.
@@ -57,17 +113,11 @@ class JournalNavigator(object):
     Raises:
       StopIteration when there are no more elements.
     """
-    self.__check_open()
     json_str = next(self.__input_stream)
 
     try:
       return self.__decoder.decode(json_str)
 
     except ValueError:
-      print('Invalid json record:\n{0}'.format(json_str))
+      logging.error('Invalid json record:\n%s', json_str)
       raise
-
-  def __check_open(self):
-    """Verify that the navigator is open (and thus valid to iterate)."""
-    if self.__input_stream is None:
-      raise ValueError('Navigator is not open.')

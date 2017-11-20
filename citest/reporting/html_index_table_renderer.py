@@ -18,7 +18,10 @@ each row is a test and each column is a different occurance of it.
 
 import os
 import sys
-from citest.base import (JournalProcessor, ProcessedEntityManager)
+from citest.base import (
+    JournalProcessor,
+    ProcessedEntityManager,
+    StreamJournalNavigator)
 from .html_document_manager import HtmlDocumentManager
 
 class TestStats(object):
@@ -257,7 +260,8 @@ class HtmlIndexTableRenderer(JournalProcessor):
     # Process all the journals to get the stats that we're going
     # to render into the table cells.
     for journal in sorted(journal_list):
-      summary, stats, details = processor.process(journal)
+      summary, stats, details = processor.process(
+          StreamJournalNavigator.new_from_path(journal))
       journal_to_cell[journal] = summary
       journal_to_stats[journal] = stats
       journal_to_details[journal] = details
@@ -430,21 +434,18 @@ class HtmlIndexTableRenderer(JournalProcessor):
             self.__in_test = None
         return
 
-  def process(self, journal):
+  def process(self, navigator):
     self.__reset_journal_counters()
 
-    super(HtmlIndexTableRenderer, self).process(journal)
+    super(HtmlIndexTableRenderer, self).process(navigator)
 
     if self.__stats.count == 0:
       sys.stderr.write(
           'No tests recorded in {0}. Assuming this is an error.\n'.format(
-              journal))
+              navigator.journal_id))
       self.__stats.error = 1
 
-    journal_basename = os.path.basename(journal)
-    if journal_basename.endswith('.journal'):
-      journal_basename = os.path.splitext(journal_basename)[0]
-    html_path = os.path.splitext(journal)[0] + '.html'
+    html_path = navigator.journal_name + '.html'
     self.__total_stats.aggregate(self.__stats)
 
     _, css = self.__document_manager.determine_attribute_css_kwargs(

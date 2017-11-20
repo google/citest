@@ -15,7 +15,7 @@
 
 """Processes a journal by calling specialized handlers on each entry."""
 
-from .journal_navigator import JournalNavigator
+from .journal_navigator import StreamJournalNavigator
 
 
 class ProcessedEntityManager(object):
@@ -144,23 +144,17 @@ class JournalProcessor(object):
     """Terminate the processor (finished processing)."""
     pass
 
-  def process(self, input_path):
+  def process(self, navigator):
     """Process the contents of the journal indicatd by input_path.
 
     Args:
-      input_path: [string] The path to the journal.
+      navigator: [JournalNavigator] The journal to process.
     """
-    navigator = JournalNavigator()
-    navigator.open(input_path)
-    try:
-      for obj in navigator:
-        entry_type = obj.get('_type')
-        handler = (self.__handler_registry.get(entry_type)
-                   or self.__default_handler)
-        handler(obj)
-
-    finally:
-      navigator.close()
+    for obj in navigator:
+      entry_type = obj.get('_type')
+      handler = (self.__handler_registry.get(entry_type)
+                 or self.__default_handler)
+      handler(obj)
 
   def handle_unknown(self, obj):
     """The default handler for processing entries with unregistered _type.

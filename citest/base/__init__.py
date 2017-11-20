@@ -40,7 +40,8 @@ from .global_journal import (
     unset_global_journal)
 
 from .journal_navigator import (
-    JournalNavigator)
+    JournalNavigator,
+    StreamJournalNavigator)
 
 from .journal_processor import (
     JournalProcessor,

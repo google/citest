@@ -129,7 +129,7 @@ class HtmlIndexRenderer(JournalProcessor):
     """Returns list of column names for the summary table."""
     return ['P', 'F', 'Test Module', 'Time']
 
-  def process(self, journal):
+  def process(self, navigator):
     """Overrides JournalProcessor.process() for an individual journal.
 
     When we process a journal, we're going to reduce it down to a summary
@@ -137,22 +137,18 @@ class HtmlIndexRenderer(JournalProcessor):
     We're also going to accumulate overall statistics for the index summary.
 
     Args:
-      journal: [string] The path to the journal file to process.
+      navigator: [JournalNavigator] The the journal we're going to process.
     """
     self.__reset_journal_counters()
-    super(HtmlIndexRenderer, self).process(journal)
+    super(HtmlIndexRenderer, self).process(navigator)
 
     if self.__passed_count == 0 and self.__failed_count == 0:
       sys.stderr.write(
           'No tests recorded in {0}. Assuming this is an error.\n'.format(
-              journal))
+              navigator.journal_id))
       self.__failed_count = 1
 
-    journal_basename = os.path.basename(journal)
-    if journal_basename.endswith('.journal'):
-      journal_basename = os.path.splitext(journal_basename)[0]
-    html_path = os.path.splitext(journal)[0] + '.html'
-
+    html_path = navigator.journal_name + '.html'
     self.__total_passed += self.__passed_count
     self.__total_failed += self.__failed_count
 

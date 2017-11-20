@@ -33,6 +33,7 @@ import os
 import resource
 import sys
 
+from citest.base import StreamJournalNavigator
 from citest.reporting.html_renderer import HtmlRenderer
 from citest.reporting.html_document_manager import HtmlDocumentManager
 from citest.reporting.html_index_renderer import HtmlIndexRenderer
@@ -54,7 +55,7 @@ def journal_to_html(input_path, prune=False):
       title='Report for {0}'.format(os.path.basename(input_path)))
 
   processor = HtmlRenderer(document_manager, prune=prune)
-  processor.process(input_path)
+  processor.process(StreamJournalNavigator.new_from_path(input_path))
   processor.terminate()
   document_manager.wrap_tag(document_manager.new_tag('table'))
   document_manager.build_to_path(output_path)
@@ -106,7 +107,7 @@ def build_index(journal_list, output_dir):
 
   processor = HtmlIndexRenderer(document_manager)
   for journal in journal_list:
-    processor.process(journal)
+    processor.process(StreamJournalNavigator.new_from_path(journal))
   processor.terminate()
 
   tr_tag = document_manager.make_tag_container(

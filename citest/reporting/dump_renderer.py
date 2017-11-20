@@ -216,7 +216,7 @@ def main(argv):
   options = parser.parse_args(argv[1:])
   for path in options.journals:
     processor = DumpRenderer(vars(options))
-    processor.process(path)
+    processor.process(JournalStreamNavigator.new_from_path(path))
     processor.terminate()
 
 
