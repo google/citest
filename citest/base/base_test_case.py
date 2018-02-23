@@ -84,6 +84,9 @@ class BaseTestCase(unittest.TestCase):
     self.__method_name = methodName
     self.__method = getattr(self, self.__method_name)
 
+    # The journal reporting relation for the test execution.
+    self.__final_outcome_relation = None
+
     self.__in_step = None
     setattr(self, self.__method_name, self.__wrap_method)
     super(BaseTestCase, self).__init__(methodName)
@@ -123,15 +126,52 @@ class BaseTestCase(unittest.TestCase):
       return
     JournalLogger.end_context(relation=relation)
 
-  def __call__(self, result=None):
+  def __trap_skip(self, delegate, test, reason):
+    self.__final_outcome_relation = 'VALID'
+    return delegate(test, reason)
+
+  def __trap_success(self, delegate, test):
+    self.__final_outcome_relation = 'VALID'
+    return delegate(test)
+
+  def __trap_failure(self, delegate, test, err):
+    self.__final_outcome_relation = 'INVALID'
+    return delegate(test, err)
+
+  def __trap_error(self, delegate, test, err):
+    self.__final_outcome_relation = 'ERROR'
+    error_details = '%s: %s' % (err[0], err[1])
+    JournalLogger.journal_or_log_detail(
+        'Raised Exception', error_details,
+        levelno=logging.ERROR, format='pre', _logger=self.logger)
+    return delegate(test, err)
+
+  def __call__(self, *args, **kwargs):
     """Wraps the base class fixture heuristics that run an individual test."""
+    # It appears this is not standard.
+    # The default test passes args[0]
+    # but py.test passes kwargs 'result'
+    if args:
+      result = args[0]
+    else:
+      result = kwargs.get('result')
+
     if result is None:
       result = self.defaultTestResult()
 
-    num_failures = len(result.failures)
-    num_errors = len(result.errors)
+    do_skip = result.addSkip
+    do_success = result.addSuccess
+    do_error = result.addError
+    do_failure = result.addFailure
+    result.addSkip = lambda test, why: self.__trap_skip(do_skip, test, why)
+    result.addSuccess = lambda test: self.__trap_success(do_success, test)
+    result.addError = lambda test, err: self.__trap_error(do_error, test, err)
+    result.addFailure = (
+        lambda test, err: self.__trap_failure(do_failure, test, err))
+
     method_name = self.__method_name
     self.__in_step = _TestProcessingStep.SETUP
+
     try:
       doc = {'_doc': self.__method.__doc__} if self.__method.__doc__ else {}
       JournalLogger.begin_context('Test "{0}"'.format(method_name),
@@ -139,25 +179,10 @@ class BaseTestCase(unittest.TestCase):
       self.__begin_step_context()
       super(BaseTestCase, self).__call__(result)
     finally:
-      test_relation = None
-      error_details = None
-      if len(result.errors) > num_errors:
-        test_relation = 'ERROR'
-        error_details = result.errors[num_errors]
-      elif len(result.failures) > num_failures:
-        test_relation = 'INVALID'
-      else:
-        test_relation = 'VALID'
-
-      if error_details is not None:
-        JournalLogger.journal_or_log_detail(
-            'Raised Exception', error_details[1],
-            levelno=logging.ERROR, format='pre', _logger=self.logger)
-
-      self.__end_step_context(relation=test_relation)
+      self.__end_step_context(relation=self.__final_outcome_relation)
       self.__in_step = None
 
-      JournalLogger.end_context(relation=test_relation)
+      JournalLogger.end_context(relation=self.__final_outcome_relation)
 
   def log_start_test(self, name=''):
     """Mark the beginning of a test in the log."""
