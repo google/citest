@@ -34,7 +34,7 @@ class DefaultHttpHeadersScrubber(object):
 
   def __call__(self, headers):
     # Headers are case-insensitive
-    for key,value in headers.items():
+    for key, value in headers.items():
       if key.lower() == 'authorization':
         # Leave format type if any, then redact remainder.
         headers[key] = value[:value.find(' ') + 1] + self.REDACTED

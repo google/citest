@@ -61,6 +61,11 @@ from .http_observer import (
     HttpObservationFailureVerifier,
     )
 
+from .http_predicate import (
+    HttpResponsePredicate,
+    HttpResponsePredicateResult
+    )
+
 from .http_scrubber import (
     DefaultHttpHeadersScrubber,
     HttpScrubber)
@@ -75,4 +80,3 @@ from .nop_operation import NoOpOperation
 from .agent_test_case import (
     AgentTestCase,
     AgentTestScenario)
-

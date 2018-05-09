@@ -16,7 +16,6 @@
 """Provides base support for BaseAgents based on HTTP interactions."""
 
 import base64
-import collections
 import httplib
 import json
 import traceback
@@ -29,23 +28,43 @@ from .http_scrubber import HttpScrubber
 from . import base_agent
 
 
-class HttpResponseType(
-    collections.namedtuple('HttpResponseType',
-                           ['http_code', 'output', 'exception']),
-    JsonSnapshotableEntity):
-  """Holds the results from an HTTP message.
+class HttpResponseType(JsonSnapshotableEntity):
+  """Holds the results from an HTTP message."""
 
-  Attributes:
-    http_code: The HTTP response code (or None if exception attempting to send).
-    output: The HTTP response.
-    exception: The exception if http_code is None
-  """
+  @property
+  def http_code(self):
+    """The HTTP response code or None if exception while attempting to send."""
+    return self.__http_code
+
+  @property
+  def output(self):
+    """The HTTP response body."""
+    return self.__output
+
+  @property
+  def exception(self):
+    """The exception if http_code is None."""
+    return self.__exception
+
+  @property
+  def headers(self):
+    """Response headers"""
+    return self.__headers
 
   @property
   def error_message(self):
     """A string denoting the error this response represents, if any."""
     return (None if self.ok()
             else self.exception if self.exception else self.output)
+
+  def __init__(self, http_code=None, output=None, exception=None, headers=None):
+    if (http_code is None) == (exception is None):
+      raise ValueError('http_code and exception should be disjoint.')
+
+    self.__http_code = http_code
+    self.__output = output
+    self.__exception = exception
+    self.__headers = headers or {}
 
   def __str__(self):
     return 'http_code={0} output={1!r} exception={2!r}'.format(
@@ -70,12 +89,16 @@ class HttpResponseType(
     """
     builder = snapshot.edge_builder
     edge = builder.make(entity, 'HTTP Code', self.http_code)
+    if self.headers:
+      edge = builder.make_data(entity, 'Response Headers', self.headers)
+
     if not self.ok():
       edge.add_metadata('relation', 'ERROR')
     if self.exception:
       edge = builder.make_error(entity, 'Response Error', self.exception)
       if format:
         edge.add_metadata('format', format)
+
     if self.output or not self.exception:
       # If no output on success, explicitly show that.
       edge = builder.make_output(entity, 'Response Output', self.output)
@@ -355,10 +378,12 @@ class HttpAgent(base_agent.BaseAgent):
     code = None
     output = None
     exception = None
+    headers = None
     try:
       response = urllib2.urlopen(req)
       code = response.getcode()
       output = response.read()
+      headers = response.info().headers
 
       scrubbed_output = self.__http_scrubber.scrub_response(output)
       JournalLogger.journal_or_log_detail(
@@ -382,7 +407,8 @@ class HttpAgent(base_agent.BaseAgent):
               ex=ex, stack=traceback.format_exc()),
           _logger=self.logger)
       exception = ex
-    return HttpResponseType(code, output, exception)
+    return HttpResponseType(http_code=code, output=output,
+                            exception=exception, headers=headers)
 
   def patch(self, path, data, content_type='application/json'):
     """Perform an HTTP PATCH."""

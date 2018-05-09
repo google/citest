@@ -223,4 +223,3 @@ class HttpObservationFailureVerifier(jc.ObservationFailureVerifier):
     if self.__error_regex:
       return 'Observed expected error matching {0}'.format(self.__error_regex)
     return error
-
