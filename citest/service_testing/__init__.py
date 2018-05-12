@@ -55,7 +55,9 @@ from .http_agent import (
     SynchronousHttpOperationStatus)
 
 from .http_observer import (
+    HttpAgentError,
     HttpObjectObserver,
+    HttpResponseObserver,
     HttpContractBuilder,
     HttpContractClauseBuilder,
     HttpObservationFailureVerifier,
@@ -63,7 +65,8 @@ from .http_observer import (
 
 from .http_predicate import (
     HttpResponsePredicate,
-    HttpResponsePredicateResult
+    HttpResponsePredicateResult,
+    HttpAgentErrorPredicate,
     )
 
 from .http_scrubber import (

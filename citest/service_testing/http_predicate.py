@@ -18,8 +18,8 @@
 import re
 import citest.json_predicate as jp
 
+from . import HttpAgentError
 from . import HttpResponseType
-
 
 class HttpResponsePredicateResult(jp.PredicateResult):
   """Result from an HttpResponsePredicate."""
@@ -125,3 +125,32 @@ class HttpResponsePredicate(jp.ValuePredicate):
     if self.__content_regex is not None:
       parts.append('contains={0}'.format(self.__content_regex))
     return ', '.join(parts)
+
+
+class HttpAgentErrorPredicate(jp.ValuePredicate):
+  @property
+  def pred(self):
+    return self.__pred
+
+  def __init__(self, pred=pred, **kwargs):
+    self.__pred = pred
+    super(HttpAgentErrorPredicate, self).__init__(**kwargs)
+
+  def __eq__(self, pred):
+    return (self.__class__ == pred.__class__
+            and self.__pred == pred.pred)
+
+  def __str__(self):
+    return 'HttpAgentErrorPredicate pred={%s}' % self.__pred
+
+  def __call__(self, context, value):
+    if not isinstance(value, HttpAgentError):
+      return jp.PredicateResult(
+          valid=False,
+          comment='{0} != HttpAgentError'.format(value.__class__.__name__))
+    return self.__pred(context, value.http_result)
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotableEntity interface."""
+    if self.__pred:
+      snapshot.edge_builder.make_control(entity, 'Response Predicate', self.__pred)

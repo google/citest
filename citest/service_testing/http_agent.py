@@ -18,6 +18,7 @@
 import base64
 import httplib
 import json
+import re
 import traceback
 import urllib2
 
@@ -118,6 +119,15 @@ class HttpResponseType(JsonSnapshotableEntity):
         raise ValueError('Unexpected HTTP response {code}:\n{body}'.format(
             code=self.http_code, body=self.output))
 
+  def get_header(self, key, default=None):
+    """Find header with the given key, if present."""
+    regex = re.compile(r'(?i)%s: (.*)\r?\n?' % key)
+    for header in self.__headers:
+      match = regex.match(header)
+      if match:
+        return match.group(1).strip()
+    return default
+       
 
 class HttpOperationStatus(base_agent.AgentOperationStatus):
   """Specialization of AgentOperationStatus for HttpAgent operations.

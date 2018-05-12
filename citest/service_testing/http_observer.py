@@ -47,9 +47,11 @@ class HttpAgentError(AgentError):
     self.__http_result = http_result
 
 
+class HttpBaseObserver(jc.ObjectObserver):
+  """Base class to observe an HTTP server using direct HTTP invocations.
 
-class HttpObjectObserver(jc.ObjectObserver):
-  """Observe objects within an HTTP server using direct HTTP invocations."""
+  Requires specialization to interpret the results.
+  """
   @property
   def agent(self):
     """The HttpAgent used to make observations is bound in the constructor."""
@@ -63,18 +65,18 @@ class HttpObjectObserver(jc.ObjectObserver):
       path: [string] Path to GET from server that agent is bound to.
     """
     # pylint: disable=redefined-builtin
-    super(HttpObjectObserver, self).__init__(filter)
+    super(HttpBaseObserver, self).__init__(filter)
     self.__agent = agent
     self.__path = path
 
   def __str__(self):
-    return 'HttpObjectObserver({0})'.format(self.__agent)
+    return '{0}({1})'.format(self.__class__.__name__, self.__agent)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Agent', self.__agent)
     snapshot.edge_builder.make_control(entity, 'Path', self.__path)
-    super(HttpObjectObserver, self).export_to_json_snapshot(snapshot, entity)
+    super(HttpBaseObserver, self).export_to_json_snapshot(snapshot, entity)
 
   def collect_observation(self, context, observation):
     # This is where we'd use an HttpAgent to get a URL then
@@ -86,18 +88,43 @@ class HttpObjectObserver(jc.ObjectObserver):
       observation.add_error(http_agent_error)
       return []
 
-    return self._do_decode_objects(result.output, observation)
+    return self._do_decode_result(result, observation)
 
-  def _do_decode_objects(self, content, observation):
+  def _do_decode_result(self, result, observation):
+    raise NotImplementedError()
+
+
+class HttpResponseObserver(HttpBaseObserver):
+  """Observe objects within an HTTP server using direct HTTP invocations."""
+
+  def _do_decode_result(self, result, observation):
     """Implements helper method to extract observed objects.
 
     Args:
-      content [string]: A JSON encoded string containing the observation.
+      result: [HttpResponseType]: The HTTP Response
       observation [Observation]: The observation we are building.
 
     Returns:
       The current list of objects we've observed so far.
     """
+    observation.add_object(result)
+    return observation.objects
+
+
+class HttpObjectObserver(HttpBaseObserver):
+  """Observe objects within an HTTP server using direct HTTP invocations."""
+
+  def _do_decode_result(self, result, observation):
+    """Implements helper method to extract observed objects.
+
+    Args:
+      result: [HttpResponseType]: The HTTP Response
+      observation [Observation]: The observation we are building.
+
+    Returns:
+      The current list of objects we've observed so far.
+    """
+    content = result.output
     decoder = json.JSONDecoder()
     try:
       doc = decoder.decode(content)
@@ -133,7 +160,8 @@ class HttpContractBuilder(jc.ContractBuilder):
 class HttpContractClauseBuilder(jc.ContractClauseBuilder):
   """Build clauses based on HTTP endpoint queries."""
 
-  def __init__(self, title, agent, retryable_for_secs=0, strict=False):
+  def __init__(self, title, agent, retryable_for_secs=0, strict=False,
+               observer_factory=HttpObjectObserver):
     """Construct builder.
 
     Args:
@@ -146,8 +174,10 @@ class HttpContractClauseBuilder(jc.ContractClauseBuilder):
         title=title, retryable_for_secs=retryable_for_secs)
     self.__agent = agent
     self.__strict = strict
+    self.__observer_factory = observer_factory
 
-  def get_url_path(self, path, allow_http_error_status=None):
+  def get_url_path(self, path, allow_http_error_status=None,
+                   observer_factory=None):
     """Perform the observation using HTTP GET on a path.
 
     Args:
@@ -157,8 +187,12 @@ class HttpContractClauseBuilder(jc.ContractClauseBuilder):
          404 would mean that we permit a 404 error, otherwise we may expect
          other constraints on the observed path as a normal clause would
          specify.
+      observer_factory: [callable] ObjectObserver class to use if overriding
+         This is so you can use HttpResponseObserver instead of
+         HttpObjectObserver to use at HttpResponse metadata rather than payload.
     """
-    self.observer = HttpObjectObserver(self.__agent, path)
+    observer_factory = observer_factory or self.__observer_factory
+    self.observer = observer_factory(self.__agent, path)
     if allow_http_error_status:
       error_verifier = HttpObservationFailureVerifier(
           'Got HTTP {0} Error'.format(allow_http_error_status),

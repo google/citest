@@ -26,10 +26,20 @@ import urllib2
 
 import unittest
 
+from citest.base import ExecutionContext
+from citest.json_contract import (
+    ObservationPredicateFactory,
+    ObservationValuePredicate)
 from citest.service_testing import (
     HttpAgent,
+    HttpContractBuilder,
     HttpOperationStatus,
+    HttpResponseObserver,
+    HttpResponsePredicate,
+    HttpAgentErrorPredicate,
     HttpResponseType)
+
+ov_factory = ObservationPredicateFactory()
 
 
 class TestAsyncStatus(HttpOperationStatus):
@@ -178,7 +188,8 @@ class HttpAgentTest(unittest.TestCase):
 
   def setUp(self):
     self.agent = HttpAgent('http://localhost:%d' % HttpAgentTest.PORT)
-
+    self.context = ExecutionContext()
+    
   def test_http_get(self):
     response = self.agent.get('test')
     self.assertEquals(200, response.http_code)
@@ -266,6 +277,7 @@ class HttpAgentTest(unittest.TestCase):
 
     raw_response = status.raw_http_response
     self.assertEquals(403, raw_response.http_code)
+    
 
   def test_post_operation_timeout(self):
     # A response code of HTTP 408 indicates a timeout
@@ -309,6 +321,46 @@ class HttpAgentTest(unittest.TestCase):
     self.assertTrue(status.timed_out)
     self.assertEquals(408, status.raw_http_response.http_code)
 
+  def test_contract_ok(self):
+    builder = HttpContractBuilder(self.agent)
+
+    # Here we're setting the observer_factory to make an HttpResponseObserver
+    # so that the observation objects are the HttpResponseType instance rather
+    # than the normal HttpObjectObserver where the objects are the payload data.
+    (builder.new_clause_builder('Expect OK')
+     .get_url_path('testpath?code=202', observer_factory=HttpResponseObserver)
+     .EXPECT(ov_factory.value_list_contains(HttpResponsePredicate(http_code=202))))
+    contract = builder.build()
+    results = contract.verify(self.context)
+    self.assertTrue(results)
+    
+  def test_contract_failure_ok(self):
+    builder = HttpContractBuilder(self.agent)
+
+    # Here we're setting the observer_factory to make an HttpResponseObserver
+    # so that the observation objects are the HttpResponseType instance rather
+    # than the normal HttpObjectObserver where the objects are the payload data.
+    #
+    # When we encounter the HTTP error, the HttpResponseType is wrapped in an
+    # HttpAgentError object and put into the observation error list.
+    # So we need to dig it back out of there.
+    # In addition, we're using error_list_matches rather than error_list_contains
+    # so we can strict=True to show exactly the one error. "matches" takes a list
+    # of predicates, so we wrap the error check into a list.
+    (builder.new_clause_builder('Expect NotFound')
+     .get_url_path('testpath?code=404', observer_factory=HttpResponseObserver)
+     .EXPECT(ov_factory.error_list_matches(
+          [HttpAgentErrorPredicate(HttpResponsePredicate(http_code=404))],
+          strict=True)))  # Only the one error in the list
+    contract = builder.build()
+    results = contract.verify(self.context)
+    self.assertTrue(results)
+    
 
 if __name__ == '__main__':
+  logging.basicConfig(
+      format='%(levelname).1s %(asctime)s.%(msecs)03d %(message)s',
+      datefmt='%H:%M:%S',
+      level=logging.DEBUG)
+
   unittest.main()

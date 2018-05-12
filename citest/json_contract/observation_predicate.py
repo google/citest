@@ -185,6 +185,7 @@ class ObservationValuePredicate(ObservationPredicate):
   def __call__(self, context, value):
     """Implements ValuePredicate interface."""
     observation = value
+
     if observation.errors:
       logging.getLogger(__name__).debug(
           'Failing because of observation errors %s', observation.errors)

@@ -41,9 +41,11 @@ from unittest import expectedFailure
 import citest.base
 from citest.service_testing import http_agent
 import citest.json_predicate as jp
+import citest.json_contract as jc
 import citest.service_testing as st
 
 from keystore_test_scenario import KeystoreTestScenario
+ov_factory = jc.ObservationPredicateFactory()
 
 
 class SynchronousKeystoreTest(st.AgentTestCase):
@@ -225,13 +227,13 @@ class SynchronousKeystoreTest(st.AgentTestCase):
 
     builder = st.HttpContractBuilder(self.scenario.agent)
     (builder.new_clause_builder('Check Key Value using contains_path_eq')
-     .get_url_path('/lookup/' + key)
+    .get_url_path('/lookup/' + key)
      .contains_path_eq('a', 'A'))
 
     # The above is syntactic sugar for this
     (builder.new_clause_builder('Check Key Value using EXPECT')
      .get_url_path('/lookup/' + key)
-     .EXPECT(jp.PathPredicate('a', jp.STR_EQ('A'))))
+     .EXPECT(ov_factory.value_list_contains(jp.PathPredicate('a', jp.STR_EQ('A')))))
 
     # Multiple clauses are implicitly anded together.
     (builder.new_clause_builder('Check Multiple Key Values using contains_path_eq')
@@ -242,8 +244,8 @@ class SynchronousKeystoreTest(st.AgentTestCase):
     # This is a more explicit way to say the above.
     (builder.new_clause_builder('Check Multiple Key Values using AND')
      .get_url_path('/lookup/' + key)
-     .EXPECT(jp.PathPredicate('a', jp.STR_EQ('A')))
-     .AND(jp.PathPredicate('b', jp.STR_EQ('B'))))
+     .EXPECT(ov_factory.value_list_contains(jp.PathPredicate('a', jp.STR_EQ('A'))))
+     .AND(ov_factory.value_list_contains(jp.PathPredicate('b', jp.STR_EQ('B')))))
 
     contract = builder.build()
     results = contract.verify(context)
@@ -257,7 +259,8 @@ class SynchronousKeystoreTest(st.AgentTestCase):
     builder = st.HttpContractBuilder(self.scenario.agent)
     (builder.new_clause_builder('Expect Not Found Error')
      .get_url_path('/lookup/' + key)
-     .EXPECT(st.HttpObservationFailureVerifier('Expect 404', 404)))
+     .EXPECT(ov_factory.error_list_contains(
+         st.HttpAgentErrorPredicate(st.HttpResponsePredicate(http_code=404)))))
     contract = builder.build()
     results = contract.verify(context)
     self.assertTrue(results)

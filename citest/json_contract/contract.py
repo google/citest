@@ -433,13 +433,15 @@ class ContractBuilder(object):
          because in the future the strict flag will be on individual
          constraints added to the clause.
     """
-    self.__clause_factory = (
-        clause_factory
-        or (lambda title, retryable_for_secs=0, strict=False:
-            ContractClauseBuilder(title, retryable_for_secs, strict=strict)))
+    def default_clause_builder(
+        title, retryable_for_secs=0, strict=False, **kwargs):
+      return ContractClauseBuilder(title, retryable_for_secs, strict=strict,
+                                   **kwargs)
+    self.__clause_factory = clause_factory or default_clause_builder
     self.__builders = []
 
-  def new_clause_builder(self, title, retryable_for_secs=0, strict=False):
+  def new_clause_builder(self, title, retryable_for_secs=0, strict=False,
+                         **kwargs):
     """Add new clause to contract from which specific constraints can be added.
 
     Args:
@@ -454,7 +456,8 @@ class ContractBuilder(object):
       A new ClauseBuilder created with the factory bound in the constructor.
     """
     builder = self.__clause_factory(
-        title, retryable_for_secs=retryable_for_secs, strict=strict)
+        title, retryable_for_secs=retryable_for_secs, strict=strict,
+        **kwargs)
     self.__builders.append(builder)
     return builder
 
