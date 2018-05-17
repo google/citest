@@ -20,6 +20,7 @@ import subprocess
 from citest.base import JournalLogger
 from citest.base import JsonSnapshotableEntity
 import citest.json_contract as jc
+import citest.json_predicate as jp
 from . import base_agent
 
 
@@ -261,3 +262,33 @@ class CliAgentObservationFailureVerifier(jc.ObservationFailureVerifier):
     if (isinstance(error, CliAgentRunError)
         and error.match_regex(self.__error_regex)):
       return 'Error matches {0}'.format(self.__error_regex)
+
+
+class CliAgentRunErrorPredicate(jp.ValuePredicate):
+  """An Predicate expects specify CliAgentRunError."""
+
+  def __init__(self, title, error_regex):
+    """Constructs the clause with the acceptable error regex.
+
+    Args:
+      title: Verifier name for reporting purposes only.
+      error_regex: Regex pattern for errors we're looking for.
+    """
+    super(CliAgentRunErrorPredicate, self).__init__()
+    self.__title = title
+    self.__error_regex = error_regex
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotableEntity interface."""
+    entity.add_metadata('_title', self.__title)
+    snapshot.edge_builder.make(entity, 'Title', self.__title)
+    snapshot.edge_builder.make_control(entity, 'Regex', self.__error_regex)
+
+  def __call__(self, context, value):
+    """Implements ValuePredicate interface."""
+    if not isinstance(value, CliAgentRunError):
+      return jp.JsonError('Expected program to fail, but it did not')
+
+    ok = value.match_regex(self.__error_regex)
+    return jp.PredicateResult(ok is not None)
+

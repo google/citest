@@ -40,6 +40,7 @@ from .cli_agent import (
     CliAgent,
     CliAgentObservationFailureVerifier,
     CliAgentRunError,
+    CliAgentRunErrorPredicate,
     CliResponseType,
     CliRunOperation,
     CliRunStatus)
