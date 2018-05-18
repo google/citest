@@ -37,6 +37,7 @@ Additionally, each entry is timestamped.
 # Standard python modules.
 import inspect
 import logging
+import traceback
 import unittest
 
 from .journal_logger import JournalLogger
@@ -141,9 +142,13 @@ class BaseTestCase(unittest.TestCase):
   def __trap_error(self, delegate, test, err):
     self.__final_outcome_relation = 'ERROR'
     error_details = '%s: %s' % (err[0], err[1])
+    trace = traceback.format_exc()
     JournalLogger.journal_or_log_detail(
         'Raised Exception', error_details,
         levelno=logging.ERROR, format='pre', _logger=self.logger)
+    JournalLogger.journal_or_log_detail(
+        'Exception Trace', trace,
+        levelno=logging.DEBUG, format='pre', _logger=self.logger)
     return delegate(test, err)
 
   def __call__(self, *args, **kwargs):
