@@ -71,25 +71,39 @@ class HttpResponseType(JsonSnapshotableEntity):
     return 'http_code={0} output={1!r} exception={2!r}'.format(
         self.http_code, self.output, self.exception)
 
-  def export_to_json_snapshot(self, snapshot, entity):
+  def export_to_json_snapshot(self, snapshot, entity, **kwargs):
     """Implements JsonSnapshotableEntity interface.
 
-    The payload will be emitted as a string. Consider calling
-    export_to_json_snapshot_with_format instead to specify the payload format.
+    Args:
+      kwargs [kwargs]: The following are handled:
+          format: If present, use this as the payload format.
+                  If not present, the payload will be rendered as a string.
     """
-    self.export_to_json_snapshot_with_format(snapshot, entity, format=None)
+    format = kwargs.pop('format', None)
+    self.__export_to_json_snapshot_helper(
+        snapshot, entity, as_summary=False, format=format)
 
-  def export_to_json_snapshot_with_format(self, snapshot, entity, format):
-    """Helper function for JsonSnapshotableEntity, allowing a format tag.
+  def export_summary_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotableEntity interface."""
+    self.__export_to_json_snapshot_helper(snapshot, entity, as_summary=True)
+
+  def __export_to_json_snapshot_helper(
+        self, snapshot, entity, as_summary=False, format=None):
+    """Helper function for export_*_to_json_snapshot
 
     Args:
       snapshot: [JsonSnapshot] The snapshot owning the entity.
       entity: [SnapshotEnityt] The snapshot entity to export into.
+      as_summary: [bool] Is this a summary or full
       format: [string] If specified, add this value as a "format" metadata tag
           for the payload value.
     """
     builder = snapshot.edge_builder
-    edge = builder.make(entity, 'HTTP Code', self.http_code)
+    code_relation = { 2: 'VALID', 4: 'INVALID', 5: 'ERROR' }.get(
+        self.http_code / 100, None)
+
+    edge = builder.make(entity, 'HTTP Code', self.http_code,
+                        relation=code_relation)
     if self.headers:
       edge = builder.make_data(entity, 'Response Headers', self.headers)
 
@@ -99,6 +113,8 @@ class HttpResponseType(JsonSnapshotableEntity):
       edge = builder.make_error(entity, 'Response Error', self.exception)
       if format:
         edge.add_metadata('format', format)
+    if as_summary:
+      return
 
     if self.output or not self.exception:
       # If no output on success, explicitly show that.
@@ -194,8 +210,13 @@ class HttpOperationStatus(base_agent.AgentOperationStatus):
 
   def export_to_json_snapshot(self, snapshot, entity):
     super(HttpOperationStatus, self).export_to_json_snapshot(snapshot, entity)
-    self.__http_response.export_to_json_snapshot_with_format(
+    self.__http_response.export_to_json_snapshot(
         snapshot, entity, format=self.__snapshot_format)
+
+  def export_summary_to_json_snapshot(self, snapshot, entity):
+    super(HttpOperationStatus, self).export_summary_to_json_snapshot(
+        snapshot, entity)
+    self.__http_response.export_summary_to_json_snapshot(snapshot, entity)
 
 
 class SynchronousHttpOperationStatus(HttpOperationStatus):

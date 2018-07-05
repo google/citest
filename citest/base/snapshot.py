@@ -130,6 +130,19 @@ class JsonSnapshotableEntity(JsonSnapshotable):
     """
     return snapshot.make_entity_for_object(self)
 
+  def export_summary_to_json_snapshot(self, snapshot, entity):
+    """Store summary of this object state into the snapshot.
+
+    The stored state can reference other objects already in the snapshot,
+    or add multiple objects, and reference (or not) among them.
+
+    Args:
+      snapshot: [JsonSnapshot] The snapshot owning the entity is used to
+          relate to other entities.
+      entity: [SnapshotEntity] The snapshot entity to export into.
+    """
+    export_to_json_snapshot(snapshot, entity)
+
   def export_to_json_snapshot(self, snapshot, entity):
     """Store this object state into the snapshot.
 
@@ -690,6 +703,14 @@ class JsonSnapshot(object):
     """
     self.make_entity_for_object(snapshotable_entity)
 
+  def add_object_summary(self, snapshotable_entity):
+    """Adds snapshotable data summary into the snapshot.
+
+    Args:
+      snapshotable_entity: [JsonSnapshotableEntity] Entity to add to snapshot.
+    """
+    self.make_entity_for_object_summary(snapshotable_entity)
+
   def make_entity_for_object(self, snapshotable):
     """Returns a possibly shared node for |snapshotable|.
 
@@ -708,6 +729,26 @@ class JsonSnapshot(object):
       entity.add_metadata('class', snapshotable.__class__)
       self.__snapshotable_entities[id(snapshotable)] = entity
       snapshotable.export_to_json_snapshot(self, entity)
+    return entity
+
+  def make_entity_for_object_summary(self, snapshotable):
+    """Returns a possibly shared node for summary of |snapshotable|.
+
+    Args:
+      snapshotable: [JsonSnapshotable] Data for a unique entity. The
+        entity's summary may already exist with |snapshotable|
+        (as opposed to an existing node for different snapshotable).
+    """
+    if not isinstance(snapshotable, JsonSnapshotable):
+      raise TypeError(
+          '{0} is not JsonSnapshotable'.format(snapshotable.__class__))
+
+    entity = self.find_entity_for_object_summary(snapshotable)
+    if entity is None:
+      entity = self.new_entity()
+      entity.add_metadata('class', snapshotable.__class__)
+      self.__snapshotable_entities['s_{0}'.format(id(snapshotable))] = entity
+      snapshotable.export_summary_to_json_snapshot(self, entity)
     return entity
 
   def new_entity(self, **metadata):
@@ -733,6 +774,17 @@ class JsonSnapshot(object):
       None if no entity contains |snapshotable|.
     """
     return self.__snapshotable_entities.get(id(snapshotable))
+
+  def find_entity_for_object_summary(self, snapshotable):
+    """Find a summary for entity containing data, if any.
+
+    Args:
+      snapshotable: [JsonSnapshotable] The data bound to the entity.
+
+    Returns:
+      None if no entity contains |snapshotable|.
+    """
+    return self.__snapshotable_entities.get('s_{0}'.format(id(snapshotable)))
 
   def get_entity(self, entity_id):
     """Looks up the entity with the given entity_id.

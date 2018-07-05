@@ -214,6 +214,30 @@ class AgentOperationStatus(JsonSnapshotableEntity):
     builder.make_mechanism(
         entity, 'Agent Class', self.agent.__class__.__name__)
 
+  def export_summary_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotableEntity interface."""
+    builder = snapshot.edge_builder
+    entity.add_metadata('StatusId', self.id)
+
+    if self.finished_ok:
+      final_relation = 'VALID'
+      final_status = 'OK'
+    elif self.finished:
+      final_relation = 'INVALID'
+      final_status = 'Not OK'
+    else:
+      final_relation = None
+      final_status = 'Not Finished'
+    if self.error:
+      final_relation = 'ERROR'
+
+    builder.make(entity, 'Status State', final_status, relation=final_relation)
+    if self.error:
+      builder.make_error(entity, 'Error', self.error, format='json')
+    if self.exception_details:
+      builder.make_error(entity, 'Exception Details', self.exception_details,
+                         format='json')
+
   def __init__(self, operation):
     """Constructs status instance.
 

@@ -85,6 +85,11 @@ class OperationContractExecutionAttempt(JsonSnapshotableEntity):
     else:
       return None
 
+  @property
+  def status(self):
+    """The AgentOperationStatus from this attempt."""
+    return self.__status
+
   def __init__(self, name):
     """Constructor.
 
@@ -157,6 +162,11 @@ class OperationContractExecutionAttempt(JsonSnapshotableEntity):
 class OperationContractExecutionTrace(JsonSnapshotableEntity):
   """Represents the execution and evaluation of an OperationContract test case.
   """
+
+  @property
+  def test_case(self):
+    """Returns bound OperationContract test case this trace is for."""
+    return self.__test_case
 
   # pylint: disable=too-many-instance-attributes
   def __init__(self, test_case):
@@ -560,44 +570,21 @@ class AgentTestCase(BaseTestCase):
           "store", test_case.operation,
           _title='Operation "{0}" Specification'.format(
               test_case.operation.title))
-      max_tries = 1 + max_retries
 
       # We attempt the operation on the agent multiple times until the agent
       # thinks that it succeeded. But we will only verify once the agent thinks
       # it succeeded. We do not give multiple chances to satisfy the
       # verification.
-      for i in range(max_tries):
-        context.clear_key('OperationStatus')
-        context.clear_key('AttemptInfo')
-        attempt_info = execution_trace.new_attempt()
-        status = None
-        status = test_case.operation.execute(agent=self.testing_agent)
-        status.wait(poll_every_secs=poll_every_secs, max_secs=max_wait_secs)
-
-        summary = status.error or ('Operation status OK' if status.finished_ok
-                                   else 'Operation status Unknown')
-        # Write the status (and attempt_info) into the execution_context
-        # to make it available to contract verifiers. For example, to
-        # make specific details in the status (e.g. new resource names)
-        # available to downstream validators for their consideration.
-        context.set_internal('AttemptInfo', attempt_info)
-        context.set_internal('OperationStatus', status)
-
-        attempt_info.set_status(status, summary)
-        if test_case.status_extractor:
-          test_case.status_extractor(status, context)
-
-        if not status.exception_details:
-          execution_trace.set_operation_summary('Completed test.')
-          break
-        if max_tries - i > 1:
-          self.logger.warning(
-              'Got an exception: %s.\nTrying again in %r secs...',
-              status.exception_details, retry_interval_secs)
-          time.sleep(retry_interval_secs)
-        elif max_tries > 1:
-          execution_trace.set_operation_summary('Gave up retrying operation.')
-          self.logger.error('Giving up retrying test.')
+      attempt_info = self.__do_operation(
+          context, execution_trace, 1 + max_retries,
+          poll_every_secs=poll_every_secs, max_wait_secs=max_wait_secs)
+      status = attempt_info.status
+      title = '%s summary' % status.__class__.__name__
+      JournalLogger.delegate("store_summary", status, _title=title,
+                             relation=('VALID' if status.finished_ok
+                                       else 'ERROR' if status.error
+                                       else 'INVALID' if status.finished
+                                       else None))
 
       # We're always going to verify the contract, even if the request itself
       # failed. We set the verification on the attempt here, but do not assert
@@ -652,3 +639,53 @@ class AgentTestCase(BaseTestCase):
 
     if verify_results is not None:
       self.assertVerifyResults(verify_results)
+
+  def __do_operation(self, context, execution_trace, max_tries,
+                     poll_every_secs=1, max_wait_secs=None):
+    """Perform operation until status completes.
+
+    Args:
+      context [ExecutionContext]:
+      execution_trace [OperationContractExecutionTrace]:
+      max_tries [int]: Number of times to attempt operation before giving up
+      poll_every_secs [int]: for OperationStatus.wait
+      max_wait_secs [int]: for OperationStatus.wait
+
+    Return:
+      OperationContractExecutionAttempt of last attempt made
+    """
+    attempt_info = None
+    test_case = execution_trace.test_case
+    for i in range(max_tries):
+      context.clear_key('OperationStatus')
+      context.clear_key('AttemptInfo')
+      attempt_info = execution_trace.new_attempt()
+      status = test_case.operation.execute(agent=self.testing_agent)
+      status.wait(poll_every_secs=poll_every_secs, max_secs=max_wait_secs)
+
+      summary = status.error or ('Operation status OK' if status.finished_ok
+                                 else 'Operation status Unknown')
+      # Write the status (and attempt_info) into the execution_context
+      # to make it available to contract verifiers. For example, to
+      # make specific details in the status (e.g. new resource names)
+      # available to downstream validators for their consideration.
+      context.set_internal('AttemptInfo', attempt_info)
+      context.set_internal('OperationStatus', status)
+
+      attempt_info.set_status(status, summary)
+      if test_case.status_extractor:
+        test_case.status_extractor(status, context)
+
+      if not status.exception_details:
+        execution_trace.set_operation_summary('Completed test.')
+        break
+      if max_tries - i > 1:
+        self.logger.warning(
+            'Got an exception: %s.\nTrying again in %r secs...',
+            status.exception_details, retry_interval_secs)
+        time.sleep(retry_interval_secs)
+      elif max_tries > 1:
+        execution_trace.set_operation_summary('Gave up retrying operation.')
+        self.logger.error('Giving up retrying test.')
+
+    return attempt_info

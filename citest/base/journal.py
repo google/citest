@@ -154,6 +154,17 @@ class Journal(object):
     snapshot.add_object(obj)
     self.__write_json_object(snapshot.to_json_object())
 
+  def store_summary(self, obj, **metadata):
+    """Stores an object summary as a graph within the journal.
+
+    Args:
+      obj: [JsonSnapshotable] The object to store into the journal.
+      metadata: [kwargs] Additional metadata for the entry.
+    """
+    snapshot = JsonSnapshot(**metadata)
+    snapshot.add_object_summary(obj)
+    self.__write_json_object(snapshot.to_json_object())
+
   def _do_close(self):
     """Actually closes the journal output file.
 
