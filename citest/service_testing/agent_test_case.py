@@ -524,7 +524,9 @@ class AgentTestCase(BaseTestCase):
           individual operations if the operation status fails. A value of 0
           indicates that a test should only be given a single attempt.
       retry_interval_secs: [int] The number of seconds to wait between retries.
-      poll_every_secs: [int] Number of seconds between wait polls. Default=1.
+      max_wait_secs: [int] How long to wait for status completion.
+          Default=Determined by operation in the test case.
+      poll_every_secs: [float] Number of seconds between wait polls. Default=1.
     """
     if context is None:
       context = ExecutionContext()
@@ -532,7 +534,8 @@ class AgentTestCase(BaseTestCase):
     max_retries = kwargs.pop('max_retries', 0)
     retry_interval_secs = kwargs.pop('retry_interval_secs', 5)
     poll_every_secs = kwargs.pop('poll_every_secs', 1)
-    full_trace = kwargs.pop('full_trace', False)  # Deprecated
+    max_wait_secs = kwargs.pop('max_wait_secs', None)
+
     if kwargs:
       raise TypeError('Unrecognized arguments {0}'.format(kwargs.keys()))
 
@@ -569,7 +572,7 @@ class AgentTestCase(BaseTestCase):
         attempt_info = execution_trace.new_attempt()
         status = None
         status = test_case.operation.execute(agent=self.testing_agent)
-        status.wait(poll_every_secs=poll_every_secs)
+        status.wait(poll_every_secs=poll_every_secs, max_secs=max_wait_secs)
 
         summary = status.error or ('Operation status OK' if status.finished_ok
                                    else 'Operation status Unknown')
