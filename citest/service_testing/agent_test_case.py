@@ -80,10 +80,9 @@ class OperationContractExecutionAttempt(JsonSnapshotableEntity):
     """
     if self.__exception is not None:
       return 'ERROR'
-    elif self.__verification is not None:
+    if self.__verification is not None:
       return 'VALID' if self.__verification else 'INVALID'
-    else:
-      return None
+    return None
 
   @property
   def status(self):
@@ -367,6 +366,7 @@ class AgentTestScenario(object):
         '--test_id', default=defaults.get('TEST_ID', _DEFAULT_TEST_ID),
         help='A short, [reasonably] unique identifier for this test')
 
+  @classmethod
   def new_agent(cls, bindings):
     """Factory method to create the agent is called on demand."""
     raise NotImplementedError(
@@ -489,28 +489,29 @@ class AgentTestCase(BaseTestCase):
         status.exception_details, str(status)))
 
   def run_test_case_list(
-      self, context, test_case_list, max_concurrent, timeout_ok=False,
-      max_retries=0, retry_interval_secs=5):
+      self, context, test_case_list, max_concurrent, **list_kwargs):
     """Run a list of test cases.
 
     Args:
       test_case_list: [list of OperationContract] Specifies the tests to run.
       context: [ExecutionContext] The citest execution context to run in.
       max_concurrent: [int] The number of cases that can be run concurrently.
-      timeout_ok: [bool] If True then individual tests can timeout and still
-         be considered having a successful AgentOperationStatus.
-      max_retries: [int] Number of independent retries permitted on
-         individual operations if the operation status fails. A value of 0
-         indicates that a test should only be given a single attempt.
-      retry_interval_secs: [int] Time between retries of individual operations.
+      list_kwargs: [kwargs] Additional keyword args include:
+         timeout_ok: [bool] If True then individual tests can timeout and still
+            be considered having a successful AgentOperationStatus.
+         max_retries: [int] Number of independent retries permitted on
+            individual operations if the operation status fails. A value of 0
+            indicates that a test should only be given a single attempt.
+         retry_interval_secs: [int] Time between retries of individual ops.
     """
     num_threads = min(max_concurrent, len(test_case_list))
     pool = ThreadPool(processes=num_threads)
-    def run_one(test_case, **kwargs):
+    def run_one(test_case, **call_kwargs):
       """Helper function to run individual tests."""
-      kwargs_copy = dict(kwargs)
+      kwargs = dict(list_kwargs)
+      kwargs.update(call_args)
       self.run_test_case(
-          test_case=test_case, context=context, **kwargs_copy)
+          test_case=test_case, context=context, **kwargs)
 
     self.logger.info(
         'Running %d tests across %d threads.',
@@ -577,6 +578,7 @@ class AgentTestCase(BaseTestCase):
       # verification.
       attempt_info = self.__do_operation(
           context, execution_trace, 1 + max_retries,
+          retry_interval_secs=retry_interval_secs,
           poll_every_secs=poll_every_secs, max_wait_secs=max_wait_secs)
       status = attempt_info.status
       title = '%s summary' % status.__class__.__name__
@@ -641,6 +643,7 @@ class AgentTestCase(BaseTestCase):
       self.assertVerifyResults(verify_results)
 
   def __do_operation(self, context, execution_trace, max_tries,
+                     retry_interval_secs=5,
                      poll_every_secs=1, max_wait_secs=None):
     """Perform operation until status completes.
 
@@ -648,6 +651,7 @@ class AgentTestCase(BaseTestCase):
       context [ExecutionContext]:
       execution_trace [OperationContractExecutionTrace]:
       max_tries [int]: Number of times to attempt operation before giving up
+      retry_interval_secs: [int] The number of seconds to wait between retries.
       poll_every_secs [int]: for OperationStatus.wait
       max_wait_secs [int]: for OperationStatus.wait
 
