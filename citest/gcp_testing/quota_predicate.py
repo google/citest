@@ -115,7 +115,9 @@ class QuotaPredicate(ValuePredicate):
           https://cloud.google.com/compute/docs/reference/latest/projects#resource
     """
     builder = KeyedPredicateResultBuilder(self)
-    dictified = {elem['metric']: elem for elem in value}
+    # NOTE(20180710):
+    # b/111302333: get() because 'metric' is not always provided.
+    dictified = {elem.get('metric'): elem for elem in value}
 
     bad_metrics = []
     for metric, expect in self.__minimum_quota.items():
