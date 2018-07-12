@@ -64,6 +64,8 @@ class BaseAgentTest(unittest.TestCase):
     self.assertEqual(1, status.got_refresh_count)
     self.assertTrue(status.finished)
     self.assertEqual(0, status.got_sleep_count)
+    self.assertTrue(status.finished)
+    self.assertTrue(status.finished_ok)
 
   def test_no_wait_with_max_secs_override(self):
     agent = FakeAgent()
@@ -75,6 +77,8 @@ class BaseAgentTest(unittest.TestCase):
     status.wait(max_secs=10)
     self.assertEqual(1, status.got_refresh_count)
     self.assertEqual(0, status.got_sleep_count)
+    self.assertTrue(status.finished)
+    self.assertTrue(status.finished_ok)
 
   def test_one_wait_cycle(self):
     agent = FakeAgent()
@@ -83,8 +87,11 @@ class BaseAgentTest(unittest.TestCase):
 
     # Operation can finish after one wait.
     status.set_expected_iterations(1)
+    self.assertFalse(status.finished)
+    self.assertFalse(status.finished_ok)
     status.wait()
     self.assertTrue(status.finished)
+    self.assertTrue(status.finished_ok)
     self.assertEqual(2, status.got_refresh_count)
     self.assertEqual(1, status.got_sleep_count)
     self.assertEqual(1, status.got_sleep_secs)
@@ -113,6 +120,8 @@ class BaseAgentTest(unittest.TestCase):
 
     status.set_expected_iterations(20)
     status.wait()
+    self.assertFalse(status.finished)
+    self.assertFalse(status.finished_ok)
     self.assertEquals(1 + 5, status.got_refresh_count)
     self.assertEqual(15 - 1, status.calls_remaining)
     self.assertEqual(5, status.got_sleep_count)
@@ -128,6 +137,7 @@ class BaseAgentTest(unittest.TestCase):
     self.assertEqual(10 - 1, status.calls_remaining)
     self.assertEqual(5, status.got_sleep_count)
     self.assertEqual(1, status.got_sleep_secs)
+
 
   def test_wait_timeout_with_override(self):
     time_series = [100] + [i + 100 for i in range(10)]
