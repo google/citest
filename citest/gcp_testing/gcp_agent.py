@@ -277,7 +277,7 @@ class GcpAgent(BaseAgent):
     variables = context.eval(variables)
 
     resource_obj = self.resource_type_to_resource_obj(resource_type)
-    logging.info('Calling %s.%s', resource_type, method)
+    logging.debug('Calling %s.%s', resource_type, method)
     JournalLogger.journal_or_log(
         'Requesting {type} {method} {vars}'.format(
             type=resource_type, method=method, vars=variables),
@@ -327,8 +327,8 @@ class GcpAgent(BaseAgent):
     all_objects = []
     more = ''
     while request:
-      logging.info('Calling %s.%s', resource_type, method_variant,
-                   extra={'citest_journal':{'nojournal':True}})
+      logging.debug('Calling %s.%s', resource_type, method_variant,
+                    extra={'citest_journal':{'nojournal':True}})
       JournalLogger.journal_or_log(
           'Listing {0}{1}'.format(more, resource_type),
           _logger=self.logger, _context='request')
@@ -358,7 +358,7 @@ class GcpAgent(BaseAgent):
         request = None
       more = ' more '
 
-    self.logger.info('Found total=%d %s', len(all_objects), resource_type)
+    self.logger.debug('Found total=%d %s', len(all_objects), resource_type)
     return all_objects
 
   def resource_type_to_discovery_info(self, resource_type):

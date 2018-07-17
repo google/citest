@@ -152,16 +152,15 @@ class JournalLogger(logging.Logger):
     Returns:
       The result of _callable
     """
-    ok = False
     JournalLogger.begin_context(_title, **kwargs)
     try:
       result = _callable()
-      ok = True
+    except:
+      ex_type, ex_value, ex_stack = sys.exc_info()
+      logging.getLogger(__name__).error(
+          'Throwing "%s" out of context=%s: %s\n%s', ex_type, _title, ex_value, ex_stack)
+      raise
     finally:
-      if not ok:
-        ex_type, ex_value, ex_stack = sys.exc_info()
-        logging.getLogger(__name__).error(
-          'Throwing "%s" out of context=%s: %s', ex_type, _title, ex_value)
       JournalLogger.end_context()
     return result
 
