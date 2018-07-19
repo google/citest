@@ -93,8 +93,8 @@ class BinaryPredicate(ValuePredicate):
     if self.__operand_type is not None and not callable(self.__operand):
       if not isinstance(self.__operand, self.__operand_type):
         raise TypeError(
-            '{0} is not {1}: {2!r}',
-            operand.__class__, self.__operand_type, operand)
+            '{0} "{1}" is not {2}: {3!r}'.format(
+                operand.__class__, name, self.__operand_type, operand))
     super(BinaryPredicate, self).__init__(**kwargs)
 
   def __eq__(self, pred):
