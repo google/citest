@@ -63,7 +63,7 @@ class Journal(object):
       _path: [string] Path to file to write into.
       metadata: [kwargs] Metadata for initial entry.
     """
-    self.open_with_file(open(_path, 'w'), **metadata)
+    self.open_with_file(open(_path, 'wb'), **metadata)
 
   def open_with_file(self, _output, **metadata):
     """

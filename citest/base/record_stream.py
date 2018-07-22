@@ -47,7 +47,7 @@ class RecordOutputStream(object):
       raise TypeError('{0} is not a string'.format(type(data)))
     count = len(data)
     self.__stream.write(struct.pack('!I', count))
-    self.__stream.write(data)
+    self.__stream.write(str.encode(data))
 
 
 class RecordInputStream(object):
@@ -96,4 +96,4 @@ class RecordInputStream(object):
     if len(value) != count:
       raise ValueError(
           'Frame is corrupted -- missing {0}'.format(count - len(value)))
-    return value
+    return bytes.decode(value)

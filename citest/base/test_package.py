@@ -42,6 +42,8 @@ def collect_suites_in_dir(dirname):
 
   if dirname.startswith('./'):
     dirname = dirname[2:]
+  elif dirname.startswith('/'):
+    dirname = dirname[1:]
   prefix = dirname.replace('/', '.') + '.'
 
   return [unittest.defaultTestLoader.loadTestsFromName(prefix + test_file)

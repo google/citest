@@ -45,8 +45,8 @@ class JsonScrubber(object):
     match = self.__key_re.search(value)
     if not match:
       return value
-    else:
-      return self.REDACTED
+
+    return self.REDACTED
 
   def process_list(self, l):
     """Scrub elements of a list.

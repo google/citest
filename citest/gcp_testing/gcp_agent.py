@@ -287,8 +287,7 @@ class GcpAgent(BaseAgent):
     request = getattr(resource_obj(), method)(**variables)
     response = request.execute()
     JournalLogger.journal_or_log(
-        json.JSONEncoder(
-            encoding='utf-8', separators=(',', ': ')).encode(response),
+        json.JSONEncoder(separators=(',', ': ')).encode(response),
         _logger=self.logger, _context='response', format='json')
 
     return response
@@ -334,8 +333,7 @@ class GcpAgent(BaseAgent):
           _logger=self.logger, _context='request')
       response = request.execute()
       JournalLogger.journal_or_log(
-          json.JSONEncoder(
-              encoding='utf-8', separators=(',', ': ')).encode(response),
+          json.JSONEncoder(separators=(',', ': ')).encode(response),
           _logger=self.logger, _context='response', format='json')
 
       response_items = response.get('items', None)

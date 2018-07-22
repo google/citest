@@ -141,7 +141,7 @@ class JsonSnapshotableEntity(JsonSnapshotable):
           relate to other entities.
       entity: [SnapshotEntity] The snapshot entity to export into.
     """
-    export_to_json_snapshot(snapshot, entity)
+    self.export_to_json_snapshot(snapshot, entity)
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Store this object state into the snapshot.

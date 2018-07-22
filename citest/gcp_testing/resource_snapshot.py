@@ -91,7 +91,7 @@ AttemptedResourceDeletes = collections.namedtuple(
 
 def to_json_string(obj):
   """Convert object as a JSON string."""
-  return json.JSONEncoder(indent=2, encoding='utf-8').encode(obj)
+  return json.JSONEncoder(indent=2).encode(obj)
 
 
 def binding_string_to_dict(raw_value):
@@ -138,8 +138,8 @@ class Actuator(object):
     """
     if resource in before:
       if before[resource].params != after[resource].params:
-        print ('WARNING: ignoring "{0}" because parameters do not match.'
-               .format(resource))
+        print('WARNING: ignoring "{0}" because parameters do not match.'
+              .format(resource))
         return []
 
       before_values = set(before[resource].response)
@@ -394,8 +394,8 @@ class Actuator(object):
           print '  - "{type}" "{name}" was already deleted'.format(
               type=resource_type, name=name)
         else:
-          print ('  Ignoring error deleting "{type}" "{name}": {msg}'
-                 .format(type=resource_type, name=name, msg=http_error))
+          print('  Ignoring error deleting "{type}" "{name}": {msg}'
+                .format(type=resource_type, name=name, msg=http_error))
       except ValueError as value_error:
         # NOTE(ewiseblatt): 20170928
         # This is a quick fix because instanceGroupManagers.aggregatedList

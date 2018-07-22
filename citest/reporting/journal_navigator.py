@@ -55,7 +55,7 @@ class JournalNavigator(object):
       StopIteration when there are no more elements.
     """
     self.__check_open()
-    json_str = self.__input_stream.next()
+    json_str = next(self.__input_stream)
 
     try:
       return self.__decoder.decode(json_str)

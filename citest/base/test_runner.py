@@ -320,7 +320,7 @@ class TestRunner(object):
     try:
       result = self.__delegate.run(obj_or_suite)
     finally:
-      if sys.exc_info()[0] != None:
+      if sys.exc_info()[0] is not None:
         sys.stderr.write('Terminated early due to an exception\n')
       self._cleanup()
 
@@ -360,9 +360,9 @@ class TestRunner(object):
     Args:
       parser: argparse.ArgumentParser instance to add to.
     """
-    print ('{} called DEPRECATED initArgumentParser\n'
-           'Use init_bindings_builder instead.'
-           .format(self.__class__.__name__))
+    print('{} called DEPRECATED initArgumentParser\n'
+          'Use init_bindings_builder instead.'
+          .format(self.__class__.__name__))
 
     # Normally we want the log file name to reflect the name of the program
     # we are running, but we might not be running one (e.g. in interpreter).

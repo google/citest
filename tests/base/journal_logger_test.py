@@ -17,10 +17,10 @@
 
 import json as json_module
 import logging
-import thread
 import unittest
+from threading import current_thread
+from io import BytesIO
 
-from StringIO import StringIO
 from citest.base import (
     JournalLogger,
     JournalLogHandler,
@@ -31,7 +31,7 @@ from citest.base import set_global_journal
 from test_clock import TestClock
 
 _journal_clock = TestClock()
-_journal_file = StringIO()
+_journal_file = BytesIO()
 _journal = Journal(now_function=_journal_clock)
 _journal.open_with_file(_journal_file)
 set_global_journal(_journal)
@@ -59,14 +59,14 @@ class JournalLoggerTest(unittest.TestCase):
           '_type': 'JournalMessage',
           '_level': logging.INFO,
           '_timestamp': _journal_clock.last_time,
-          '_thread': thread.get_ident(),
+          '_thread': current_thread().ident,
           'foo': 'bar',
           'format': 'FMT',
       }
 
       entry_str = _journal_file.getvalue()[offset:]
-      json_str = RecordInputStream(StringIO(entry_str)).next()
-      json_dict = json_module.JSONDecoder(encoding='utf-8').decode(json_str)
+      json_str = next(RecordInputStream(BytesIO(entry_str)))
+      json_dict = json_module.JSONDecoder().decode(json_str)
       self.assertEqual(expect, json_dict)
 
   def test_journal_logger_with_custom_message(self):
@@ -81,14 +81,14 @@ class JournalLoggerTest(unittest.TestCase):
           '_type': 'JournalMessage',
           '_level': logging.DEBUG,
           '_timestamp': _journal_clock.last_time,
-          '_thread': thread.get_ident(),
+          '_thread': current_thread().ident,
           'foo': 'bar',
           'format': 'pre'
       }
 
       entry_str = _journal_file.getvalue()[offset:]
-      json_str = RecordInputStream(StringIO(entry_str)).next()
-      json_dict = json_module.JSONDecoder(encoding='utf-8').decode(json_str)
+      json_str = next(RecordInputStream(BytesIO(entry_str)))
+      json_dict = json_module.JSONDecoder().decode(json_str)
       self.assertEqual(expect, json_dict)
 
   def test_nojournal_from_generic_logger(self):
@@ -113,14 +113,14 @@ class JournalLoggerTest(unittest.TestCase):
           '_type': 'JournalMessage',
           '_level': logging.ERROR,
           '_timestamp': _journal_clock.last_time,
-          '_thread': thread.get_ident(),
+          '_thread': current_thread().ident,
           'foo': 'bar',
           'format': 'pre',
       }
 
       entry_str = _journal_file.getvalue()[offset:]
-      json_str = RecordInputStream(StringIO(entry_str)).next()
-      json_dict = json_module.JSONDecoder(encoding='utf-8').decode(json_str)
+      json_str = next(RecordInputStream(BytesIO(entry_str)))
+      json_dict = json_module.JSONDecoder().decode(json_str)
       self.assertEqual(expect, json_dict)
 
   def test_context_logging(self):
@@ -140,7 +140,7 @@ class JournalLoggerTest(unittest.TestCase):
           '_title': 'The Test Context',
           '_type': 'JournalContextControl',
           '_timestamp': start_time + 1,
-          '_thread': thread.get_ident(),
+          '_thread': current_thread().ident,
           'control': 'BEGIN',
           'foo': 'bar',
         },
@@ -149,22 +149,22 @@ class JournalLoggerTest(unittest.TestCase):
           '_type': 'JournalMessage',
           '_level': logging.DEBUG,
           '_timestamp': start_time + 2,
-          '_thread': thread.get_ident(),
+          '_thread': current_thread().ident,
           'format': 'pre'
         },
         {
           '_type': 'JournalContextControl',
           '_timestamp': start_time + 3,
-          '_thread': thread.get_ident(),
+          '_thread': current_thread().ident,
           'control': 'END'
         }
       ]
 
       entry_str = _journal_file.getvalue()[offset:]
-      input_stream = RecordInputStream(StringIO(entry_str))
+      input_stream = RecordInputStream(BytesIO(entry_str))
       for expect in expect_sequence:
-        json_str = input_stream.next()
-        json_dict = json_module.JSONDecoder(encoding='utf-8').decode(json_str)
+        json_str = next(input_stream)
+        json_dict = json_module.JSONDecoder().decode(json_str)
         self.assertEqual(expect, json_dict)
 
 

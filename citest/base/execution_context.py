@@ -138,13 +138,15 @@ class ExecutionContext(JsonSnapshotable):
     """
     if isinstance(value, list):
       return [self.eval(elem) for elem in value]
-    elif isinstance(value, dict):
+
+    if isinstance(value, dict):
       return {key: self.eval(data) for key, data in value.items()}
-    elif callable(value):
+
+    if callable(value):
       try:
         return value(self)
       except TypeError as terr:
-        logging.getLogger(__name__).error('Error evaluating {0}'.format(value))
+        logging.getLogger(__name__).error('Error evaluating %s', value)
         raise
-    else:
-      return value
+
+    return value

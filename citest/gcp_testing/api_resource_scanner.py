@@ -205,9 +205,9 @@ class ApiResourceScanner(object):
       try:
         agent = self.make_agent(api, scope)
       except HttpError as err:
-        print ('E Could not create agent'
-               'for "{0}" with scope={1}: {2}'
-               .format(api, scope, err.message))
+        print('E Could not create agent'
+              'for "{0}" with scope={1}: {2}'
+              .format(api, scope, err.message))
         continue
 
       for resource in scope_resource_names:

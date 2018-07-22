@@ -178,12 +178,10 @@ class ProcessToRenderInfo(object):
     document_manager = self.__document_manager
     try:
       if isinstance(value, basestring):
-        tmp = json.JSONDecoder(encoding='utf-8').decode(value)
-        text = json.JSONEncoder(encoding='utf-8', indent=2,
-                                separators=(',', ': ')).encode(tmp)
+        tmp = json.JSONDecoder().decode(value)
+        text = json.JSONEncoder(indent=2, separators=(',', ': ')).encode(tmp)
       elif isinstance(value, (list, dict)):
-        text = json.JSONEncoder(encoding='utf-8', indent=2,
-                                separators=(',', ': ')).encode(value)
+        text = json.JSONEncoder(indent=2, separators=(',', ': ')).encode(value)
       else:
         raise ValueError('Invalid value={0!r}'.format(value))
 

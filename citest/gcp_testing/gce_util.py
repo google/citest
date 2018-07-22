@@ -287,8 +287,8 @@ def establish_network_connectivity(gcloud, instance, target_port):
     pass
 
   if running:
-    print ('*** opened tunnel port {port} with pid={pid}.'
-           ' This should close at exit.'.format(port=local_port, pid=pid))
+    print('*** opened tunnel port {port} with pid={pid}.'
+          ' This should close at exit.'.format(port=local_port, pid=pid))
     atexit.register(_ProcessKiller(pid).safe_kill)
 
   logger.info('Confirming tunnel is working')

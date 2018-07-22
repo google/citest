@@ -58,7 +58,7 @@ def new_global_journal_with_path(path, **metadata):
       atexit.register(_atexit_handler)
       _added_atexit = True
 
-    journal_file = open(path, 'w')
+    journal_file = open(path, 'wb')
     os.fchmod(journal_file.fileno(), 0600)  # Protect sensitive data.
     journal = Journal()
     journal.open_with_file(journal_file, **metadata)

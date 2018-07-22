@@ -45,8 +45,7 @@ class PythonAgent(BaseAgent):
   def _log_call_method_response(self, method, response):
     # pylint: disable=unused-argument
     JournalLogger.journal_or_log(
-        json.JSONEncoder(
-            encoding='utf-8', separators=(',', ': ')).encode(response),
+        json.JSONEncoder(separators=(',', ': ')).encode(response),
         _logger=self.logger, _context='response', format='json')
 
   def call_method(self, method, context, *pos_args, **kwargs):
@@ -143,8 +142,7 @@ class AwsPythonAgent(PythonAgent):
 
   def _log_call_method_response(self, method, response):
     JournalLogger.journal_or_log(
-        AwsJsonEncoder(
-            encoding='utf-8', separators=(',', ':')).encode(response),
+        AwsJsonEncoder(separators=(',', ':')).encode(response),
         _logger=self.logger, _context='response', format='json')
 
   def call_method(self, context, _method, *pos_args, **kwargs):

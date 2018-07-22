@@ -35,13 +35,11 @@ def _to_json_if_possible(value):
   """
   try:
     if isinstance(value, basestring):
-      tmp = json_module.JSONDecoder(encoding='utf-8').decode(value)
+      tmp = json_module.JSONDecoder().decode(value)
       return json_module.JSONEncoder(indent=2,
-                                     encoding='utf-8',
                                      separators=(',', ': ')).encode(tmp)
     else:
       return json_module.JSONEncoder(indent=2,
-                                     encoding='utf-8',
                                      separators=(',', ': ')).encode(value)
   except (ValueError, UnicodeEncodeError):
     return str(value)
@@ -158,7 +156,8 @@ class JournalLogger(logging.Logger):
     except:
       ex_type, ex_value, ex_stack = sys.exc_info()
       logging.getLogger(__name__).error(
-          'Throwing "%s" out of context=%s: %s\n%s', ex_type, _title, ex_value, ex_stack)
+          'Throwing "%s" out of context=%s: %s\n%s',
+          ex_type, _title, ex_value, ex_stack)
       raise
     finally:
       JournalLogger.end_context()
