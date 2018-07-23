@@ -32,7 +32,7 @@ import citest.json_contract as jc
 import citest.service_testing as st
 ov_factory = jc.ObservationPredicateFactory()
 
-from test_gcp_agent import (
+from tests.gcp_testing.test_gcp_agent import (
     FakeGcpService,
     TestGcpAgent)
 
@@ -85,7 +85,7 @@ class GcpContractTest(st.AgentTestCase):
     response.status = 404
     response.reason = 'Not Found'
     default_variables = {'project': 'PROJECT'}
-    service = MyFakeGcpService([HttpError(response, 'Not Found')])
+    service = MyFakeGcpService([HttpError(response, b'Not Found')])
     agent = TestGcpAgent.make_test_agent(
         service=service, default_variables=default_variables)
 

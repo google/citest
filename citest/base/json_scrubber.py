@@ -15,8 +15,12 @@
 """Implements a JsonScrubber to remove sensitive data from a JSON document."""
 
 import re
+import sys
 from json import JSONDecoder
 from json import JSONEncoder
+
+if sys.version_info[0] > 2:
+  basestring = str
 
 
 class JsonScrubber(object):

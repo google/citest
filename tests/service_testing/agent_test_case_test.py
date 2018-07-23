@@ -23,7 +23,7 @@ import citest.service_testing as st
 import citest.json_contract as jc
 
 from citest.base import (ExecutionContext, ConfigurationBindingsBuilder)
-from fake_agent import (
+from tests.service_testing.fake_agent import (
     FakeAgent,
     FakeOperation,
     FakeStatus)

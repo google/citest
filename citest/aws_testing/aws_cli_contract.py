@@ -52,7 +52,7 @@ class AwsObjectObserver(jc.ObjectObserver):
       doc = decoder.decode(aws_response.output)
     except (ValueError, UnicodeError) as e:
       error = 'Invalid JSON in response: %s' % str(aws_response)
-      print 'ERROR:' + error
+      print('ERROR:' + error)
       observation.add_error(JsonError(error, e))
       return []
 

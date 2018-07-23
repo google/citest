@@ -21,10 +21,15 @@ of snapshots and, in future, other events.
 
 import json
 import threading
+import sys
 import time
 
 from .record_stream import RecordOutputStream
 from .snapshot import JsonSnapshot
+
+if sys.version_info[0] > 2:
+  basestring = str
+
 
 class Journal(object):
   """Stores object snapshots into an output file.

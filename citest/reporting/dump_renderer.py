@@ -18,6 +18,7 @@ This is particular to the JSON emitted by the Journal.
 """
 
 import argparse
+import functools
 import math
 import sys
 
@@ -90,8 +91,8 @@ class DumpRenderer(JournalProcessor):
     text = entry.format(**kwargs)
     if not literal:
       text = text.replace('\n', '\n%s' % self.continuation_prefix)
-    print '{prefix}{time}{text}'.format(
-        prefix=self.first_line_prefix, time=time_text, text=text)
+    print('{prefix}{time}{text}'.format(
+        prefix=self.first_line_prefix, time=time_text, text=text))
 
   def terminate(self):
     """Implements JournalProcessor interface."""
@@ -113,8 +114,13 @@ class DumpRenderer(JournalProcessor):
       padding = ' ' * int(math.ceil(math.log(len(entities) + 1, 10)))
       level = len(self.__context_stack) + 1
       lines = []
-      for entity_id, entity in sorted(entities.items(),
-                                      lambda a, b: int(a[0]) - int(b[0])):
+      cmp = lambda a, b: int(a[0]) - int(b[0])
+      if sys.version_info[0] > 2:
+        sorted_args={'key': functools.cmp_to_key(cmp)}
+      else:
+        sorted_args={'cmp': cmp}
+
+      for entity_id, entity in sorted(entities.items(), **sorted_args):
         nub = '{padding}{id}: '.format(padding=padding[:-len(entity_id)],
                                        id=entity_id)
         prefix = level_prefix(level, nub=nub)

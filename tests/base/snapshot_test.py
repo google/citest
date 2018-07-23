@@ -59,6 +59,10 @@ class TestSpecializedLinkedList(TestLinkedList):
 
 
 class SnapshotTest(unittest.TestCase):
+  def assertItemsEqual(self, a, b):
+    """See if items are equal independent of sort order."""
+    self.assertEquals(sorted(a), sorted(b))
+
   def test_assert_expected_value_ok(self):
     tests = [
         (False, False),

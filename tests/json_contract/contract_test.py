@@ -264,9 +264,9 @@ class JsonContractTest(unittest.TestCase):
         expect_ok=expect_ok, ok=ok,
         failures=verify_results.enumerated_summary_message)
     if dump:
-      print 'VERIFY_RESULTS: {0}\n'.format(verify_results)
-      print '\nEXPECT: {0}\n'.format(expect_results)
-      print 'OBSERVATION: {0}\n'.format(verify_results.observation)
+      print('VERIFY_RESULTS: {0}\n'.format(verify_results))
+      print('\nEXPECT: {0}\n'.format(expect_results))
+      print('OBSERVATION: {0}\n'.format(verify_results.observation))
 
     self.assertEquals(expect_ok, ok, error_msg)
     if expect_results:

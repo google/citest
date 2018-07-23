@@ -134,8 +134,16 @@ class OperationContractExecutionAttempt(JsonSnapshotableEntity):
       entity.add_metadata('summary', self.__status_summary)
 
     builder.make(entity, 'Name', self.__name)
+
+    if self.__stop:
+      builder.make(entity, 'Status', 'FINISHED')
+      stop = self.__stop
+    else:
+      builder.make(entity, 'Status', 'RUNNING')
+      stop = time.time()
+
     builder.make(entity, 'Duration',
-                 round(self.__stop - self.__start, _DURATION_PRECISION))
+                 round(stop - self.__start, _DURATION_PRECISION))
 
     if self.__status is not None:
       edge = builder.make(entity, 'OperationStatus', self.__status)

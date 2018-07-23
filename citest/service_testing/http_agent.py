@@ -16,11 +16,26 @@
 """Provides base support for BaseAgents based on HTTP interactions."""
 
 import base64
-import httplib
 import json
 import re
+import sys
 import traceback
-import urllib2
+
+try:
+ from urllib2 import urlopen
+ from urllib2 import Request
+ from urllib2 import HTTPError
+ from urllib2 import URLError
+except ImportError:
+ from urllib.request import urlopen
+ from urllib.request import Request
+ from urllib.error import HTTPError
+ from urllib.error import URLError
+
+try:
+  import httplib
+except ImportError:
+  import http.client as httplib
 
 from citest.base import JournalLogger
 from citest.base import JsonSnapshotableEntity
@@ -388,7 +403,8 @@ class HttpAgent(base_agent.BaseAgent):
       path = path[1:]
     url = '{0}/{1}'.format(self.__base_url, path)
 
-    req = urllib2.Request(url=url, data=data, headers=all_headers)
+    encoded_data = str.encode(data) if data is not None else None
+    req = Request(url=url, data=encoded_data, headers=all_headers)
     req.get_method = lambda: http_type
 
     scrubbed_url = self.__http_scrubber.scrub_url(url)
@@ -411,10 +427,13 @@ class HttpAgent(base_agent.BaseAgent):
     exception = None
     headers = None
     try:
-      response = urllib2.urlopen(req)
+      response = urlopen(req)
       code = response.getcode()
-      output = response.read()
-      headers = response.info().headers
+      output = bytes.decode(response.read())
+      if sys.version_info[0] > 2:
+        headers = dict(response.headers.items())
+      else:
+        headers = response.info().headers
 
       scrubbed_output = self.__http_scrubber.scrub_response(output)
       JournalLogger.journal_or_log_detail(
@@ -423,16 +442,16 @@ class HttpAgent(base_agent.BaseAgent):
           _logger=self.logger,
           _context='response')
 
-    except urllib2.HTTPError as ex:
+    except HTTPError as ex:
       code = ex.getcode()
-      output = ex.read()
+      output = bytes.decode(ex.read())
       scrubbed_error = self.__http_scrubber.scrub_response(output)
       JournalLogger.journal_or_log_detail(
           'HTTP {code}'.format(code=code), scrubbed_error,
           _logger=self.logger,
           _context='response')
 
-    except urllib2.URLError as ex:
+    except URLError as ex:
       JournalLogger.journal_or_log(
           'Caught exception: {ex}\n{stack}'.format(
               ex=ex, stack=traceback.format_exc()),

@@ -59,7 +59,7 @@ class MyTag(object):
 
   def __str__(self):
     attributes = [' {key}="{value}"'.format(key=key, value=value)
-                  for key, value in self.__attrs.items()]
+                  for key, value in sorted(self.__attrs.items())]
     return '<{name}{attributes}>{text}{parts}</{name}>'.format(
         name=self.__name,
         attributes=''.join(attributes),

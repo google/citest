@@ -28,7 +28,7 @@ from citest.base import (
 from citest.base import RecordInputStream
 from citest.base import set_global_journal
 
-from test_clock import TestClock
+from tests.base.test_clock import TestClock
 
 _journal_clock = TestClock()
 _journal_file = BytesIO()

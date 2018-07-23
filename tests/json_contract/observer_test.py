@@ -155,8 +155,8 @@ class JsonObserverTest(unittest.TestCase):
         try:
           self.assertEqual(expected, verify_result.__nonzero__())
         except Exception as e:
-          print '*** FAILED case={0}:\n{1}'.format(name, e)
-          print 'GOT {0}'.format(verify_result)
+          print('*** FAILED case={0}:\n{1}'.format(name, e))
+          print('GOT {0}'.format(verify_result))
           raise
 
 

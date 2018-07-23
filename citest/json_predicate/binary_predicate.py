@@ -20,6 +20,7 @@ value would be the value that the base interface is given to apply the
 predicate to.
 """
 
+import sys
 
 from .base_binary_predicate import BinaryPredicate
 from .simple_binary_predicate import (
@@ -39,6 +40,10 @@ from .path_result import (
     MissingPathError,
     PathValueResult,
     TypeMismatchError)
+
+if sys.version_info[0] > 2:
+  basestring = str
+  long = int
 
 
 class DictSubsetPredicate(BinaryPredicate):
@@ -175,6 +180,42 @@ class _BaseListMembershipPredicate(BinaryPredicate):
         return True
 
     return False
+
+
+class ListSimilarPredicate(_BaseListMembershipPredicate):
+  """Implements binary predicate comparison predicate for unordered equivalence."""
+
+  def __init__(self, operand, **kwargs):
+    if not isinstance(operand, list):
+      raise TypeError(
+          '{0} is not a list: {1!r}'.format(operand.__class__, operand))
+    super(ListSimilarPredicate, self).__init__('~=', operand, **kwargs)
+
+  def __call__(self, context, value):
+    """Determine if |operand| is unordered equivalence of |value|."""
+    if not isinstance(value, list):
+      return TypeMismatchError(list, value.__class__, value)
+
+    # Ideally we'd sort both lists then compare corresponding elements.
+    # However dictionary elements cannot be compared to sort.
+    # So we'll look both lists to be subsets of one another since subset
+    # checks are already implemented.
+    for elem in self.eval_context_operand(context):
+      if not self._verify_elem(context, elem, the_list=value):
+        return PathValueResult(pred=self, valid=False,
+                               path_value=PathValue('', value),
+                               source=value, target_path='')
+
+    for elem in value:
+      if not self._verify_elem(context, elem,
+                               the_list=self.eval_context_operand(context)):
+        return PathValueResult(pred=self, valid=False,
+                               path_value=PathValue('', value),
+                               source=value, target_path='')
+
+    return PathValueResult(
+        pred=self, valid=True, path_value=PathValue('', value),
+        source=value, target_path='')
 
 
 class ListSubsetPredicate(_BaseListMembershipPredicate):
@@ -360,25 +401,12 @@ class DifferentPredicate(BinaryPredicate):
 
 
 DICT_SUBSET = DictSubsetPredicate
-
-def lists_equivalent(a, b):
-  """Determine if two lists are equivalent without regard to order."""
-  # pylint: disable=invalid-name
-  if len(a) != len(b):
-    return False
-  sorted_a = sorted(a)
-  sorted_b = sorted(b)
-  for index, value in enumerate(sorted_a):
-    if sorted_b[index] != value:
-      return False
-  return True
-
-LIST_SIMILAR = SimpleBinaryPredicateFactory(
-    '~=', lambda a, b: lists_equivalent(a, b), operand_type=list)
 LIST_MEMBER = (lambda operand, strict=False:
                ListMembershipPredicate(operand, strict=strict))
 LIST_SUBSET = (lambda operand, strict=False:
                ListSubsetPredicate(operand, strict=strict))
+LIST_SIMILAR = (lambda operand, strict=False:
+               ListSimilarPredicate(operand, strict=strict))
 
 CONTAINS = ContainsPredicate
 EQUIVALENT = EquivalentPredicate

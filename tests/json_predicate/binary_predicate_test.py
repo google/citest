@@ -17,6 +17,7 @@
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-public-methods
 
+import sys
 import unittest
 
 from citest.base import (
@@ -24,6 +25,9 @@ from citest.base import (
     JsonSnapshotHelper)
 from citest.json_predicate import PathValue
 import citest.json_predicate as jp
+
+if sys.version_info[0] > 2:
+  long = int
 
 
 def good_result(path_value, pred, source=None, target_path=''):
@@ -45,7 +49,7 @@ class JsonBinaryPredicateTest(unittest.TestCase):
     try:
       JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
     except AssertionError:
-      print '\nEXPECT\n{0!r}\n\nGOT\n{1!r}\n'.format(expect, have)
+      print('\nEXPECT\n{0!r}\n\nGOT\n{1!r}\n'.format(expect, have))
       raise
 
   def assertGoodResult(self, expect_value, pred, got_result,

@@ -61,7 +61,12 @@ the following names and concepts:
 
 import datetime
 import json
+import sys
 import types
+
+if sys.version_info[0] > 2:
+  basestring = str
+  long = int
 
 
 def _normalize_metadata_value(value):
@@ -411,7 +416,10 @@ class JsonSnapshotHelper(object):
       return 'Method "{0}"'.format(value.__name__)
 
     if isinstance(value, types.LambdaType):
-      return 'Lambda "{0}"'.format(value.func_name)
+      if sys.version_info[0] > 2:
+        return 'Lambda "{0}"'.format(value.__name__)
+      else:
+        return 'Lambda "{0}"'.format(value.func_name)
 
     if isinstance(value, datetime.datetime):
       return value.isoformat()

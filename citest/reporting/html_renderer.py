@@ -20,11 +20,16 @@ This is particular to the JSON emitted by the Journal.
 import collections
 import datetime
 import json
+import sys
 
 from .journal_processor import (JournalProcessor, ProcessedEntityManager)
 from .simplify_entity_transforms import (
     get_edge_label_value_transformer,
     prune_entity)
+
+if sys.version_info[0] > 2:
+  basestring = str
+
 
 class ContainerRelationContext(
     collections.namedtuple(

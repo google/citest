@@ -18,13 +18,19 @@
 """Test HttpAgent"""
 
 
-import BaseHTTPServer
 import logging
 import socket
 import threading
-import urllib2
+
+try:
+  import BaseHTTPServer
+  from urllib2 import URLError
+except ImportError:
+  from http import server as BaseHTTPServer
+  from urllib.error import URLError
 
 import unittest
+import sys
 
 from citest.base import ExecutionContext
 from citest.json_contract import (
@@ -113,17 +119,19 @@ class TestServer(BaseHTTPServer.BaseHTTPRequestHandler):
     if not query:
       return request, parameters, None
     query, _, fragment = query.partition('#')
+    fragment = fragment or None
 
     for part in query.split('&'):
       key, _, value = part.partition('=')
       parameters[key] = value
 
-    return path, parameters, fragment or None
+    return path, parameters, fragment
 
   def do_GET(self):
     _, parameters, _ = self.decode_request(self.path)
     response_code = int(parameters.get('code', 200))
-    response_message = parameters.get('message', '')
+    response_message = str.encode(parameters.get('message', ''))
+    logging.error('*** REPONSE %s', response_message)
     content_type = parameters.get('type', 'text/html')
     self.respond(
         response_code,
@@ -133,7 +141,7 @@ class TestServer(BaseHTTPServer.BaseHTTPRequestHandler):
   def do_POST(self):
     _, parameters, _ = self.decode_request(self.path)
     response_code = int(parameters.get('code', 200))
-    num_bytes = int(self.headers.getheader('content-length', 0))
+    num_bytes = int(self.headers['content-length'])
     response_message = self.rfile.read(num_bytes)
     content_type = parameters.get('type', 'text/html')
     self.respond(
@@ -144,7 +152,7 @@ class TestServer(BaseHTTPServer.BaseHTTPRequestHandler):
   def do_DELETE(self):
     _, parameters, _ = self.decode_request(self.path)
     response_code = int(parameters.get('code', 200))
-    num_bytes = int(self.headers.getheader('content-length', 0))
+    num_bytes = int(self.headers['content-length'])
     response_message = self.rfile.read(num_bytes)
     content_type = parameters.get('type', 'text/html')
     self.respond(
@@ -156,6 +164,8 @@ class TestServer(BaseHTTPServer.BaseHTTPRequestHandler):
 def headers_to_dict(header_list):
   if header_list is None:
     return None
+  if sys.version_info[0] > 2:
+    return header_list
 
   result = {}
   for entry in header_list:
@@ -251,7 +261,7 @@ class HttpAgentTest(unittest.TestCase):
     self.assertIsNone(response.http_code)
     self.assertIsNone(response.output)
     self.assertIsNotNone(response.exception)
-    self.assertTrue(isinstance(response.exception, urllib2.URLError))
+    self.assertTrue(isinstance(response.exception, URLError))
 
   def test_post_operation_ok(self):
     op = self.agent.new_post_operation(

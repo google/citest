@@ -125,6 +125,9 @@ class PredicateResult(JsonSnapshotableEntity):
             or '{0} is {1}'.format(self.__class__.__name__,
                                    'OK' if self.__valid else 'FAILURE'))
 
+  def __bool__(self):
+    return self.__nonzero__()
+
   def __nonzero__(self):
     return self.__valid
 

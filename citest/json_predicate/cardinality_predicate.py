@@ -221,9 +221,11 @@ class CardinalityPredicate(predicate.ValuePredicate,
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
     snapshot.edge_builder.make_mechanism(entity, 'Predicate', self.path_pred)
-    snapshot.edge_builder.make_control(entity, 'Min', self.__min)
-    snapshot.edge_builder.make_control(entity, 'Max',
-                                       'Any' if self.__max < 0 else self.__max)
+    if self.__min is not None:
+      snapshot.edge_builder.make_control(entity, 'Min', self.__min)
+    if self.__max is not None:
+      snapshot.edge_builder.make_control(entity, 'Max',
+                                         'Any' if self.__max < 0 else self.__max)
 
   def __init__(self, pred, min=0, max=None, **kwargs):
     """Constructor.

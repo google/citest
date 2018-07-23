@@ -27,7 +27,7 @@ import citest.json_predicate as jp
 class TestIoErrorFailureVerifier(jc.ObservationFailureVerifier):
   def _error_comment_or_none(self, error):
     if isinstance(error, IOError):
-      return 'HAVE {0}'.format(error.message)
+      return 'HAVE {0}'.format(error.args[0])
     return None
 
 

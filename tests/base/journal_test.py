@@ -29,7 +29,7 @@ from citest.base import Journal
 from citest.base import JsonSnapshot, JsonSnapshotableEntity
 from citest.base import RecordOutputStream, RecordInputStream
 
-from test_clock import TestClock
+from tests.base.test_clock import TestClock
 
 
 class TestDetails(JsonSnapshotableEntity):
@@ -99,6 +99,10 @@ class JournalTest(unittest.TestCase):
 
     with self.assertRaises(StopIteration):
       next(got_stream)     
+
+  def assertItemsEqual(self, a, b):
+    """See if items are equal independent of sort order."""
+    self.assertEquals(sorted(a), sorted(b))
 
   def test_empty(self):
     """Verify the journal starts end ends with the correct JSON text."""

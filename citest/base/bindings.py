@@ -20,8 +20,16 @@ import copy
 import inspect
 import os
 import re
+import sys
 
-import ConfigParser
+try:
+  import ConfigParser
+except ImportError:
+  import configparser as ConfigParser
+
+if sys.version_info[0] > 2:
+  basestring = str
+
 
 def _normalize_key(key):
   """Handle historic interpretation of binding keys being upper-cased.

@@ -23,7 +23,7 @@ import citest.gcp_testing as gt
 import citest.json_contract as jc
 import citest.service_testing as st
 
-import fake_gcloud_agent
+from tests.gcp_testing import fake_gcloud_agent
 
 
 class GCloudContractTest(unittest.TestCase):

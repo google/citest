@@ -40,17 +40,18 @@ class AgentError(Exception, JsonSnapshotableEntity):
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""
-    snapshot.edge_builder.make_error(entity, 'Message', self.message)
+    message = self.args[0] if self.args else None
+    snapshot.edge_builder.make_error(entity, 'Message', message)
 
   def __init__(self, message):
     super(AgentError, self).__init__(message)
 
   def __str__(self):
-    return self.message or self.__class__.__name__
+    return self.args[0] if self.args else self.__class__.__name__
 
   def __eq__(self, error):
     return (self.__class__ == error.__class__
-            and self.message == error.message)
+            and self.args == error.args)
 
 
 class BaseAgent(JsonSnapshotableEntity):
@@ -268,7 +269,7 @@ class AgentOperationStatus(JsonSnapshotableEntity):
 
     if max_secs is None:
       max_secs = self.operation.max_wait_secs
-    if max_secs < 0 and max_secs is not None:
+    if max_secs is not None and max_secs < 0:
       raise ValueError()
 
     message = 'Wait on id={0}, max_secs={1}'.format(self.id, max_secs)

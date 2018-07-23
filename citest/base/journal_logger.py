@@ -23,6 +23,9 @@ import threading
 
 from .global_journal import (get_global_journal, new_global_journal_with_path)
 
+if sys.version_info[0] > 2:
+  basestring = str
+
 
 def _to_json_if_possible(value):
   """Render value as JSON string if it is json, otherwise as a normal string.

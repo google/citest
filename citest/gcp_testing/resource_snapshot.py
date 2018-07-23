@@ -171,7 +171,7 @@ class Actuator(object):
 
     delete = resource_spec.get('methods', {}).get('delete', None)
     if not delete:
-      print '*** Cannot find delete method for "{0}"'.format(resource_type)
+      print('*** Cannot find delete method for "{0}"'.format(resource_type))
       return None
 
     scope = self.__investigator.pick_scope(
@@ -180,10 +180,10 @@ class Actuator(object):
 
     if collected:
       action = 'PREVIEWING' if self.__dry_run else 'DELETING'
-      print '\n{action} from API={api} with scope={scope}'.format(
+      print('\n{action} from API={api} with scope={scope}'.format(
           action=action,
           api=api,
-          scope=scope if self.__credentials_path else '<default>')
+          scope=scope if self.__credentials_path else '<default>'))
 
       sample = collected.pop()
       was_aggregated = isinstance(sample, tuple)
@@ -233,7 +233,7 @@ class Actuator(object):
         all_results[resource_type] = type_results
 
     self.wait_for_delete_and_maybe_retry(all_results)
-    print '-' * 40 + '\n'
+    print('-' * 40 + '\n')
 
   def wait_for_delete_and_maybe_retry(self, waiting_on):
     """Wait for outstanding results to finish deleting.
@@ -255,7 +255,7 @@ class Actuator(object):
           retryable_elems[resource_type] = (agent, aggregated, result)
       waiting_on = {}
       if retryable_elems:
-        print 'Retrying some failures that are worth trying again.'
+        print('Retrying some failures that are worth trying again.')
         for resource_type, data in retryable_elems.items():
           agent = data[0]
           aggregated = data[1]
@@ -277,8 +277,8 @@ class Actuator(object):
     print_every_secs = 20
     approx_secs_so_far = 0   # used to print every secs
     if awaiting_list:
-      print 'Waiting for {0} items to finish deleting ...'.format(
-          len(awaiting_list))
+      print('Waiting for {0} items to finish deleting ...'.format(
+          len(awaiting_list)))
 
       while awaiting_list and time.time() < wait_until:
         awaiting_list = [elem for elem in awaiting_list
@@ -288,11 +288,11 @@ class Actuator(object):
           sleep_secs = 5
           approx_secs_so_far += sleep_secs
           if approx_secs_so_far % print_every_secs == 0:
-            print '  Still waiting on {0} ...'.format(len(awaiting_list))
+            print('  Still waiting on {0} ...'.format(len(awaiting_list)))
           time.sleep(sleep_secs)
       if awaiting_list:
-        print 'Gave up waiting on remaining {0} items.'.format(
-            len(awaiting_list))
+        print('Gave up waiting on remaining {0} items.'.format(
+            len(awaiting_list)))
 
     return retryable_elems
 
@@ -322,8 +322,8 @@ class Actuator(object):
         return False
       if http_error.resp.status in self.__RETRYABLE_DELETE_HTTP_CODES:
         return True
-      print 'Unexpected error while waiting for delete: {0} {1}={2}'.format(
-          resource_type, name, http_error)
+      print('Unexpected error while waiting for delete: {0} {1}={2}'.format(
+          resource_type, name, http_error))
 
     return False
 
@@ -349,9 +349,9 @@ class Actuator(object):
         try:
           param_name, param_value = elem[0].split('/', 1)
         except ValueError as vex:
-          print 'Ignoring error {0}'.format(vex)
-          print '   type={0}, name={1}: ELEM[0] was {2!r}'.format(
-              resource_type, name, elem[0])
+          print('Ignoring error {0}'.format(vex))
+          print('   type={0}, name={1}: ELEM[0] was {2!r}'.format(
+              resource_type, name, elem[0]))
           continue
 
         if param_name[-1] == 's':
@@ -372,13 +372,13 @@ class Actuator(object):
           args_str = ','.join([' {0}={1!r}'.format(key, value)
                                for key, value in variables.items()])
 
-          print '[dry run] delete "{type}" {name} {args}'.format(
-              type=resource_type, name=name, args=args_str)
+          print('[dry run] delete "{type}" {name} {args}'.format(
+              type=resource_type, name=name, args=args_str))
         else:
           agent.invoke_resource(context, 'delete', resource_type,
                                 resource_id=name, **params)
-          print 'Deleted "{type}" {name}'.format(
-              type=resource_type, name=name)
+          print('Deleted "{type}" {name}'.format(
+              type=resource_type, name=name))
 
         if httplib.OK in result_by_code:
           result_by_code[httplib.OK].append(elem)
@@ -391,8 +391,8 @@ class Actuator(object):
           result_by_code[http_error.resp.status] = [elem]
 
         if http_error.resp.status == httplib.NOT_FOUND:
-          print '  - "{type}" "{name}" was already deleted'.format(
-              type=resource_type, name=name)
+          print('  - "{type}" "{name}" was already deleted'.format(
+              type=resource_type, name=name))
         else:
           print('  Ignoring error deleting "{type}" "{name}": {msg}'
                 .format(type=resource_type, name=name, msg=http_error))
@@ -403,8 +403,8 @@ class Actuator(object):
         # region results are missing the zone value. Ignore those errors.
         # This isnt the best place to handle this, but is the easiest for
         # now and I dont have time to devise a cleaner solution right now.
-        print 'Ignoring error with "delete {0} {1} {2}": {3}'.format(
-            resource_type, name, params, value_error)
+        print('Ignoring error with "delete {0} {1} {2}": {3}'.format(
+            resource_type, name, params, value_error))
         if -1 in result_by_code:
           result_by_code[-1].append(elem)
         else:
@@ -541,7 +541,7 @@ class Main(object):
           if name is not None:
             break
         if name is None:
-          print 'Could not determine name for {0}'.format(item)
+          print('Could not determine name for {0}'.format(item))
           return False
         if not name_regex.match(name):
           return False
@@ -635,7 +635,7 @@ class Main(object):
   def do_command_print_catalog(self, api):
     """Print all the listable (and non-listable) resources of the api."""
     text = self.__investigator.stringify_api(api, self.__scanner)
-    print text
+    print(text)
     return text
 
   def do_command_print_api_spec(self, api):
@@ -643,24 +643,24 @@ class Main(object):
     listable = self.__scanner.get_listable_api_resources(api)
     text = '\n'.join(['LISTABLE Resources for {api}'.format(api=api),
                       to_json_string(listable)])
-    print text
+    print(text)
     return text
 
   def do_command_collect_api(self, api):
     """Collect all the instances of each of the api resources."""
 
-    print 'API:  "{0}"'.format(api)
+    print('API:  "{0}"'.format(api))
     found, errors = self.__scanner.list_api(
         api, item_filter=self.__item_filter)
 
     for resource, resource_list in found.items():
       if resource_list.response:
-        print resource_list.stringify(resource)
+        print(resource_list.stringify(resource))
 
     if errors:
-      print 'ERRORS:{0}'.format(
+      print('ERRORS:{0}'.format(
           ''.join(['\n  E {0} {1}'.format(resource, msg)
-                   for resource, msg in errors.items()]))
+                   for resource, msg in errors.items()])))
 
     self.__aggregated_listings[api] = found
     return found
@@ -697,14 +697,14 @@ class Main(object):
       if content:
         num_diff_apis += 1
         if num_diff_apis == 1:
-          print 'Differences between snapshots "{0}" and "{1}":'.format(
-              *options.compare)
-        print '\nAPI "{0}"'.format(api)
-        print content
-        print '-' * 40
+          print('Differences between snapshots "{0}" and "{1}":'.format(
+              *options.compare))
+        print('\nAPI "{0}"'.format(api))
+        print(content)
+        print('-' * 40)
     if num_diff_apis == 0:
-      print 'Snapshots "{0}" and "{1}" are equivalent.'.format(
-          *options.compare)
+      print('Snapshots "{0}" and "{1}" are equivalent.'.format(
+          *options.compare))
     return num_diff_apis
 
 

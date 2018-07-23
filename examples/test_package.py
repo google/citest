@@ -36,7 +36,7 @@ def spawn_all_tests_in_dir(dirname=None, recurse=False, concurrent=True):
   failures = 0
   for script in files:
     test_modules.append(os.path.basename(script)[:-3])  # strip off .py suffix
-    print 'Starting "{0}"'.format(script)
+    print('Starting "{0}"'.format(script))
     test = subprocess.Popen('python {0} {1}'.format(script, args), shell=True)
     if concurrent:
       subprocesses[test] = test
@@ -48,18 +48,18 @@ def spawn_all_tests_in_dir(dirname=None, recurse=False, concurrent=True):
   for script,test in subprocesses.items():
     code = test.poll()
     if code is None:
-      print 'Waiting for "{0}"'.format(test)
+      print('Waiting for "{0}"'.format(test))
       code = test.wait()
     if code != 0:
       failures += 1
   end_time = time.time()
 
-  print '=' * 40
-  print 'Ran %d scripts in %.3fs' % (len(test_modules), end_time - start_time)
+  print('=' * 40)
+  print('Ran %d scripts in %.3fs' % (len(test_modules), end_time - start_time))
   if failures:
-    print '\nFAILED  {0} of {1}'.format(failures, len(test_modules))
+    print('\nFAILED  {0} of {1}'.format(failures, len(test_modules)))
   else:
-    print '\nSUCCESS'
+    print('\nSUCCESS')
 
   return failures
 

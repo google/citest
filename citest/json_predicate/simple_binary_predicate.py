@@ -16,6 +16,7 @@
 
 import logging
 import re
+import sys
 
 from .base_binary_predicate import (
     BinaryPredicate)
@@ -25,6 +26,10 @@ from .path_value import PathValue
 from .path_result import (
     PathValueResult,
     TypeMismatchError)
+
+if sys.version_info[0] > 2:
+  basestring = str
+  long = int
 
 
 class SimpleBinaryPredicate(BinaryPredicate):

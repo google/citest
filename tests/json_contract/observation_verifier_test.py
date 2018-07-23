@@ -36,7 +36,7 @@ class TestObsoleteObservationFailureVerifier(jc.ObservationFailureVerifier):
     self.__expect = expect
 
   def _error_comment_or_none(self, error):
-    if error.message == self.__expect:
+    if error.args[0] == self.__expect:
       return _TEST_FOUND_ERROR_COMMENT
     return None
 

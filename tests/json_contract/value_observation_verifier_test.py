@@ -46,7 +46,7 @@ class TestObservationFailureVerifier(jc.ObservationFailureVerifier):
     self.__expect = expect
 
   def _error_comment_or_none(self, error):
-    if error.message == self.__expect:
+    if error.args[0] == self.__expect:
       return _TEST_FOUND_ERROR_COMMENT
     return None
 
@@ -59,7 +59,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
     try:
       JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
     except AssertionError:
-      print 'EXPECTED\n{0!r}\nGOT\n{1!r}'.format(expect, have)
+      print('EXPECTED\n{0!r}\nGOT\n{1!r}'.format(expect, have))
       raise
 
   def test_verifier_builder_add_constraint(self):
@@ -122,7 +122,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       try:
         self._try_verify(context, verifier, observation, True, verify_results)
       except:
-        print 'testing {0}'.format(test[0])
+        print('testing {0}'.format(test[0]))
         raise
 
   def test_object_observation_verifier_one_constraint_not_found(self):
@@ -159,7 +159,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       try:
         self._try_verify(context, verifier, observation, False, verify_results)
       except:
-        print 'testing {0}'.format(test[0])
+        print('testing {0}'.format(test[0]))
         raise
 
   def test_object_observation_verifier_multiple_constraint_not_found(self):
@@ -196,7 +196,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       try:
         self._try_verify(context, verifier, observation, False, verify_results)
       except:
-        print 'testing {0}'.format(test[0])
+        print('testing {0}'.format(test[0]))
         raise
 
   def test_object_observation_verifier_some_but_not_all_constraints_found(self):
@@ -234,7 +234,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
       try:
         self._try_verify(context, verifier, observation, False, verify_results)
       except:
-        print 'testing {0}'.format(test[0])
+        print('testing {0}'.format(test[0]))
         raise
 
   def test_object_observation_verifier_with_conditional(self):
@@ -288,7 +288,7 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
         self._try_verify(context, verifier, observation,
                          expect_valid, verify_results)
       except:
-        print 'testing {0}'.format(obj_list)
+        print('testing {0}'.format(obj_list))
         raise
 
   def test_observation_failure_ok(self):
@@ -365,10 +365,10 @@ class JsonValueObservationVerifierTest(unittest.TestCase):
 
     ok = verify_results.__nonzero__()
     if dump:
-      print 'GOT RESULTS {0}:\n{1!r}\n'.format(
-          verify_results.__class__.__name__, verify_results)
-      print '\nExpected {0}:\n{1!r}\n'.format(
-          expect_results.__class__.__name__, expect_results)
+      print('GOT RESULTS {0}:\n{1!r}\n'.format(
+          verify_results.__class__.__name__, verify_results))
+      print('\nExpected {0}:\n{1!r}\n'.format(
+          expect_results.__class__.__name__, expect_results))
 
     self.assertEqual(expect_ok, ok)
     if expect_results:

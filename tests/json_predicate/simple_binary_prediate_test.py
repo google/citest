@@ -17,6 +17,7 @@
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-public-methods
 
+import sys
 import unittest
 
 from citest.base import (
@@ -25,13 +26,17 @@ from citest.base import (
 from citest.json_predicate import PathValue
 import citest.json_predicate as jp
 
+if sys.version_info[0] > 2:
+  basestring = str
+  long = int
+
 
 class JsonSimpleBinaryPredicateTest(unittest.TestCase):
   def assertEqual(self, expect, have, msg=''):
     try:
       JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
     except AssertionError:
-      print '\nEXPECT\n{0!r}\n\nGOT\n{1!r}\n'.format(expect, have)
+      print('\nEXPECT\n{0!r}\n\nGOT\n{1!r}\n'.format(expect, have))
       raise
 
   def assertGood(self, expect_value, pred, context=None):
@@ -129,7 +134,7 @@ class JsonSimpleBinaryPredicateTest(unittest.TestCase):
               expected_type, bad_operand.__class__, bad_operand),
           pred(context, bad_operand))
     except:
-      print '\nFAILED value={0} pred={1}'.format(good_operand, pred.name)
+      print('\nFAILED value={0} pred={1}'.format(good_operand, pred.name))
       raise
 
   def test_simple_string_operator_type_mismatch(self):

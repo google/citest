@@ -34,6 +34,7 @@ import logging
 import logging.config
 import os
 import os.path
+import stat
 import sys
 import unittest
 
@@ -395,13 +396,13 @@ class TestRunner(object):
         with open(path, 'r') as f:
           text = f.read()
       except Exception as ex:
-        print 'ERROR reading LOGGING_CONFIG from {0}: {1}'.format(path, ex)
+        print('ERROR reading LOGGING_CONFIG from {0}: {1}'.format(path, ex))
         raise
     config = ast.literal_eval(args_util.replace(text, self.bindings))
     logging.config.dictConfig(config)
     log_path = os.path.join(
         self.bindings['LOG_DIR'], self.bindings['LOG_FILEBASE'] + '.log')
-    os.chmod(log_path, 0600)
+    os.chmod(log_path, stat.S_IRUSR | stat.S_IWUSR)
 
     self.__journal = global_journal.get_global_journal()
     if self.__journal is None:

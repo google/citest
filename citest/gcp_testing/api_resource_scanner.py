@@ -207,7 +207,7 @@ class ApiResourceScanner(object):
       except HttpError as err:
         print('E Could not create agent'
               'for "{0}" with scope={1}: {2}'
-              .format(api, scope, err.message))
+              .format(api, scope, err))
         continue
 
       for resource in scope_resource_names:
@@ -238,7 +238,7 @@ class ApiResourceScanner(object):
     except (TypeError, ValueError, HttpError) as err:
       import traceback
       traceback.print_exc()
-      return None, err.message
+      return None, err.args[0] if err.args else str(err)
 
     if instances and method_name == 'aggregatedList':
       answers = []
@@ -352,7 +352,7 @@ class ApiResourceScanner(object):
       except KeyError:
         pass  # Unknown method
       except ValueError as err:
-        error = err.message
+        error = err.args[0] if err.args else str(err)
         # Maybe try again if more remaining.
 
     if re.search(r"missing required parameters.*\[u?'zone'\]", error):

@@ -53,7 +53,7 @@ class OsObjectObserver(jc.ObjectObserver):
       doc = decoder.decode(os_response.output)
     except (ValueError, UnicodeError) as e:
       error = 'Invalid JSON in response: %s' % str(os_response)
-      print 'ERROR:' + error
+      print('ERROR:' + error)
       observation.add_error(JsonError(error, e))
       return []
 

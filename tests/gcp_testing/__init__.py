@@ -13,5 +13,5 @@
 # limitations under the License.
 
 
-from fake_gcloud_agent import FakeGCloudAgent
+from tests.gcp_testing.fake_gcloud_agent import FakeGCloudAgent
 

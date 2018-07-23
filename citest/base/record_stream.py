@@ -15,6 +15,10 @@
 
 """Implements a frame protocol for writing sized blocks of binary data."""
 import struct
+import sys
+
+if sys.version_info[0] > 2:
+  basestring = str
 
 
 class RecordOutputStream(object):
@@ -45,9 +49,10 @@ class RecordOutputStream(object):
     """
     if not isinstance(data, basestring):
       raise TypeError('{0} is not a string'.format(type(data)))
-    count = len(data)
+    encoded_data = str.encode(data)
+    count = len(encoded_data)
     self.__stream.write(struct.pack('!I', count))
-    self.__stream.write(str.encode(data))
+    self.__stream.write(encoded_data)
 
 
 class RecordInputStream(object):
@@ -69,6 +74,9 @@ class RecordInputStream(object):
   def __iter__(self):
     """Makes this iterable over the frames."""
     return self
+
+  def __next__(self):
+    return self.next()
 
   def close(self):
     """Closes the delegate stream."""

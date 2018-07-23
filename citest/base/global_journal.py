@@ -17,6 +17,7 @@
 
 import atexit
 import os
+import stat
 import threading
 
 from . import Journal
@@ -59,7 +60,8 @@ def new_global_journal_with_path(path, **metadata):
       _added_atexit = True
 
     journal_file = open(path, 'wb')
-    os.fchmod(journal_file.fileno(), 0600)  # Protect sensitive data.
+    # Protect sensitive data.
+    os.fchmod(journal_file.fileno(), stat.S_IRUSR | stat.S_IWUSR)
     journal = Journal()
     journal.open_with_file(journal_file, **metadata)
 

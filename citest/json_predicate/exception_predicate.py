@@ -82,7 +82,12 @@ class ExceptionMatchesPredicate(ValuePredicate):
 
     if self.__regex:
       regex = context.eval(self.__regex)
-      msg = value.message
+      args = value.args
+      if len(args) == 1:
+        msg = str(args[0])
+      else:
+        msg = str(args)
+
       if re.search(regex, msg):
         return PredicateResult(True, comment='Error matches.')
       else:

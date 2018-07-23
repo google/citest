@@ -16,8 +16,9 @@
 import unittest
 
 from citest.base import ExecutionContext
-import fake_gcloud_agent
 import citest.gcp_testing as gt
+
+from tests.gcp_testing import fake_gcloud_agent
 
 
 class GCloudAgentTest(unittest.TestCase):

@@ -16,7 +16,7 @@
 import unittest
 import citest.service_testing as st
 
-from .fake_agent import (
+from tests.service_testing.fake_agent import (
     FakeAgent,
     FakeStatus)
 

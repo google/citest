@@ -39,7 +39,7 @@ class CardinalityPredicateTest(unittest.TestCase):
     try:
       JsonSnapshotHelper.AssertExpectedValue(expect, have, msg)
     except AssertionError:
-      print '\nEXPECT\n{0!r}\n\nGOT\n{1!r}\n'.format(expect, have)
+      print('\nEXPECT\n{0!r}\n\nGOT\n{1!r}\n'.format(expect, have))
       raise
 
   def test_cardinality_bounds_1(self):

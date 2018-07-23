@@ -32,6 +32,9 @@ class JournalNavigator(object):
     self.__check_open()
     return self
 
+  def __next__(self):
+    return self.next()
+
   def open(self, path):
     """Open the journal to be able to iterate over its contents.
 
@@ -40,7 +43,7 @@ class JournalNavigator(object):
     """
     if self.__input_stream != None:
       raise ValueError('Navigator is already open.')
-    self.__input_stream = RecordInputStream(open(path, 'r'))
+    self.__input_stream = RecordInputStream(open(path, 'rb'))
 
   def close(self):
     """Close the journal."""
@@ -61,7 +64,7 @@ class JournalNavigator(object):
       return self.__decoder.decode(json_str)
 
     except ValueError:
-      print 'Invalid json record:\n{0}'.format(json_str)
+      print('Invalid json record:\n{0}'.format(json_str))
       raise
 
   def __check_open(self):

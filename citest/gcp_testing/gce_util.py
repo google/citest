@@ -50,7 +50,7 @@ class _ProcessKiller(object):
   def safe_kill(self):
     """Terminates the gcloud ssh tunnel when our process terminates."""
     try:
-      print '*** terminating tunnel'
+      print('*** terminating tunnel')
       os.kill(self.__process, -9)
     except OSError:
       pass

@@ -167,7 +167,7 @@ def main(argv):
 
   if options.show_memory:
     usage = resource.getrusage(resource.RUSAGE_SELF)
-    print 'Memory Usage (RSS): %dMiB' % (usage.ru_maxrss / (1024 * 1024))
+    print('Memory Usage (RSS): %dMiB' % (usage.ru_maxrss / (1024 * 1024)))
 
 
 if __name__ == '__main__':

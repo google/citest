@@ -22,8 +22,10 @@ import sys
 import threading
 import time
 
-import BaseHTTPServer
-
+try:
+  import BaseHTTPServer
+except ImportError:
+  from http import server as BaseHTTPServer
 
 class ThreadSafeDict(object):
   # pylint: disable=too-few-public-methods
@@ -66,7 +68,7 @@ class AsyncTask(object):
   def enqueue(operation, delay):
     task = AsyncTask(operation, float(str(delay)))
     thread = threading.Thread(target=task)
-    print 'STARTING TASK ' + str(task)
+    print('STARTING TASK ' + str(task))
     thread.start()
     return task
 
@@ -83,13 +85,15 @@ class AsyncTask(object):
   def __call__(self):
     try:
       self.__status = 'RUNNING'
+      sys.stderr.write('%s SLEEPING for %r\n' % (self.__id, self.__delay))
+      sys.stderr.flush()
       time.sleep(self.__delay)
       self.__operation()
       self.__status = 'DONE'
-    except BaseException as bex:
-      print 'CAUGHT {0!r}'.format(bex)
+    except Exception as ex:
+      print('CAUGHT {0!r}'.format(ex))
       self.__status = 'ERROR {0} {1}'.format(
-          bex.__class__.__name__, bex.message)
+          ex.__class__.__name__, ex.args[0])
 
 
 _key_store = ThreadSafeDict()
@@ -126,7 +130,7 @@ class SimpleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     for key, value in headers.items():
       self.send_header(key, value)
     self.end_headers()
-    self.wfile.write(body)
+    self.wfile.write(str.encode(body))
 
   def do_POST(self):
     path, parameters, fragment = self.decode_request(self.path)
@@ -135,16 +139,20 @@ class SimpleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     body = 'Not Found: path={0}'.format(path)
 
     key = path[1:].split('/', 1)[1]
+
     if path.startswith('/put/'):
       code, headers, body = self.__do_put(key, parameters)
     elif path.startswith('/put_random/'):
       code, headers, body = self.__do_put_random(key, parameters)
 
     self.send_response(code)
+
     for key, value in headers.items():
       self.send_header(key, value)
     self.end_headers()
-    self.wfile.write(body)
+
+    self.wfile.write(str.encode(body))
+
 
   def do_GET(self):
     request = self.request
@@ -165,14 +173,14 @@ class SimpleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     for key, value in headers.items():
       self.send_header(key, value)
     self.end_headers()
-    self.wfile.write(body)
+    self.wfile.write(str.encode(body))
 
     if path == '/exit':
       sys.exit(0)
 
   def __do_put(self, key, parameters):
     content = self.rfile.read(int(self.headers['Content-Length']))
-    value = json.JSONDecoder().decode(content)
+    value = json.JSONDecoder().decode(bytes.decode(content))
 
     if 'async' in parameters:
       def fn():
@@ -197,7 +205,12 @@ class SimpleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   def __do_delete(self, key, parameters):
     if 'async' in parameters:
       def fn():
+        sys.stderr.write('*** DEL %r from %r' % (key, _key_store))
+        sys.stderr.flush()
         del _key_store[key]
+        sys.stderr.write('*** HAH')
+        sys.stderr.flush()
+
       task = AsyncTask.enqueue(fn, parameters.get('delay', 1.5))
       return 200, {}, task.identifier
 

@@ -55,8 +55,8 @@ class JsonMapPredicateTest(unittest.TestCase):
     """
     map_result = jp.MapPredicate(pred, min=min)(context, obj)
     if dump:
-      print 'MAP_RESULT:\n{0}\n'.format(
-          JsonSnapshotHelper.ValueToEncodedJson(map_result))
+      print('MAP_RESULT:\n{0}\n'.format(
+          JsonSnapshotHelper.ValueToEncodedJson(map_result)))
 
     if expect_map_result:
       self.assertEqual(expect_map_result, map_result)

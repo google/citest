@@ -17,7 +17,10 @@
 import os
 import sys
 import unittest
-import ConfigParser
+try:
+  import ConfigParser
+except ImportError:
+  import configparser as ConfigParser
 
 from citest.base.bindings import (
     ConfigurationBindings,
