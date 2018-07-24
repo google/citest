@@ -380,9 +380,25 @@ class AgentTestScenario(object):
     raise NotImplementedError(
         'new_agent not specialized on ' + cls.__name__)
 
+  def pre_run_hook(self, test_case, context):
+    """Hook called before run_test_case to allow scenario to do whatever.
+
+    Returns result to be passed into post_run_hook.
+    """
+    return None
+
+  def post_run_hook(self, data, test_case, context):
+    """Hook called after run_test_case to allow scenario to do whatever."""
+    pass
+
 
 class AgentTestCase(BaseTestCase):
   """Base class for agent integration tests."""
+
+  CONTEXT_KEY_ATTEMPT_INFO = 'AttemptInfo'
+  CONTEXT_KEY_CONTRACT_VERIFY_RESULTS = 'ContractVerifyResults'
+  CONTEXT_KEY_FINAL_STATUS_OK = 'FinalStatusOk'
+  CONTEXT_KEY_OPERATION_STATUS = 'OperationStatus'
 
   def report(self, obj, **kwargs):
     """Write the object state into the test report."""
@@ -391,8 +407,7 @@ class AgentTestCase(BaseTestCase):
   @property
   def scenario(self):
     """Return the current test scenario instance."""
-    raise NotImplementedError(
-        '{0} does not specialize scenario()'.format(self.__class__))
+    return None
 
   @property
   def testing_agent(self):
@@ -547,10 +562,72 @@ class AgentTestCase(BaseTestCase):
       retry_interval_secs: [int] The number of seconds to wait between retries.
       max_wait_secs: [int] How long to wait for status completion.
           Default=Determined by operation in the test case.
-      poll_every_secs: [float] Number of seconds between wait polls. Default=1.
     """
     if context is None:
       context = ExecutionContext()
+
+    # This is complicated because of all the individual parts
+    # that we want to ensure excute, so we'll break it up into
+    # helper functions based on scope and use the context to
+    # pass back some shared state variables since they make sense
+    # to communicate in the context anyway.
+    #
+    # This particular method is responsible for the logging context
+    # and the post-execution cleanup, if any.
+    #
+    # It will delegate to a helper function for the execution and
+    # pre/post hooks
+    #
+    # To get the context relation, we'll peek inside the execution
+    # context to see how the status and validation turned out.
+    JournalLogger.begin_context('Test "{0}"'.format(test_case.title))
+    try:
+      self._do_run_test_case_with_hooks(test_case, context, **kwargs)
+    finally:
+      try:
+        if not test_case.cleanup:
+          return
+        attempt_info = context.get(self.CONTEXT_KEY_ATTEMPT_INFO, None)
+        if attempt_info is None or attempt_info.status is None:
+          self.logger.info('Skipping operation cleanup because'
+                           ' operation could not be performed at all.')
+        else:
+          self.logger.info('Invoking injected operation cleanup.')
+          test_case.cleanup(context)
+      finally:
+        verify_results = context.get(
+            self.CONTEXT_KEY_CONTRACT_VERIFY_RESULTS, None)
+        if verify_results is None:
+          context_relation = 'ERROR'
+        else:
+          final_status_ok = context.get(self.CONTEXT_KEY_FINAL_STATUS_OK, False)
+          context_relation = ('VALID' if (final_status_ok and verify_results)
+                          else 'INVALID')
+        JournalLogger.end_context(relation=context_relation)
+
+  def _do_run_test_case_with_hooks(self, test_case, context, **kwargs):
+    """Helper function responsible for the execution control, plus hooks.
+
+    It will delegate further for the actual test execution.
+    """
+    scenario = self.scenario
+    if scenario:
+      pre_data = scenario.pre_run_hook(test_case, context)
+      post_hook = scenario.post_run_hook
+    else:
+      pre_data = None
+      post_hook = lambda data, test_case, context: None
+
+    try:
+      self._do_run_test_case_execute(test_case, context, **kwargs)
+    finally:
+      post_hook(pre_data, test_case, context)
+
+  def _do_run_test_case_execute(self, test_case, context, **kwargs):
+    """Run the specified test operation
+
+       See run_test_case for **kwargs.
+    """
     timeout_ok = kwargs.pop('timeout_ok', False)
     max_retries = kwargs.pop('max_retries', 0)
     retry_interval_secs = kwargs.pop('retry_interval_secs', 5)
@@ -572,11 +649,9 @@ class AgentTestCase(BaseTestCase):
     execution_trace = OperationContractExecutionTrace(test_case)
     verify_results = None
     final_status_ok = None
-    context_relation = None
     attempt_info = None
     status = None
     try:
-      JournalLogger.begin_context('Test "{0}"'.format(test_case.title))
       JournalLogger.delegate(
           "store", test_case.operation,
           _title='Operation "{0}" Specification'.format(
@@ -590,6 +665,7 @@ class AgentTestCase(BaseTestCase):
           context, execution_trace, 1 + max_retries,
           retry_interval_secs=retry_interval_secs,
           poll_every_secs=poll_every_secs, max_wait_secs=max_wait_secs)
+      context.set_internal(self.CONTEXT_KEY_ATTEMPT_INFO, attempt_info)
       status = attempt_info.status
       title = '%s summary' % status.__class__.__name__
       JournalLogger.delegate("store_summary", status, _title=title,
@@ -602,15 +678,16 @@ class AgentTestCase(BaseTestCase):
       # failed. We set the verification on the attempt here, but do not assert
       # anything. We'll assert below outside this try/catch handler.
       verify_results = test_case.contract.verify(context)
+      context.set_internal(
+          self.CONTEXT_KEY_CONTRACT_VERIFY_RESULTS, verify_results)
+
       execution_trace.set_verify_results(verify_results)
       final_status_ok = self.verify_final_status_ok(
           status, timeout_ok=timeout_ok,
           final_attempt=attempt_info,
           execution_trace=execution_trace)
-      context_relation = ('VALID' if (final_status_ok and verify_results)
-                          else 'INVALID')
+      context.set_internal(self.CONTEXT_KEY_FINAL_STATUS_OK, final_status_ok)
     except BaseException as ex:
-      context_relation = 'ERROR'
       execution_trace.set_exception(ex)
       if attempt_info is None:
         execution_trace.set_exception(ex, traceback_module.format_exc())
@@ -632,19 +709,8 @@ class AgentTestCase(BaseTestCase):
                           traceback_module.format_exc())
       raise
     finally:
-      try:
-        context.set_internal('ContractVerifyResults', verify_results)
-        self.log_end_test(test_case.title)
-        self.report(execution_trace)
-        if test_case.cleanup:
-          if status is None:
-            self.logger.info('Skipping operation cleanup because'
-                             ' operation could not be performed at all.')
-          else:
-            self.logger.info('Invoking injected operation cleanup.')
-            test_case.cleanup(context)
-      finally:
-        JournalLogger.end_context(relation=context_relation)
+      self.log_end_test(test_case.title)
+      self.report(execution_trace)
 
     if not final_status_ok:
       self.raise_final_status_not_ok(status, attempt_info)
@@ -683,8 +749,8 @@ class AgentTestCase(BaseTestCase):
       # to make it available to contract verifiers. For example, to
       # make specific details in the status (e.g. new resource names)
       # available to downstream validators for their consideration.
-      context.set_internal('AttemptInfo', attempt_info)
-      context.set_internal('OperationStatus', status)
+      context.set_internal(self.CONTEXT_KEY_ATTEMPT_INFO, attempt_info)
+      context.set_internal(self.CONTEXT_KEY_OPERATION_STATUS, status)
 
       attempt_info.set_status(status, summary)
       if test_case.status_extractor:

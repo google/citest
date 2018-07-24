@@ -92,7 +92,7 @@ class AgentTestCaseTest(st.AgentTestCase):
         good_results=[], bad_results=[], failed_constraints=[])
     self.assertRaises(AssertionError, self.assertVerifyResults, verify_results)
 
-  def _do_run_test_case(self, succeed, with_callbacks, with_context):
+  def __execute_test(self, succeed, with_callbacks, with_context):
     # pylint: disable=unused-argument
     operation = FakeOperation('TestOperation', self.testing_agent)
 
@@ -143,27 +143,27 @@ class AgentTestCaseTest(st.AgentTestCase):
     self.assertEquals(1, HelperClass.cleanup_calls)
 
   def test_run_test_simple_ok(self):
-    self._do_run_test_case(
+    self.__execute_test(
         succeed=True, with_callbacks=False, with_context=False)
 
   def test_run_test_simple_fail(self):
-    self._do_run_test_case(
+    self.__execute_test(
         succeed=False, with_callbacks=False, with_context=False)
 
   def test_run_test_with_context_ok(self):
-    self._do_run_test_case(
+    self.__execute_test(
         succeed=True, with_callbacks=False, with_context=True)
 
   def test_run_test_with_context_fail(self):
-    self._do_run_test_case(
+    self.__execute_test(
         succeed=False, with_callbacks=False, with_context=True)
 
   def test_run_test_with_callbacks_ok(self):
-    self._do_run_test_case(
+    self.__execute_test(
         succeed=True, with_callbacks=True, with_context=False)
 
   def test_run_test_with_callbacks_fail(self):
-    self._do_run_test_case(
+    self.__execute_test(
         succeed=False, with_callbacks=True, with_context=False)
 
 
@@ -178,6 +178,26 @@ class TestScenario(st.AgentTestScenario):
     super(TestScenario, cls).init_bindings_builder(
         builder, defaults=defaults)
     cls.ibb_calls.append((builder, defaults))
+
+  def __init__(self, *pos_args, **kwargs):
+    super(TestScenario, self).__init__(*pos_args, **kwargs)
+    self.hook_list = []
+
+  def pre_run_hook(self, test_case, context):
+    self.hook_list.append(
+        ('PRE',
+         context.get(
+            st.AgentTestCase.CONTEXT_KEY_CONTRACT_VERIFY_RESULTS, None)
+         is not None))
+    return (self, 1)
+
+  def post_run_hook(self, data, test_case, context):
+    assert(data == (self, 1))
+    self.hook_list.append(
+        ('POST',
+         context.get(
+             st.AgentTestCase.CONTEXT_KEY_CONTRACT_VERIFY_RESULTS, None)
+         is not None))
 
 
 class AgentTestScenarioTest(unittest.TestCase):
@@ -208,7 +228,25 @@ class AgentTestScenarioTest(unittest.TestCase):
 
     self.assertEquals(1, len(BindingsBuilderScenario.ibb_calls))
     self.assertEquals(builder, BindingsBuilderScenario.ibb_calls[0][0])
-    
+
+
+class ScenarioHookTest(st.AgentTestCase):
+  @property
+  def scenario(self):
+    return self.__scenario
+
+  def __init__(self, *posargs, **kwargs):
+    self.__agent = FakeAgent()
+    self.__scenario = TestScenario({}, agent=self.__agent)
+    super(ScenarioHookTest, self).__init__(*posargs, **kwargs)
+
+  def test_hooks(self):
+    operation = FakeOperation('TestOperation', self.__agent)
+    oc = st.OperationContract(operation, jc.Contract())
+    self.run_test_case(oc)
+    hook_list = self.__scenario.hook_list
+    self.assertEqual(('PRE', False), hook_list[0])
+    self.assertEqual(('POST', True), hook_list[1])
 
 if __name__ == '__main__':
   unittest.main()
