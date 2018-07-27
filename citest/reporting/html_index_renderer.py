@@ -152,9 +152,9 @@ class HtmlIndexRenderer(JournalProcessor):
       css = fcss                 # Overall success is bad if something failed.
 
     if secs is not None:
-      time = '' if secs < 3600 else '%d:' % (secs / 3600)
+      time = '' if secs < 3600 else '%d:' % (secs // 3600)
       secs %= 3600
-      time += '%02d:%02d secs' % (secs / 60, secs % 60)
+      time += '%02d:%02d secs' % (secs // 60, secs % 60)
     else:
       time = 'Unknown'
 

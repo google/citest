@@ -493,8 +493,10 @@ class AgentTestCase(BaseTestCase):
           The most recent invocation attempt.
     """
     # pylint: disable=unused-argument
-    raise AssertionError('{0}\n{1}'.format(
-        status.exception_details, str(status)))
+    raise AssertionError('Operation Status Not Ok\n'
+                         '  Status Exception: {0}\n'
+                         '  Status Details: {1}'
+                         .format(status.exception_details, str(status)))
 
   def run_test_case_list(
       self, context, test_case_list, max_concurrent, **list_kwargs):

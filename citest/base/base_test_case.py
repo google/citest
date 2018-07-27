@@ -142,7 +142,7 @@ class BaseTestCase(unittest.TestCase):
   def __trap_error(self, delegate, test, err):
     self.__final_outcome_relation = 'ERROR'
     error_details = '%s: %s' % (err[0], err[1])
-    trace = traceback.format_exc()
+    trace = traceback.format_tb(err[2])
     JournalLogger.journal_or_log_detail(
         'Raised Exception', error_details,
         levelno=logging.ERROR, format='pre', _logger=self.logger)

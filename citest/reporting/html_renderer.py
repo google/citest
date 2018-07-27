@@ -182,11 +182,13 @@ class ProcessToRenderInfo(object):
     summary = ''
     document_manager = self.__document_manager
     try:
+      encoder = json.JSONEncoder(
+          indent=2, separators=(',', ': '), sort_keys=True)
       if isinstance(value, basestring):
         tmp = json.JSONDecoder().decode(value)
-        text = json.JSONEncoder(indent=2, separators=(',', ': ')).encode(tmp)
+        text = encoder.encode(tmp)
       elif isinstance(value, (list, dict)):
-        text = json.JSONEncoder(indent=2, separators=(',', ': ')).encode(value)
+        text = encoder.encode(value)
       else:
         raise ValueError('Invalid value={0!r}'.format(value))
 
@@ -202,7 +204,7 @@ class ProcessToRenderInfo(object):
                 text[0:self.max_message_summary_length - 2*len('show')]))
       else:
         summary = None
-    except (ValueError, UnicodeEncodeError):
+    except (TypeError, ValueError, UnicodeEncodeError):
       pre = document_manager.make_text_block(repr(value))
 
     return HtmlInfo(pre, summary)
@@ -312,7 +314,7 @@ class ProcessToRenderInfo(object):
     """
     table = self.__document_manager.new_tag('table')
     row_count = 0
-    for name, value in obj.items():
+    for name, value in sorted(obj.items()):
       if name not in blacklist or []:
         row_count += 1
         table.append(self.__document_manager.make_tag_container(

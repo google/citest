@@ -27,7 +27,16 @@ import logging
 import os
 import socket
 import time
-import urllib2
+
+try:
+  from urllib2 import (
+    urlopen,
+    Request,
+    HTTPError,
+    URLError)
+except ImportError:
+  from urllib.request import urlopen, Request
+  from urllib.error import HTTPError, URLError
 
 from citest.base import ExecutionContext
 
@@ -122,18 +131,18 @@ def determine_where_i_am():
 
   url = 'http://metadata/computeMetadata/v1/project/project-id'
   try:
-    my_project = urllib2.urlopen(urllib2.Request(url, headers=headers)).read()
-  except urllib2.URLError as e:
+    my_project = urlopen(Request(url, headers=headers)).read()
+  except URLError as e:
     # Likely we are not running on GCE at all.
     logger.debug('We are not running on GCE.\n  %s', str(e))
     return None, None, None
 
   # Since the above succeeded, we expect this to succeed
   url = 'http://metadata/computeMetadata/v1/instance/zone'
-  formal_zone = urllib2.urlopen(urllib2.Request(url, headers=headers)).read()
+  formal_zone = urlopen(Request(url, headers=headers)).read()
   my_zone = formal_zone.split('/')[-1]
   url = 'http://metadata/computeMetadata/v1/instance/hostname'
-  hostname = urllib2.urlopen(urllib2.Request(url, headers=headers)).read()
+  hostname = urlopen(Request(url, headers=headers)).read()
   my_instance = hostname.split('.')[0]
   logger.debug('We are are running in project=%s zone=%s instance=%s',
                my_project, my_zone, my_instance)
@@ -183,7 +192,7 @@ def _network_interfaces_for_instance(gcloud, instance):
 
   try:
     doc = json.JSONDecoder().decode(gcloud_response.output)
-  except ValueError:
+  except (TypeError, ValueError):
     logger.error('Invalid JSON in response: %s', gcloud_response)
     return None, gcloud_response
 
@@ -252,10 +261,10 @@ def establish_network_connectivity(gcloud, instance, target_port):
     url = 'http://{host}:{port}'.format(host=ip_addr, port=target_port)
     tried_urls.append(url)
     try:
-      response = urllib2.urlopen(url, None, 5)
+      response = urlopen(url, None, 5)
       logger.debug('%s is directly reachable already.', url)
       return '{0}:{1}'.format(ip_addr, target_port)
-    except urllib2.URLError:
+    except URLError:
       pass
 
   if in_same_project:
@@ -300,14 +309,14 @@ def establish_network_connectivity(gcloud, instance, target_port):
   for i in range(20):
     try:
       # 5 second timeout
-      response = urllib2.urlopen(url, None, 5)
+      response = urlopen(url, None, 5)
       logger.debug('Confirmed availability (%d)', response.getcode())
       return 'localhost:%d' % local_port
-    except urllib2.HTTPError as e:
+    except HTTPError as e:
       # HTTPError means that the server is responding to HTTP calls.
       logger.debug('Confirmed availability (%d)', e.code)
       return 'localhost:%d' % local_port
-    except urllib2.URLError as e:
+    except URLError as e:
       time.sleep(1)
 
   logger.error('Could not connect to our own tunnel at %s', url)

@@ -44,7 +44,7 @@ def _to_json_if_possible(value):
     else:
       return json_module.JSONEncoder(indent=2,
                                      separators=(',', ': ')).encode(value)
-  except (ValueError, UnicodeEncodeError):
+  except (TypeError, ValueError, UnicodeEncodeError):
     return str(value)
 
 

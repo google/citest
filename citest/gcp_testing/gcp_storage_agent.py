@@ -113,5 +113,5 @@ class GcpStorageAgent(GcpAgent):
       if status:
         self.logger.debug('Download %d%%', int(status.progress() * 100))
 
-    result = data.getvalue()
+    result = bytes.decode(data.getvalue())
     return result if transform is None else transform(result)

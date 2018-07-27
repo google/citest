@@ -115,7 +115,7 @@ class HttpResponseType(JsonSnapshotableEntity):
     """
     builder = snapshot.edge_builder
     code_relation = { 2: 'VALID', 4: 'INVALID', 5: 'ERROR' }.get(
-        self.http_code / 100, None)
+        self.http_code // 100, None)
 
     edge = builder.make(entity, 'HTTP Code', self.http_code,
                         relation=code_relation)
@@ -325,9 +325,9 @@ class HttpAgent(base_agent.BaseAgent):
 
   def add_basic_auth_header(self, user, password):
     """Adds an Authorization header for HTTP Basic Authentication."""
-    encoded_auth = base64.encodestring('{user}:{password}'.format(
-        user=user, password=password))[:-1]  # strip eoln
-    self.add_header('Authorization', 'Basic ' + encoded_auth)
+    text = '{user}:{password}'.format(user=user, password=password)
+    encoded_auth = base64.encodestring(str.encode(text))[:-1]  # strip eoln
+    self.add_header('Authorization', 'Basic ' + bytes.decode(encoded_auth))
 
   def export_to_json_snapshot(self, snapshot, entity):
     """Implements JsonSnapshotableEntity interface."""

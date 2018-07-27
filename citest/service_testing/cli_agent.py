@@ -179,7 +179,10 @@ class CliAgent(base_agent.BaseAgent):
         command,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
     stdout, stderr = process.communicate()
-
+    if stdout is not None:
+      stdout = bytes.decode(stdout)
+    if stderr is not None:
+      stderr = bytes.decode(stderr)
     scrubber = output_scrubber or self.__output_scrubber
     if scrubber:
       log_msg = 'Scrubbing output with {0}'.format(scrubber.__class__.__name__)
