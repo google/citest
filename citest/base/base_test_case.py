@@ -17,7 +17,7 @@
 
 The BaseTestCase class is derived from unittest.TestCase, providing some
 boilerplate and common routines on top of it. The class makes some changes
-to accomodate for differences in writing integration tests from unit tests.
+to accommodate for differences in writing integration tests from unit tests.
 In particular, whereas unit tests are cheap, can be run in any order and have
 no side effects affecting other tests, integration tests may [intentionally]
 have lasting side effects that other tests depend on due their cost to run.

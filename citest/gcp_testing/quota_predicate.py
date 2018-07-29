@@ -93,7 +93,7 @@ class QuotaPredicate(ValuePredicate):
     Args:
       minimum_quota [dict of number]: Dictionary of resource metric names
          and quota they require. The predicate will check that the available
-         resource quota can accomodate the additional number in this dict.
+         resource quota can accommodate the additional number in this dict.
 
       See base class (ValuePredicate) for additional kwargs.
     """
