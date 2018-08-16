@@ -108,8 +108,10 @@ class ObservationVerifyResultPruneEntityTransformer(PruneEntityTransformer):
     if not self.valid:
       return dup
     dup = copy.copy(dup)
-    self._remove_edge(dup, 'Bad Results')
-    dup['failed_results_pruned'] = len(self.__bad or [])
+    prune_bad = self.__bad and self.__all
+    if prune_bad:
+      self._remove_edge(dup, 'Bad Results')
+    dup['failed_results_pruned'] = prune_bad and len(self.__bad)
     pruned_all = []
     for result in self.__all or []:
       if result.get('relation') == 'INVALID':
