@@ -227,9 +227,11 @@ class ProcessToRenderInfo(object):
       return self.process_json_html_if_possible(value)
     elif text_format == 'pre':
       count = value.count('\n')
-      summary = ('{0} lines'.format(count)
-                 if count > self.max_uncollapsable_pre_lines
-                 else None)
+      summary = edge.get('summary') or (
+          '{0} lines'.format(count)
+          if count > self.max_uncollapsable_pre_lines
+          else None)
+      
       # The ff tag here is a custom tag for "Fixed Format"
       # It is like 'pre' but inline rather than block to be more compact.
       return HtmlInfo(self.__document_manager.make_tag_text('ff', value),
@@ -406,10 +408,8 @@ class ProcessToRenderInfo(object):
     else:
       summary_html = None
 
-    return HtmlInfo(
-        table,
-        summary=self.__document_manager.make_text_block(
-            summary_html))
+    summary = self.__document_manager.make_text_block(summary_html)
+    return HtmlInfo(table, summary=summary)
 
   def process_entity_id(self, subject_id, snapshot, in_relation):
     """Renders a JsonSnapshot Entity into HtmlInfo.
@@ -580,7 +580,8 @@ class HtmlRenderer(JournalProcessor):
       title_html = document_manager.make_tag_text('padded', title, **final_css)
 
     self.render_log_tr(snapshot.get('_timestamp'),
-                       title_html, info.detail_block, collapse_decorator=title)
+                       title_html, info.detail_block, collapse_decorator=title,
+                       css=final_css)
     return
 
   @staticmethod
@@ -631,9 +632,11 @@ class HtmlRenderer(JournalProcessor):
     else:
       date_str = self.timestamp_to_string(timestamp)
 
+    css_class = None if css is None else css.get('class_')
+    td_tag_kwargs = {} if summary else {'class': css_class}
     tr_tag = document_manager.new_tag('tr')
     th_tag = document_manager.make_tag_text('th', date_str, class_='rj')
-    td_tag = document_manager.new_tag('td')
+    td_tag = document_manager.new_tag('td', **td_tag_kwargs)
     tr_tag.append(th_tag)
     tr_tag.append(td_tag)
 
@@ -656,7 +659,6 @@ class HtmlRenderer(JournalProcessor):
         document_manager.make_expandable_tag_attr_kwargs_pair(
             section_id=section_id, default_expanded=False))
 
-    css_class = None if css is None else css.get('class_')
     show_span = document_manager.make_tag_container(
         'span', [show, summary], class_=css_class, **summary_tag_attrs)
 

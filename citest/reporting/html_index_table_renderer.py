@@ -18,7 +18,7 @@ each row is a test and each column is a different occurance of it.
 
 import os
 import sys
-from .journal_processor import JournalProcessor
+from .journal_processor import (JournalProcessor, ProcessedEntityManager)
 from .html_document_manager import HtmlDocumentManager
 
 class TestStats(object):
@@ -346,6 +346,7 @@ class HtmlIndexTableRenderer(JournalProcessor):
     self.__detail_stats = {}
     self.__start_timestamp = None
     self.__in_test = None
+    self.__summary_status = None
 
   def __reset_journal_counters(self):
     self.__stats = TestStats.new()
@@ -353,6 +354,16 @@ class HtmlIndexTableRenderer(JournalProcessor):
     self.__detail_stats = {}
     self.__start_timestamp = None
     self.__in_test = None
+    self.__summary_status = None
+
+  def __ingest_summary_status(self, baseline, hint):
+    """Add hint for overall status."""
+    sequence = [None, 'VALID', 'INVALID', 'ERROR']
+
+    hint_index = sequence.index(hint)
+    if hint_index < 0:
+      raise ValueError('Unhandled hint {0}'.format(hint))
+    return hint if hint_index > sequence.index(baseline) else baseline
 
   def __handle_generic(self, entry):
     """Handles entries from the journal to update the overall summary.
@@ -360,6 +371,16 @@ class HtmlIndexTableRenderer(JournalProcessor):
     Args:
       entry: JSON entry from the journal
     """
+    if entry.get('_type') == 'JsonSnapshot' and self.__depth == 0:
+      # Consider root-level snapshots for overall status.
+      entity_manager = ProcessedEntityManager()
+      entity_manager.push_entity_map(entry.get('_entities', {}))
+      relation = entity_manager.lookup_entity_with_id(
+          entry.get('_subject_id')).get('_default_relation')
+      self.__summary_status = self.__ingest_summary_status(
+          self.__summary_status, relation)
+      return
+
     # Look for top-level control objects that indicate tests.
     # TODO(ewiseblatt): 20160301
     # This should be formalized since the concept of a test is reasonably
@@ -390,6 +411,9 @@ class HtmlIndexTableRenderer(JournalProcessor):
                   if end_timestamp and self.__start_timestamp
                   else 0)
           relation = entry.get('relation')
+          self.__summary_status = self.__ingest_summary_status(
+              self.__summary_status, relation)
+
           if relation == 'VALID':
             passed = 1
           elif relation == 'INVALID':
@@ -423,11 +447,12 @@ class HtmlIndexTableRenderer(JournalProcessor):
     html_path = os.path.splitext(journal)[0] + '.html'
     self.__total_stats.aggregate(self.__stats)
 
-    cell_html = self.make_summary_cell(html_path, self.__stats)
+    css = {'class_': self.__summary_status} if self.__summary_status else {}
+    cell_html = self.make_summary_cell(html_path, self.__stats, css=css)
 
     return cell_html, self.__stats, self.__detail_stats
 
-  def make_summary_cell(self, html_path, stats, suffix=''):
+  def make_summary_cell(self, html_path, stats, suffix='', css=None):
     """Helper function to write an individual row in the index."""
     secs = stats.secs
     if secs is not None:
@@ -438,10 +463,11 @@ class HtmlIndexTableRenderer(JournalProcessor):
       time = 'Unknown'
 
     document_manager = self.__document_manager
+    css = css or stats.determine_css(suffix=suffix)
     detail = document_manager.make_tag_html(
         'div',
         '%s<br/>%s' % (stats.to_text(), time),
-        **stats.determine_css(suffix=suffix))
+        **css)
 
     if html_path:
       summary = document_manager.make_tag_container(

@@ -34,6 +34,7 @@ import logging
 import logging.config
 import os
 import os.path
+import re
 import stat
 import sys
 import unittest
@@ -82,6 +83,54 @@ _DEFAULT_LOG_CONFIG = """{
 }
 """
 
+
+class TestResultSnapshotableEntity(JsonSnapshotableEntity):
+  """Helper class for snapshoting unittest.TestResult summary."""
+
+  @property
+  def default_relation(self):
+    """Overall status relation."""
+    if self.__result.errors:
+      return 'ERROR'
+    if self.__result.failures:
+      return 'INVALID'
+    if self.__result.testsRun - len(self.__result.skipped):
+      return 'VALID'
+    return None
+
+  def __init__(self, result):
+    self.__result = result
+
+  def export_to_json_snapshot(self, snapshot, entity):
+    """Implements JsonSnapshotableEntity interface."""
+    total = self.__result.testsRun
+    num_skipped = len(self.__result.skipped)
+    num_failures = len(self.__result.failures)
+    num_errors = len(self.__result.errors)
+    num_ok = total - num_skipped - num_failures - num_errors
+    builder = snapshot.edge_builder
+
+    def maybe_add_list(title, count, items, relation=None):
+      if not count:
+        return
+      details = snapshot.new_entity()
+      for index, info in enumerate(items):
+        builder.make(details, '[%d]' % index,
+                     '%s\n%s' % (info[0], info[1]),
+                     summary=str(info[0]),
+                     format='pre')
+      builder.make(entity, '%s=%d' % (title, count), details,
+                   relation=relation)
+
+    if num_ok:
+      snapshot.edge_builder.make_valid(entity, 'OK', num_ok)
+    maybe_add_list('Skipped', num_skipped, self.__result.skipped)
+    maybe_add_list('Failures', num_failures, self.__result.failures,
+                   relation='INVALID')
+    maybe_add_list('Errors', num_errors, self.__result.errors,
+                   relation='ERROR')
+    entity.add_metadata('_default_relation', self.default_relation)
+      
 
 class TestRunner(object):
   """Provides additional reporting for existing TestRunners.
@@ -254,8 +303,14 @@ class TestRunner(object):
     logger.info('Finished Setup. Start Tests\n'
                 + ' ' * (8 + 1)  # for leading timestamp prefix
                 + '---------------------------\n')
+    suite_names = ', '.join(sorted(list(set([elem.__class__.__name__
+                                             for elem in suite._tests]))))
     result = self.run(suite)
 
+    result_entity = TestResultSnapshotableEntity(result)
+    self.__journal.store(result_entity,
+                         _title='Summary for %s' % suite_names,
+                         _default_relation=result_entity.default_relation)
     self._terminate_and_flush_journal()
     return len(result.failures) + len(result.errors)
 

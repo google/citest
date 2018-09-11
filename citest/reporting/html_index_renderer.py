@@ -17,7 +17,7 @@
 
 import os
 import sys
-from .journal_processor import JournalProcessor
+from .journal_processor import (JournalProcessor, ProcessedEntityManager)
 
 
 class HtmlIndexRenderer(JournalProcessor):
@@ -36,6 +36,7 @@ class HtmlIndexRenderer(JournalProcessor):
     self.__total_passed = 0
     self.__total_failed = 0
     self.__total_secs = 0
+    self.__overall_status = None
 
     self.__first_timestamp = None
     self.__last_timestamp = None
@@ -43,14 +44,40 @@ class HtmlIndexRenderer(JournalProcessor):
     self.__failed_count = 0
     self.__depth = 0
     self.__in_test = False
+    self.__summary_status = None
 
   def __reset_journal_counters(self):
+    self.__overall_status = self.__ingest_summary_status(
+        self.__overall_status, self.__summary_status)
     self.__first_timestamp = None
     self.__last_timestamp = None
     self.__passed_count = 0
     self.__failed_count = 0
     self.__depth = 0
     self.__in_test = False
+    self.__summary_status = None
+
+  def __ingest_summary_status(self, baseline, hint):
+    """Add hint for overall status."""
+    sequence = [None, 'VALID', 'INVALID', 'ERROR']
+
+    hint_index = sequence.index(hint)
+    if hint_index < 0:
+      raise ValueError('Unhandled hint {0}'.format(hint))
+    return hint if hint_index > sequence.index(baseline) else baseline
+
+  def __increment_relation_count(self, relation):
+    """Increment number of relations."""
+    self.__summary_status = self.__ingest_summary_status(
+        self.__summary_status, relation)
+    if relation == 'VALID':
+      self.__passed_count += 1
+    elif relation == 'INVALID':
+      self.__failed_count += 1
+    elif relation == 'ERROR':
+      self.__failed_count += 1
+    else:
+      raise ValueError('Unhandled relation {0}'.format(relation))
 
   def __handle_generic(self, entry):
     """Handles entries from the journal to update the overall summary.
@@ -63,6 +90,16 @@ class HtmlIndexRenderer(JournalProcessor):
     if self.__first_timestamp is None:
       self.__first_timestamp = timestamp
     self.__last_timestamp = timestamp or self.__last_timestamp
+
+    if entry.get('_type') == 'JsonSnapshot' and self.__depth == 0:
+      # Consider root-level snapshots for overall status.
+      entity_manager = ProcessedEntityManager()
+      entity_manager.push_entity_map(entry.get('_entities', {}))
+      relation = entity_manager.lookup_entity_with_id(
+          entry.get('_subject_id')).get('_default_relation')
+      self.__summary_status = self.__ingest_summary_status(
+          self.__summary_status, relation)
+      return
 
     # Look for top-level control objects that indicate tests.
     # TODO(ewiseblatt): 20160301
@@ -84,14 +121,7 @@ class HtmlIndexRenderer(JournalProcessor):
         self.__depth -= 1
         if self.__depth == 0 and self.__in_test:
           relation = entry.get('relation')
-          if relation == 'VALID':
-            self.__passed_count += 1
-          elif relation == 'INVALID':
-            self.__failed_count += 1
-          elif relation == 'ERROR':
-            self.__failed_count += 1
-          else:
-            raise ValueError('Unhandled relation {0}'.format(relation))
+          self.__increment_relation_count(relation)
         return
 
   @property
@@ -134,22 +164,25 @@ class HtmlIndexRenderer(JournalProcessor):
 
     summary = self.__document_manager.make_tag_text(
         'a', journal_basename, class_='toggle', href=html_path)
-    self.__write_row(self.__passed_count, self.__failed_count, summary, secs)
+    self.__write_row(self.__passed_count, self.__failed_count, summary, secs,
+                     self.__summary_status)
 
-  def __write_row(self, passed_count, failed_count, summary, secs):
+  def __write_row(self, passed_count, failed_count, summary, secs,
+                  summary_status):
     """Helper function to write an individual row in the index."""
     pcss = {}
     fcss = {}
     css = {}
 
+    if summary_status is not None:
+      fcss = {'class_': summary_status.lower()}
+
     if passed_count > 0:
-      fcss = {'class_': 'valid'}  # So far it is good nothing failed.
       pcss = {'class_': 'valid'}  # It's always good something passed.
       css = pcss               # Assume overall success is good
 
     if failed_count > 0:
-      fcss = {'class_': 'invalid'}  # It's always bad that something failed.
-      css = fcss                 # Overall success is bad if something failed.
+      css = fcss               # Overall success is bad if something failed.
 
     if secs is not None:
       time = '' if secs < 3600 else '%d:' % (secs // 3600)
@@ -181,5 +214,6 @@ class HtmlIndexRenderer(JournalProcessor):
 
     # Add the summary row
     self.__write_row(self.__total_passed, self.__total_failed,
-                     "<em>Overall Total</em>", self.__total_secs)
+                     "<em>Overall Total</em>", self.__total_secs,
+                     self.__overall_status)
 

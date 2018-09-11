@@ -144,10 +144,10 @@ class BaseTestCase(unittest.TestCase):
     error_details = '%s: %s' % (err[0], err[1])
     trace = traceback.format_tb(err[2])
     JournalLogger.journal_or_log_detail(
-        'Raised Exception', error_details,
+        'Raised Exception', error_details, relation='ERROR',
         levelno=logging.ERROR, format='pre', _logger=self.logger)
     JournalLogger.journal_or_log_detail(
-        'Exception Trace', trace,
+        'Exception Trace', trace, relation='ERROR',
         levelno=logging.DEBUG, format='pre', _logger=self.logger)
     return delegate(test, err)
 

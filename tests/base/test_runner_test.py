@@ -35,14 +35,17 @@ aforementioned TestCase). There are a couple fixtures testing the handling
 if adding new commandline arguments and an overall testing fixture.
 """
 
+import json
 import os.path
 import sys
 import unittest
+from io import BytesIO
 import __main__
 
 from citest.base import (
     BaseTestCase,
     ConfigurationBindingsBuilder,
+    RecordInputStream,
     TestRunner)
 
 
@@ -50,6 +53,12 @@ from citest.base import (
 # pylint: disable=global-statement
 call_check = []
 in_test_main = False
+
+
+FAILURE_TESTS_DISABLED = True
+def enable_failure_tests():
+  global FAILURE_TESTS_DISABLED
+  FAILURE_TESTS_DISABLED = False
 
 
 class TestingTestRunner(TestRunner):
@@ -76,7 +85,7 @@ class TestRunnerTest(BaseTestCase):
   def setUp(self):
     """Disable tests called from the global fixture."""
     if not in_test_main:
-      raise unittest.SkipTest('not in test runner yet.')
+      raise self.skipTest('not in test runner yet.')
 
   def test_was_called(self):
     """Mark a test as having been run so we know we are calling tests."""
@@ -96,11 +105,11 @@ class TestRunnerTest(BaseTestCase):
 
     # Configures from our runner's properties.
     a = TestRunner.get_shared_data(MyData)
-    self.assertEquals('MyTestBindingValue', a.bindings.get('test_binding'))
+    self.assertEqual('MyTestBindingValue', a.bindings.get('test_binding'))
 
     # Acts as singleton
     b = TestRunner.get_shared_data(MyData)
-    self.assertEquals(a, b)
+    self.assertEqual(a, b)
 
   def test_shared_data_with_extra_bindings(self):
     """Tests global singleton data management provided by TestRunner."""
@@ -120,11 +129,11 @@ class TestRunnerTest(BaseTestCase):
 
     # Configures from our runner's properties.
     a = TestRunner.get_shared_data(MyData)
-    self.assertEquals('MyData', a.bindings.get('data'))
+    self.assertEqual('MyData', a.bindings.get('data'))
 
     # Acts as singleton
     b = TestRunner.get_shared_data(MyData)
-    self.assertEquals(a, b)
+    self.assertEqual(a, b)
 
   def test_default_config_file_bindings(self):
     """Tests whether the CITEST_CONFIG_PATH bindings are added."""
@@ -140,7 +149,7 @@ class TestBindingOrParamFixture(BaseTestCase):
   def setUp(self):
     """Disable tests called from the global fixture."""
     if not in_test_main:
-      raise unittest.SkipTest('not in test runner yet.')
+      raise self.skipTest('not in test runner yet.')
 
   def test_was_called(self):
     """Mark a test as having been run so we know we are calling tests."""
@@ -152,28 +161,28 @@ class TestBindingOrParamFixture(BaseTestCase):
     builder = ConfigurationBindingsBuilder()
     TestRunner.global_runner().init_bindings_builder(builder)
     bindings = builder.build()
-    self.assertEquals('.', bindings.get('log_dir'))
-    self.assertEquals(os.path.splitext(os.path.basename(__main__.__file__))[0],
-                      bindings.get('log_filebase'))
+    self.assertEqual('.', bindings.get('log_dir'))
+    self.assertEqual(os.path.splitext(os.path.basename(__main__.__file__))[0],
+                     bindings.get('log_filebase'))
 
     # While not necessarily a design criteria, the implementation has all
     # the bindings added by all the fixtures.
-    self.assertEquals('MyTestParamValue', bindings.get('TEST_PARAM'))
-    self.assertEquals('MyTestBindingValue', bindings.get('TEST_BINDING'))
+    self.assertEqual('MyTestParamValue', bindings.get('TEST_PARAM'))
+    self.assertEqual('MyTestBindingValue', bindings.get('TEST_BINDING'))
 
   def test_bindings(self):
     """Verify bindings are set on the runner."""
 
     bindings = TestRunner.global_runner().bindings
-    self.assertEquals('.', bindings['LOG_DIR'])
-    self.assertEquals(
+    self.assertEqual('.', bindings['LOG_DIR'])
+    self.assertEqual(
         os.path.splitext(os.path.basename(__main__.__file__))[0],
         bindings['LOG_FILEBASE'])
 
     # While not necessarily a design criteria, the implementation has all
     # the bindings added by all the fixtures.
-    self.assertEquals('MyTestParamValue', bindings.get('TEST_PARAM'))
-    self.assertEquals('MyTestBindingValue', bindings.get('TEST_BINDING'))
+    self.assertEqual('MyTestParamValue', bindings.get('TEST_PARAM'))
+    self.assertEqual('MyTestBindingValue', bindings.get('TEST_BINDING'))
 
   def test_bindings_from_config(self):
     """Verify bindings from the implied config file in the TestRunner.
@@ -181,8 +190,8 @@ class TestBindingOrParamFixture(BaseTestCase):
     We set the config file in the fixture forking this test.
     """
     bindings = TestRunner.global_runner().bindings
-    self.assertEquals('tests/base/bindings_test',
-                      bindings.get('config_location'))
+    self.assertEqual('tests/base/bindings_test',
+                     bindings.get('config_location'))
 
 
 class TestParamFixture(TestBindingOrParamFixture):
@@ -232,10 +241,88 @@ class TestRunnerTestCase(unittest.TestCase):
       else:
         del os.environ['CITEST_CONFIG_PATH']
 
-    self.assertEquals(0, result)
-    self.assertEquals(call_check, test_fixtures)
-    self.assertEquals(1, TestingTestRunner.terminate_calls)
+    self.assertEqual(0, result)
+    self.assertEqual(call_check, test_fixtures)
+    self.assertEqual(1, TestingTestRunner.terminate_calls)
+
+
+class JournalContentTest(BaseTestCase):
+  journal_data = None  # set in prepare_class()
+  expected_fixture_name = None  # set in prepare_class()
+  expected_summary_relation = None  # set in prepare_class()
+
+  @classmethod
+  def run_fixture(cls, test_fixture, expect_relation):
+    """Set class variables for next fixture run."""
+    test_fixture_name = test_fixture.__name__
+    overrides = {'LOG_FILEBASE': 'test_runner_test__' + test_fixture_name,
+                 'LOG_DIR': '.'}
+
+    result = TestRunner.main(test_case_list=[test_fixture],
+                             default_binding_overrides=overrides)
+    if (result == 0) != (expect_relation == 'VALID'):
+      sys.exit(-1)
+
+    journal_path = os.path.join(
+        '.', overrides['LOG_FILEBASE'] + '.journal')
+    with open(journal_path, 'rb') as stream:
+      cls.journal_data = stream.read()
+    cls.expected_summary_relation = expect_relation
+    cls.expected_fixture_name = test_fixture_name
+
+    overrides['LOG_FILEBASE'] = 'test_runner_test__JournalContentTest'
+    result = TestRunner.main(test_case_list=[JournalContentTest],
+                             default_binding_overrides=overrides)
+    if result:
+      sys.exit(result)
+
+  def test_journal_data_summary(self):
+    """Check the classes journal_data."""
+    if FAILURE_TESTS_DISABLED:
+      self.skipTest('Not run from test_runner_test.main')
+    stream = RecordInputStream(BytesIO(self.journal_data))
+    record_list = []
+    for record_str in stream:
+      record = json.JSONDecoder().decode(record_str)
+      record_list.append(record)
+    last_record = record_list[-1]
+    self.assertEqual('JournalMessage', last_record.get('_type'))
+    self.assertEqual('Finished journal.', last_record.get('_value'))
+
+    summary_record = record_list[-2]
+    self.assertEqual('JsonSnapshot', summary_record.get('_type'))
+    self.assertEqual('Summary for %s' % self.expected_fixture_name,
+                     summary_record.get('_title'))
+    self.assertEqual(self.expected_summary_relation,
+                     summary_record.get('_default_relation'))
+
+
+class TestFailureTestCase(BaseTestCase):
+  """Test case for fixture that fails a test."""
+
+  def test_fail(self):
+    if FAILURE_TESTS_DISABLED:
+      self.skipTest('Not run from test_runner_test.main')
+    self.assertTrue(False)
+
+class TestCleanupErrorTestCase(BaseTestCase):
+  """Test case for fixture that passes tests, but fails cleanup."""
+
+  def test_ok(self):
+    pass
+
+  @classmethod
+  def tearDownClass(cls):
+    """Cause an exception."""
+    if FAILURE_TESTS_DISABLED:
+      return
+    raise ValueError('Forced Error')
 
 
 if __name__ == '__main__':
-  sys.exit(TestRunner.main(test_case_list=[TestRunnerTestCase]))
+  enable_failure_tests()
+  JournalContentTest.run_fixture(TestFailureTestCase, 'INVALID')
+  JournalContentTest.run_fixture(TestCleanupErrorTestCase, 'ERROR')
+  JournalContentTest.run_fixture(TestRunnerTestCase, 'VALID')
+
+  sys.exit(0)
