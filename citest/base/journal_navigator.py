@@ -16,7 +16,7 @@
 
 import json
 
-from citest.base import RecordInputStream
+from .record_stream import RecordInputStream
 
 
 class JournalNavigator(object):

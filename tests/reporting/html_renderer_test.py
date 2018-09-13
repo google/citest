@@ -16,10 +16,12 @@
 
 import unittest
 
-from citest.base import (JsonSnapshotableEntity, JsonSnapshot)
+from citest.base import (
+    JsonSnapshotableEntity,
+    JsonSnapshot,
+    ProcessedEntityManager)
 from citest.reporting.html_document_manager import HtmlDocumentManager
 from citest.reporting.html_renderer import ProcessToRenderInfo
-from citest.reporting.journal_processor import ProcessedEntityManager
 
 
 class TestLinkedList(JsonSnapshotableEntity):

@@ -17,7 +17,7 @@
 
 import os
 import sys
-from .journal_processor import (JournalProcessor, ProcessedEntityManager)
+from citest.base import (JournalProcessor, ProcessedEntityManager)
 
 
 class HtmlIndexRenderer(JournalProcessor):

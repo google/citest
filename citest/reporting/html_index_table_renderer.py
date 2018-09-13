@@ -18,7 +18,7 @@ each row is a test and each column is a different occurance of it.
 
 import os
 import sys
-from .journal_processor import (JournalProcessor, ProcessedEntityManager)
+from citest.base import (JournalProcessor, ProcessedEntityManager)
 from .html_document_manager import HtmlDocumentManager
 
 class TestStats(object):

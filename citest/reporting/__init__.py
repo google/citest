@@ -22,19 +22,6 @@ the abstractions to use for the type of debugging or comparative reference you
 want to perform.
 """
 
-# The navigator module provides simple traversal of journal files.
-# It doesnt provide any interpretation or extraction, but it does understand
-# the journal file format.
-from .journal_navigator import JournalNavigator
-
-# The processor provides a base class for providing handlers on different types
-# of journal entries. It doesnt do anything interesting, but provides
-# boilerplate code so that specific renderers or processors can focus on their
-# task at hand and not infrastructure.
-from .journal_processor import (
-    JournalProcessor,
-    ProcessedEntityManager)
-
 # The HTML document manager provides support for producing HTML documents.
 from .html_document_manager import HtmlDocumentManager
 

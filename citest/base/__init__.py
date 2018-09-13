@@ -39,6 +39,13 @@ from .global_journal import (
     set_global_journal,
     unset_global_journal)
 
+from .journal_navigator import (
+    JournalNavigator)
+
+from .journal_processor import (
+    JournalProcessor,
+    ProcessedEntityManager)
+
 from .execution_context import ExecutionContext
 from .json_scrubber import JsonScrubber
 from .base_test_case import BaseTestCase
