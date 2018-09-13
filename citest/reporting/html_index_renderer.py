@@ -171,11 +171,10 @@ class HtmlIndexRenderer(JournalProcessor):
                   summary_status):
     """Helper function to write an individual row in the index."""
     pcss = {}
-    fcss = {}
     css = {}
 
-    if summary_status is not None:
-      fcss = {'class_': summary_status.lower()}
+    _, fcss = self.__document_manager.determine_attribute_css_kwargs(
+        summary_status)
 
     if passed_count > 0:
       pcss = {'class_': 'valid'}  # It's always good something passed.
@@ -216,4 +215,3 @@ class HtmlIndexRenderer(JournalProcessor):
     self.__write_row(self.__total_passed, self.__total_failed,
                      "<em>Overall Total</em>", self.__total_secs,
                      self.__overall_status)
-

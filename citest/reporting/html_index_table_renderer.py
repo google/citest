@@ -193,7 +193,7 @@ class HtmlIndexTableRenderer(JournalProcessor):
           document_manager.make_tag_html(
               'th',
               document_manager.make_tag_text('a', test_name, class_='toggle'))
-        ]
+      ]
       for dirname in column_keys:
         details = journal_to_details.get(os.path.join(dirname, basename))
         if not details or test_name not in details:
@@ -447,7 +447,8 @@ class HtmlIndexTableRenderer(JournalProcessor):
     html_path = os.path.splitext(journal)[0] + '.html'
     self.__total_stats.aggregate(self.__stats)
 
-    css = {'class_': self.__summary_status} if self.__summary_status else {}
+    _, css = self.__document_manager.determine_attribute_css_kwargs(
+        self.__summary_status)
     cell_html = self.make_summary_cell(html_path, self.__stats, css=css)
 
     return cell_html, self.__stats, self.__detail_stats
