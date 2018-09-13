@@ -166,6 +166,15 @@ class AgentTestCaseTest(st.AgentTestCase):
     self.__execute_test(
         succeed=False, with_callbacks=True, with_context=False)
 
+  def test_run_test_throws_exception_fails(self):
+    # Confirm error handling is plumbed through such that
+    # if the operation fails to execute, we still fail.
+    operation = st.AgentOperation('Failure')
+    contract = jc.Contract()
+    operation_contract = st.OperationContract(operation, contract)
+    self.assertRaises(NotImplementedError,
+                      self.run_test_case, operation_contract)
+
 
 class TestScenario(st.AgentTestScenario):
   @classmethod

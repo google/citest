@@ -585,15 +585,14 @@ class AgentTestCase(BaseTestCase):
       self._do_run_test_case_with_hooks(test_case, context, **kwargs)
     finally:
       try:
-        if not test_case.cleanup:
-          return
-        attempt_info = context.get(self.CONTEXT_KEY_ATTEMPT_INFO, None)
-        if attempt_info is None or attempt_info.status is None:
-          self.logger.info('Skipping operation cleanup because'
-                           ' operation could not be performed at all.')
-        else:
-          self.logger.info('Invoking injected operation cleanup.')
-          test_case.cleanup(context)
+        if test_case.cleanup:
+          attempt_info = context.get(self.CONTEXT_KEY_ATTEMPT_INFO, None)
+          if attempt_info is None or attempt_info.status is None:
+            self.logger.info('Skipping operation cleanup because'
+                             ' operation could not be performed at all.')
+          else:
+            self.logger.info('Invoking injected operation cleanup.')
+            test_case.cleanup(context)
       finally:
         verify_results = context.get(
             self.CONTEXT_KEY_CONTRACT_VERIFY_RESULTS, None)
