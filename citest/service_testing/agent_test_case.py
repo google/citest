@@ -42,7 +42,6 @@ import traceback as traceback_module
 from citest.base import (
     args_util,
     BaseTestCase,
-    ConfigurationBindingsBuilder,
     ExecutionContext,
     JournalLogger,
     JsonSnapshotableEntity)
@@ -534,7 +533,7 @@ class AgentTestCase(BaseTestCase):
     def run_one(test_case, **call_kwargs):
       """Helper function to run individual tests."""
       kwargs = dict(list_kwargs)
-      kwargs.update(call_args)
+      kwargs.update(call_kwargs)
       self.run_test_case(
           test_case=test_case, context=context, **kwargs)
 
@@ -601,7 +600,7 @@ class AgentTestCase(BaseTestCase):
         else:
           final_status_ok = context.get(self.CONTEXT_KEY_FINAL_STATUS_OK, False)
           context_relation = ('VALID' if (final_status_ok and verify_results)
-                          else 'INVALID')
+                              else 'INVALID')
         JournalLogger.end_context(relation=context_relation)
 
   def _do_run_test_case_with_hooks(self, test_case, context, **kwargs):

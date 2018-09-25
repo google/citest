@@ -119,7 +119,7 @@ class HtmlIndexRenderer(JournalProcessor):
     if entry.get('control') == 'END':
         # pylint: disable=bad-indentation
         self.__depth -= 1
-        if self.__depth == 0 and self.__in_test:
+        if self.__depth == 0:
           relation = entry.get('relation')
           self.__increment_relation_count(relation)
         return

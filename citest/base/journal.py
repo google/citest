@@ -66,9 +66,12 @@ class Journal(object):
 
     Args:
       _path: [string] Path to file to write into.
+      _append: [bool] True if append, else write new.
       metadata: [kwargs] Metadata for initial entry.
     """
-    self.open_with_file(open(_path, 'wb'), **metadata)
+    append = metadata.pop('_append', False)
+    mode = 'ab' if append else 'wb'
+    self.open_with_file(open(_path, mode), **metadata)
 
   def open_with_file(self, _output, **metadata):
     """
@@ -76,6 +79,7 @@ class Journal(object):
       output: [FileObject] Takes ownership of the file to store snapshots into.
       metadata: [kwargs] Metadata for initial message.
     """
+    message = metadata.pop('_message', 'Starting journal.')
     self.__lock.acquire(True)
     try:
       if self.__output is not None:
@@ -85,7 +89,8 @@ class Journal(object):
     finally:
       self.__lock.release()
 
-    self.write_message('Starting journal.', **metadata)
+    if message:
+      self.write_message(message, **metadata)
 
   def terminate(self, **metadata):
     """Stops writing into journal.
@@ -93,7 +98,9 @@ class Journal(object):
     Args:
       metadata: [kwargs]  Defines final metadata entry summarizing the journal.
     """
-    self.write_message('Finished journal.', **metadata)
+    message = metadata.pop('_message', 'Finished journal.')
+    if message:
+      self.write_message(message, **metadata)
     self.__lock.acquire(True)
     try:
       if self.__output is None:
