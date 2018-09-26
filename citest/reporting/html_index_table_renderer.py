@@ -445,7 +445,7 @@ class HtmlIndexTableRenderer(JournalProcessor):
               navigator.journal_id))
       self.__stats.error = 1
 
-    html_path = navigator.journal_name + '.html'
+    html_path = os.path.splitext(navigator.journal_id)[0] + '.html'
     self.__total_stats.aggregate(self.__stats)
 
     _, css = self.__document_manager.determine_attribute_css_kwargs(

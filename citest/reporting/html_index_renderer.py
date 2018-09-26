@@ -148,7 +148,7 @@ class HtmlIndexRenderer(JournalProcessor):
               navigator.journal_id))
       self.__failed_count = 1
 
-    html_path = navigator.journal_name + '.html'
+    html_path = os.path.splitext(navigator.journal_id)[0] + '.html'
     self.__total_passed += self.__passed_count
     self.__total_failed += self.__failed_count
 
