@@ -22,7 +22,9 @@ import functools
 import math
 import sys
 
-from citest.base import JournalProcessor
+from citest.base import (
+    JournalProcessor,
+    JournalStreamNavigator)
 
 
 def level_prefix(level, nub='+ '):

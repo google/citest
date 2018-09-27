@@ -159,7 +159,7 @@ class HtmlIndexRenderer(JournalProcessor):
       secs = None
 
     summary = self.__document_manager.make_tag_text(
-        'a', journal_basename, class_='toggle', href=html_path)
+        'a', navigator.journal_name, class_='toggle', href=html_path)
     self.__write_row(self.__passed_count, self.__failed_count, summary, secs,
                      self.__summary_status)
 

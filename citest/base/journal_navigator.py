@@ -15,6 +15,7 @@
 """Various journal iterators to facilitate navigating through journal JSON."""
 
 import json
+import logging
 import os
 
 try:
