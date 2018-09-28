@@ -43,7 +43,7 @@ class PassphraseInjector(object):
     self.__fd = fd
     self.__ssh_passphrase_file = ssh_passphrase_file
     self.__daemon = daemon
-    self.__logger = logger or logging.get_logger(__name__)
+    self.__logger = logger or logging.getlogger(__name__)
 
   def __call__(self):
     """Reads from the bound fd and injects the passphrase when asked.

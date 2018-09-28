@@ -22,9 +22,7 @@ import functools
 import math
 import sys
 
-from citest.base import (
-    JournalProcessor,
-    JournalStreamNavigator)
+from citest.base import JournalProcessor
 
 
 def level_prefix(level, nub='+ '):
@@ -204,23 +202,3 @@ class DumpRenderer(JournalProcessor):
     else:
       self.emit('{format} {text!r}',
                 time=time, format=optional_format, text=text)
-
-
-def main(argv):
-  """Main program for dumping as text."""
-  parser = argparse.ArgumentParser()
-  parser.add_argument('--details', default=False, action='store_true',
-                      help='Show all the details.')
-  parser.add_argument('--outline', default=False, action='store_true',
-                      help='Show an outline only.')
-  parser.add_argument('journals', metavar='PATH', type=str, nargs='+',
-                      help='list of journals to process')
-  options = parser.parse_args(argv[1:])
-  for path in options.journals:
-    processor = DumpRenderer(vars(options))
-    processor.process(JournalStreamNavigator.new_from_path(path))
-    processor.terminate()
-
-
-if __name__ == '__main__':
-  main(sys.argv)

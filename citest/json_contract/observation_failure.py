@@ -17,14 +17,13 @@
 
 import logging
 
-import citest.json_predicate.map_predicate as map_predicate
-import citest.json_predicate.predicate as predicate
+import citest.json_predicate as jp
 from . import observation_predicate as op
 from . import observation_verifier as ov
 from . import observer
 
 
-class ObservationFailedError(predicate.PredicateResult):
+class ObservationFailedError(jp.PredicateResult):
   """Denotes a PredicateResult for a failure to make an observation.
 
   This is intended for ObservationVerifier where the attempt to make an
@@ -101,13 +100,13 @@ class ObservationFailureVerifier(ov.ObservationVerifier):
 
     if valid:
       result = ObservationFailedError(valid=True, failures=[error])
-      map_attempt = map_predicate.ObjectResultMapAttempt(observation, result)
+      map_attempt = jp.ObjectResultMapAttempt(observation, result)
       good_results = [map_attempt]
       bad_results = []
     else:
       comment = self._error_not_found_comment(observation)
-      result = predicate.PredicateResult(valid=False, comment=comment)
-      map_attempt = map_predicate.ObjectResultMapAttempt(observation, result)
+      result = jp.PredicateResult(valid=False, comment=comment)
+      map_attempt = jp.ObjectResultMapAttempt(observation, result)
       good_results = []
       bad_results = [map_attempt]
 
@@ -145,6 +144,5 @@ class ObservationFailurePredicate(op.ObservationPredicate):
       pred_result = self.__pred(context, observation.errors)
 
     return op.ObservationPredicateResult(
-      pred_result.valid, observation, pred=self.__pred, pred_result=pred_result)
-
-    
+        pred_result.valid, observation,
+        pred=self.__pred, pred_result=pred_result)
