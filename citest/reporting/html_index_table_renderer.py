@@ -406,7 +406,14 @@ class HtmlIndexTableRenderer(JournalProcessor):
     if entry.get('control') == 'END':
         # pylint: disable=bad-indentation
         self.__depth -= 1
-        if self.__depth == 0 and self.__in_test:
+        if self.__depth == 0:
+          relation = entry.get('relation')
+          if not self.__in_test:
+            if relation is not None:
+              self.__summary_status = self.__ingest_summary_status(
+                  self.__summary_status, relation)
+            return
+
           passed = 0
           failed = 0
           error = 0
@@ -414,7 +421,6 @@ class HtmlIndexTableRenderer(JournalProcessor):
           secs = (end_timestamp - self.__start_timestamp
                   if end_timestamp and self.__start_timestamp
                   else 0)
-          relation = entry.get('relation')
           self.__summary_status = self.__ingest_summary_status(
               self.__summary_status, relation)
 

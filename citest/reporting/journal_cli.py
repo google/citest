@@ -28,7 +28,7 @@ import argparse
 import json
 import sys
 
-from citest.base import Journal
+from citest.base import Journal, StreamJournalNavigator
 from citest.reporting import DumpRenderer
 
 
@@ -243,8 +243,9 @@ class DumpCommand(JournalCommand):
 
   def __call__(self, options):
     """Process command."""
+    navigator = StreamJournalNavigator.new_from_path(options.path)
     processor = DumpRenderer(vars(options))
-    processor.process(options.path)
+    processor.process(navigator)
     processor.terminate()
 
 

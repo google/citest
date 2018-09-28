@@ -121,7 +121,11 @@ class HtmlIndexRenderer(JournalProcessor):
         self.__depth -= 1
         if self.__depth == 0:
           relation = entry.get('relation')
-          self.__increment_relation_count(relation)
+          if self.__in_test:
+            self.__increment_relation_count(relation)
+          elif relation is not None:
+            self.__summary_status = self.__ingest_summary_status(
+              self.__summary_status, relation)
         return
 
   @property
