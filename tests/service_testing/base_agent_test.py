@@ -94,7 +94,7 @@ class BaseAgentTest(unittest.TestCase):
     self.assertTrue(status.finished_ok)
     self.assertEqual(2, status.got_refresh_count)
     self.assertEqual(1, status.got_sleep_count)
-    self.assertEqual(1, status.got_sleep_secs)
+    self.assertEqual(status.default_wait_time_func(1), status.got_sleep_secs)
 
   def test_long_wait_cycle(self):
     agent = FakeAgent()
@@ -108,7 +108,8 @@ class BaseAgentTest(unittest.TestCase):
       status.got_sleep_secs = 0
       status.wait()
       self.assertEqual(i, status.got_sleep_count)
-      self.assertEqual(1, status.got_sleep_secs)
+      self.assertEqual(status.default_wait_time_func(i),
+                       status.got_sleep_secs)
 
   def test_wait_timeout(self):
     time_series = [100] + [i + 100 for i in range(6)]
@@ -161,7 +162,8 @@ class BaseAgentTest(unittest.TestCase):
     status.set_expected_iterations(9)
     status.wait(max_secs=10)
     self.assertEqual(9, status.got_sleep_count)
-    self.assertEqual(1, status.got_sleep_secs)
+    self.assertEqual(status.default_wait_time_func(9),
+                     status.got_sleep_secs)
     self.assertEqual(-1, status.calls_remaining)
 
   def test_wait_interval(self):

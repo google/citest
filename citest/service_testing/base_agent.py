@@ -139,6 +139,16 @@ class AgentOperationStatus(JsonSnapshotableEntity):
     id:
     detail:
   """
+
+  @staticmethod
+  def default_wait_time_func(attempt_num):
+    """Returns number of seconds to wait for the nth retry attempt.
+
+    This uses a slow growing exponential function. The exact details
+    are not defined (i.e. could change in the future)
+    """
+    return 2**(0.1 * min(80, attempt_num))  # double every 10 up to ~4 mins
+
   @property
   def finished(self):
     """Indicates whether future refresh() will change the status."""
@@ -256,11 +266,15 @@ class AgentOperationStatus(JsonSnapshotableEntity):
     raise NotImplementedError(
         self.__class__.__name__ + '.refresh() needs to be specialized.')
 
-  def wait(self, poll_every_secs=1, max_secs=None):
+  def wait(self, poll_every_secs=None, max_secs=None):
     """Wait until the status reaches a final state.
 
     Args:
       poll_every_secs: [float] Interval to refresh() from the proxy.
+         This could also be a function taking an attempt number and
+         returning number of seconds for that attempt.
+         The default is default_wait_time_func.
+
       max_secs: [float] Most seconds to wait before giving up.
           0 is a poll, None is unbounded. Otherwise, number of seconds.
     """
@@ -286,12 +300,19 @@ class AgentOperationStatus(JsonSnapshotableEntity):
     """Helper function for wait to keep its try/finally block simple.
 
     Args:
-      poll_every_secs: [float] Frequency to poll.
+      poll_every_secs: [float or lambda int: float] Frequency to poll.
       max_secs: [float] How long to poll before giving up. None is indefinite.
     """
     now = self._now()
     end_time = sys.float_info.max if max_secs is None else now + max_secs
     next_log_secs = now + 60
+    attempt = 0
+    if poll_every_secs is None:
+      poll_every_secs = self.default_wait_time_func
+    elif isinstance(poll_every_secs, (float, int)):
+      k = poll_every_secs
+      poll_every_secs = lambda x: k
+
     while not self.finished:
         # pylint: disable=bad-indentation
         now = self._now()
@@ -300,8 +321,9 @@ class AgentOperationStatus(JsonSnapshotableEntity):
           self.logger.debug('Timed out')
           return False
 
-        sleep_secs = (poll_every_secs if max_secs is None
-                      else min(secs_remaining, poll_every_secs))
+        attempt += 1
+        desired_sleep_secs = poll_every_secs(attempt)
+        sleep_secs = min(secs_remaining, desired_sleep_secs)
 
         # Write something into the log file to indicate we are still here.
         if now >= next_log_secs:
