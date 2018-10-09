@@ -18,11 +18,7 @@ import json
 import logging
 import os
 
-try:
-  from StringIO import StringIO
-except ImportError:
-  from io import StringIO
-
+from io import BytesIO
 from .record_stream import RecordInputStream
 
 
@@ -86,7 +82,8 @@ class StreamJournalNavigator(JournalNavigator):
       contents: [string] Raw byte contents of a record-encoded journal file.
     """
     return StreamJournalNavigator(
-        journal_id, RecordInputStream(StringIO(contents)))
+        journal_id,
+        RecordInputStream(BytesIO(contents)))
 
   @property
   def journal_id(self):
