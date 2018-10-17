@@ -27,9 +27,31 @@ Provides commands for manipulating journal files. The primary purposes are
 import argparse
 import json
 import sys
+import yaml
+
+try:
+  from StringIO import StringIO
+except ImportError:
+  from io import StringIO
+
 
 from citest.base import Journal, StreamJournalNavigator
 from citest.reporting import DumpRenderer
+
+
+def load_metadata(path):
+  """Return the contents of a YAML or JSON path."""
+  metadata = {}
+  if path:
+    with open(path, 'r') as stream:
+      content = stream.read()
+    try:
+      doc = yaml.safe_load(StringIO(content))
+    except (TypeError, ValueError, UnicodeEncodeError):
+      doc = json.load(StringIO(content))
+    metadata.update(doc)
+        
+  return metadata
 
 
 class JournalCommand(object):
@@ -57,23 +79,50 @@ class JournalCommand(object):
 class WriteCommand(JournalCommand):
   """Base class for commands that write to journals."""
 
+  def __init__(self, *pos_args, **kwargs):
+    self.__creates_file = kwargs.pop('creates_file', False)
+    self.__writes_records = kwargs.pop('writes_record', True)
+    super(WriteCommand, self).__init__(*pos_args, **kwargs)
+
   def open_journal(self, options):
     """Opens an existing journal for appending."""
     journal = Journal()
     journal.open_with_path(options.path, _append=True, _message=None)
     return journal
 
-  def get_metadata(self, options):
+  def get_record_metadata(self, options):
     """Extract metadata from options."""
+    doc = {}
+    if options.metadata_path:
+      doc.update(load_metadata(options.metadata_path))
     if options.metadata:
-      return json.JSONDecoder(encoding='utf-8').decode(options.metadata)
-    return {}
+      doc.update(json.JSONDecoder(encoding='utf-8').decode(options.metadata))
+    return doc
+
+  def get_journal_metadata(self, options):
+    """Extract metadata from options."""
+    doc = {}
+    if options.journal_metadata_path:
+      doc.update(load_metadata(options.journal_metadata_path))
+    if options.journal_metadata:
+      doc.update(
+          json.JSONDecoder(encoding='utf-8').decode(options.journal_metadata))
+    return doc
 
   def init_argument_parser(self, argparser):
     """Adds arguments."""
     parser = super(WriteCommand, self).init_argument_parser(argparser)
+    parser.add_argument('--metadata_path',
+                        help='Path to yaml (or json) file containing metadata.')
     parser.add_argument('--metadata',
                         help='JSON encoded record metadata.')
+    if self.__creates_file:
+      parser.add_argument(
+          '--journal_metadata_path',
+          help='Path to yaml (or json) file containing metadata for journal.')
+      parser.add_argument(
+          '--journal_metadata',
+          help='JSON encoded journal metadata.')
     return parser
 
 
@@ -92,7 +141,7 @@ class BeginContextCommand(WriteCommand):
   def __call__(self, options):
     """Process command."""
     journal = self.open_journal(options)
-    journal.begin_context(options.title, **self.get_metadata(options))
+    journal.begin_context(options.title, **self.get_record_metadata(options))
     journal.terminate(_message=None)
 
 
@@ -106,7 +155,7 @@ class EndContextCommand(WriteCommand):
   def __call__(self, options):
     """Process command."""
     journal = self.open_journal(options)
-    journal.end_context(**self.get_metadata(options))
+    journal.end_context(**self.get_record_metadata(options))
     journal.terminate(_message=None)
 
 
@@ -140,7 +189,7 @@ class MessageCommand(WriteCommand):
     try:
       if options.context:
         journal.begin_context(options.context)
-      journal.write_message(options.message, **self.get_metadata(options))
+      journal.write_message(options.message, **self.get_record_metadata(options))
     finally:
       if options.context:
         journal.end_context()
@@ -153,7 +202,8 @@ class NewCommand(WriteCommand):
   def __init__(self):
     super(NewCommand, self).__init__(
         'new',
-        help='Start a new journal file.')
+        help='Start a new journal file.',
+        creates_file=True, writes_record=False)
 
   def init_argument_parser(self, argparser):
     """Adds arguments."""
@@ -163,7 +213,7 @@ class NewCommand(WriteCommand):
 
   def __call__(self, options):
     """Process command."""
-    args = dict(self.get_metadata(options))
+    args = dict(self.get_journal_metadata(options))
     if options.message:
       args['_message'] = options.message
 
@@ -191,7 +241,7 @@ class SealCommand(WriteCommand):
     journal = self.open_journal(options)
     message = options.message
     if message:
-      journal.terminate(_message=message, **self.get_metadata(options))
+      journal.terminate(_message=message, **self.get_record_metadata(options))
     else:
       journal.terminate()
 
@@ -203,7 +253,8 @@ class MakeErrorCommand(WriteCommand):
         'make_error',
         help='Create a journal designating an error'
         ', such as unable to execute the command that would have'
-        ' written the expected journal.')
+        ' written the expected journal.',
+        creates_file=True)
 
   def init_argument_parser(self, argparser):
     """Adds arguments."""
@@ -215,10 +266,12 @@ class MakeErrorCommand(WriteCommand):
 
   def __call__(self, options):
     journal = Journal()
-    journal.open_with_path(options.path)
+    journal.open_with_path(
+        options.path, **self.get_journal_metadata(options))
     journal.begin_context(options.title or 'Error')
     try:
-      journal.write_message(options.message, **self.get_metadata(options))
+      journal.write_message(
+          options.message, **self.get_record_metadata(options))
     finally:
       journal.end_context(relation='ERROR')
       journal.terminate()

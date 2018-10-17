@@ -221,7 +221,7 @@ class JournalLogHandler(logging.StreamHandler):
      _joural_message [string]: Journal this instead of the LogRecord message.
   """
 
-  def __init__(self, path):
+  def __init__(self, path, **kwargs):
     """Construct a handler using the global journal.
 
     Ideally we'd like to inject a journal in here.
@@ -232,11 +232,13 @@ class JournalLogHandler(logging.StreamHandler):
     Args:
       path: [string] Specifies the path for the global journal, if it does not
           already exist.
+      kwargs: [kwargs] Additional keyword args to pass to journal consructor
+          if the journal is to be created.
     """
     super(JournalLogHandler, self).__init__()
     self.__journal = get_global_journal()
     if self.__journal is None:
-      self.__journal = new_global_journal_with_path(path)
+      self.__journal = new_global_journal_with_path(path, **kwargs)
 
   def emit(self, record):
     """Emit the record to the journal."""
