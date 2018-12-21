@@ -182,7 +182,7 @@ class TestRunner(object):
 
     The purpose of this dictionary is to provide default values when adding
     argumentParser arguments. This dictionary is passed to the
-    initArgumentParser method in the BaseTestCase when initializing the
+    init_bindings_builder method in the BaseTestCase when initializing the
     ArgumentParser. Programs can use this to inject the default submodule
     values they'd like to override.
     """
@@ -401,38 +401,6 @@ class TestRunner(object):
     builder.add_argument('--log_filebase',
                          default=defaults.get('LOG_FILEBASE', main_filename))
     builder.add_argument(
-        '--log_config', default=defaults.get('LOG_CONFIG', ''),
-        help='Path to text file containing custom logging configuration. The'
-        ' contents of this path can contain variable references in the form'
-        ' $KEY where --KEY is a command-line argument that whose value should'
-        ' be substituted. Otherwise this is a standard python logging'
-        ' configuration schema as described in'
-        ' https://docs.python.org/2/library/logging.config.html'
-        '#logging-config-dictschema')
-
-  def initArgumentParser(self, parser, defaults=None):
-    """Adds arguments introduced by the TestRunner module.
-
-    Args:
-      parser: argparse.ArgumentParser instance to add to.
-    """
-    print('{} called DEPRECATED initArgumentParser\n'
-          'Use init_bindings_builder instead.'
-          .format(self.__class__.__name__))
-
-    # Normally we want the log file name to reflect the name of the program
-    # we are running, but we might not be running one (e.g. in interpreter).
-    try:
-      basename = os.path.basename(sys.argv[0])
-      main_filename = os.path.splitext(basename)[0]
-    except IndexError:
-      main_filename = 'debug'
-
-    defaults = defaults or {}
-    parser.add_argument('--log_dir', default=defaults.get('LOG_DIR', '.'))
-    parser.add_argument('--log_filebase',
-                        default=defaults.get('LOG_FILEBASE', main_filename))
-    parser.add_argument(
         '--log_config', default=defaults.get('LOG_CONFIG', ''),
         help='Path to text file containing custom logging configuration. The'
         ' contents of this path can contain variable references in the form'
