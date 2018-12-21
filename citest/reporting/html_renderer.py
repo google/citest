@@ -21,11 +21,18 @@ import collections
 import datetime
 import json
 import sys
+import yaml
 
 from citest.base import (JournalProcessor, ProcessedEntityManager)
 from .simplify_entity_transforms import (
     get_edge_label_value_transformer,
     prune_entity)
+
+try:
+  from StringIO import StringIO
+except ImportError:
+  from io import StringIO
+
 
 if sys.version_info[0] > 2:
   basestring = str
@@ -210,6 +217,53 @@ class ProcessToRenderInfo(object):
     return HtmlInfo(pre, summary)
 
 
+  def process_yaml_html_if_possible(self, value):
+    """Render value as HTML. Indicate it is YAML if in fact it is.
+
+    Args:
+      value: [obj] The value to render.
+
+    Returns:
+      HtmlInfo encoding of value.
+    """
+    summary = ''
+    document_manager = self.__document_manager
+    to_yaml = lambda value: yaml.safe_dump(
+        value, indent=2, default_flow_style=False)
+    try:
+      if isinstance(value, basestring):
+        doc = yaml.safe_load(StringIO(value))
+        text = to_yaml(doc)
+        if text.endswith('...\n'):
+          # If original value was a plain string
+          # to_yaml() ends it with "\n...\n" as described
+          # https://yaml.org/spec/1.1/#id857577
+          #
+          # That isnt our intention here so strip out the added separator.
+          text = text[:-4]
+
+      elif isinstance(value, (list, dict)):
+        text = to_yaml(value)
+      else:
+        raise ValueError('Invalid value={0!r}'.format(value))
+      pre = document_manager.make_tag_text('pre', text)
+      num_lines = text.count('\n')
+
+      if num_lines > self.max_uncollapsable_json_lines:
+        summary = document_manager.make_text_block('Yaml details')
+      elif len(text) > 2 * self.max_message_summary_length:
+        # If yaml is more than 2x normal log message, then truncate it.
+        summary = document_manager.make_tag_text(
+            'ff', '{0}...'.format(
+                text[0:self.max_message_summary_length - 2*len('show')]))
+      else:
+        summary = None
+    except (TypeError, ValueError, UnicodeEncodeError) as e:
+      pre = document_manager.make_text_block(repr(value))
+
+    return HtmlInfo(pre, summary)
+
+
   def process_edge_value(self, edge, value):
     """Render value as HTML.
 
@@ -225,6 +279,8 @@ class ProcessToRenderInfo(object):
     text_format = edge.get('format', None)
     if text_format == 'json':
       return self.process_json_html_if_possible(value)
+    elif text_format == 'yaml':
+      return self.process_yaml_html_if_possible(value)
     elif text_format == 'pre':
       count = value.count('\n')
       summary = edge.get('summary') or (
@@ -377,7 +433,7 @@ class ProcessToRenderInfo(object):
         else:
           default_expanded = None
 
-        if value and edge.get('format', None) in ['json', 'pre']:
+        if value and edge.get('format', None) in ['json', 'pre', 'yaml']:
           value_info = self.process_edge_value(edge, value)
         elif isinstance(value, list):
           value_info = self.process_list(value, snapshot, edge, in_relation)
@@ -681,6 +737,8 @@ class HtmlRenderer(JournalProcessor):
     html_format = message.get('format', None)
     if html_format == 'json':
       html_info = processor.process_json_html_if_possible(text)
+    elif html_format == 'yaml':
+      html_info = processor.process_yaml_html_if_possible(text)
     else:
       summary = None
       if text is None:

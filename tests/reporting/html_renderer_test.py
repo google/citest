@@ -84,6 +84,54 @@ class HtmlRendererTest(unittest.TestCase):
           str(info.detail_block).replace(' ', '').replace('\n', ''))
       self.assertEquals(None, info.summary_block)
 
+  def test_yaml(self):
+    """Test rendering literal json values"""
+    processor = ProcessToRenderInfo(
+        HtmlDocumentManager('test_yaml'),
+        ProcessedEntityManager())
+    processor.max_uncollapsable_json_lines = 20
+    processor.max_uncollapsable_entity_rows = 20
+
+    # Numeric literals wont be treated as yaml
+    for n in [-1, 0, 1, 3.14]:
+      info = processor.process_yaml_html_if_possible(n)
+      self.assertEquals('{0}'.format(n), info.detail_block)
+      self.assertEquals(None, info.summary_block)
+
+    # None of these strings are well-defined YAML documents
+    # so should just be strings.
+    for s in ['test', 'a phrase']:
+      info = processor.process_yaml_html_if_possible(s)
+      self.assertEquals('<pre>%s\n</pre>' % s, info.detail_block)
+      self.assertEquals(None, info.summary_block)
+    info = processor.process_yaml_html_if_possible('True')
+    self.assertEquals('<pre>true\n</pre>', info.detail_block)
+
+    # Boolean values wont be considered YAML
+    for b in [True, False]:
+      info = processor.process_yaml_html_if_possible(b)
+      self.assertEquals('{0}'.format(str(b)), info.detail_block)
+      self.assertEquals(None, info.summary_block)
+
+    # Dictionaries and YAML dictionary strings normalize to YAML
+    import yaml
+    for d in [{'A': 'a', 'B': True}, 'A: a\nB: true\n']:
+      info = processor.process_yaml_html_if_possible(d)
+      # The eolns here show that it is being yaml formatted.
+      self.assertEquals('<pre>A:a\nB:true\n</pre>',
+                        str(info.detail_block).replace(' ', ''))
+      self.assertEquals(None, info.summary_block)
+      self.assertEquals(None, info.summary_block)
+
+    # Lists and YAML lists strings normalize to YAML.
+    for l in [[123, 'abc', True, {'A': 'a', 'B': 'b'}],
+              '[123, "abc", true, {"A":"a", "B":"b"}]']:
+      info = processor.process_yaml_html_if_possible(l)
+      self.assertEquals(
+          '<pre>-123\n-abc\n-true\n-A:a\nB:b\n</pre>',
+          str(info.detail_block).replace(' ', '').replace('\n', '\n'))
+      self.assertEquals(None, info.summary_block)
+
   def test_expandable_tag_attrs(self):
     """Test the production of HTML tag decorators controling show/hide."""
     manager = HtmlDocumentManager('test_json')
