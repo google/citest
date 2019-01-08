@@ -43,9 +43,11 @@ import sys
 try:
   from urllib2 import urlopen
   from urllib2 import Request
+  from urllib2 import URLError
 except ImportError:
   from urllib.request import urlopen
   from urllib.request import Request
+  from urllib.request import URLError
 
 from citest.base import (
     JournalProcessor,
@@ -398,8 +400,12 @@ def write_to_influx_db(url, db_name, summaries):
   payload = '\n'.join(metrics)
   req = Request(url=target, data=payload)
   req.get_method = lambda: 'POST'
-  urlopen(req)
-  print('WROTE %d metrics to %s' % (len(metrics), target))
+  try:
+    urlopen(req)
+    print('WROTE %d metrics to %s' % (len(metrics), target))
+  except URLError as err:
+    print('ERROR: %s\n%s' % (err.reason, err.read()))
+    raise
 
 
 def main(args):
