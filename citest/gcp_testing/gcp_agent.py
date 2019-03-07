@@ -107,9 +107,6 @@ class GcpAgent(BaseAgent):
     """
     credentials_path = credentials_path or None
     logger = logger or logging.getLogger(__name__)
-    if (scopes is None) != (credentials_path is None):
-      raise ValueError(
-          'Either provide both scopes and credentials_path or neither')
 
     if api is None:
       default_api, default_version = cls.default_discovery_name_and_version()
@@ -123,12 +120,14 @@ class GcpAgent(BaseAgent):
     http = apiclient.http.set_user_agent(
         http, 'citest/{version}'.format(version=citest.__version__))
     credentials = None
-    if scopes is not None:
+    if credentials_path is not None:
       logger.info('Authenticating %s %s', api, version)
       credentials = ServiceAccountCredentials.from_json_keyfile_name(
           credentials_path, scopes=scopes)
     else:
       credentials = GoogleCredentials.get_application_default()
+      if scopes and credentials.create_scoped_required():
+        credentials = credentials.create_scoped(scopes)
 
     http = credentials.authorize(http)
     logger.info('Constructing %s service...', api)

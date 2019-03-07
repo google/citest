@@ -187,11 +187,10 @@ class ApiResourceScanner(object):
     version = self.__investigator.get_api_version(api)
     credentials = self.__credentials_path or None
     default_variables = default_variables or self.__default_variables
-    scope_list = [default_scope] if credentials else None
 
     return _gcp_agent_singleton(
         api=api, version=version,
-        scopes=scope_list,
+        scopes=[default_scope],
         credentials_path=credentials,
         default_variables=default_variables)
 
