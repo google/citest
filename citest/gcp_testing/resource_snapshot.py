@@ -183,7 +183,7 @@ class Actuator(object):
       print('\n{action} from API={api} with scope={scope}'.format(
           action=action,
           api=api,
-          scope=scope if self.__credentials_path else '<default>'))
+          scope=scope))
 
       sample = collected.pop()
       was_aggregated = isinstance(sample, tuple)
