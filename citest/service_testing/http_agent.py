@@ -18,6 +18,7 @@
 import base64
 import json
 import re
+import ssl
 import sys
 import traceback
 
@@ -158,7 +159,7 @@ class HttpResponseType(JsonSnapshotableEntity):
       if match:
         return match.group(1).strip()
     return default
-       
+
 
 class HttpOperationStatus(base_agent.AgentOperationStatus):
   """Specialization of AgentOperationStatus for HttpAgent operations.
@@ -275,6 +276,16 @@ class HttpAgent(base_agent.BaseAgent):
   def http_scrubber(self, scrubber):
     """Binds HttpScrubber for removing private information when logging HTTP."""
     self.__http_scrubber = scrubber
+
+  @property
+  def ignore_ssl_cert_verification(self):
+    """Returns whether or not to ignore SSL certificate verification."""
+    return self.__ignore_ssl_cert_verification
+
+  @ignore_ssl_cert_verification.setter
+  def ignore_ssl_cert_verification(self, ignore_ssl_cert_verification):
+    """Binds whether or not to ignore SSL certificate verification."""
+    self.__ignore_ssl_cert_verification = ignore_ssl_cert_verification
 
   @staticmethod
   def make_json_payload_from_object(payload_obj):
@@ -422,12 +433,17 @@ class HttpAgent(base_agent.BaseAgent):
           _logger=self.logger,
           _context='request')
 
+    context = None
+    if self.__ignore_ssl_cert_verification:
+      context = ssl._create_unverified_context()
+
     code = None
     output = None
     exception = None
     headers = None
+
     try:
-      response = urlopen(req)
+      response = urlopen(req, context=context)
       code = response.getcode()
       output = bytes.decode(response.read())
       if sys.version_info[0] > 2:
