@@ -324,6 +324,7 @@ class HttpAgent(base_agent.BaseAgent):
     self.__status_class = HttpOperationStatus
     self.__headers = {}
     self.__http_scrubber = HttpScrubber()
+    self.__ignore_ssl_cert_verification = False
 
   def add_header(self, key, value):
     """Specifies a header to add to each request that follows.
