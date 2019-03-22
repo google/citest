@@ -70,11 +70,15 @@ Usage:
 import argparse
 import collections
 import datetime
-import httplib
 import json
 import pickle
 import re
 import time
+
+try:
+  import httplib as HTTPStatus
+except ImportError:
+  from http import HTTPStatus
 
 from googleapiclient.errors import HttpError
 
@@ -118,8 +122,8 @@ class Actuator(object):
   """Functions for performing heuristics on APIs and resources."""
 
   # When deleting, these errors indicate a possible transient error
-  __RETRYABLE_DELETE_HTTP_CODES = [httplib.CONFLICT,
-                                   httplib.SERVICE_UNAVAILABLE]
+  __RETRYABLE_DELETE_HTTP_CODES = [HTTPStatus.CONFLICT,
+                                   HTTPStatus.SERVICE_UNAVAILABLE]
 
   @property
   def investigator(self):
@@ -267,7 +271,7 @@ class Actuator(object):
   def __wait_on_delete(
       self, agent, resource_type, results, aggregated, timeout=180):
     """Wait for outstanding results to finish deleting or timeout."""
-    awaiting_list = results.get(httplib.OK, [])
+    awaiting_list = results.get(HTTPStatus.OK, [])
     retryable_elems = []
     for code in self.__RETRYABLE_DELETE_HTTP_CODES:
       retryable_elems.extend(results.get(code, []))
@@ -318,7 +322,7 @@ class Actuator(object):
       agent.get_resource(context, resource_type, resource_id=name, **params)
       return True
     except HttpError as http_error:
-      if http_error.resp.status == httplib.NOT_FOUND:
+      if http_error.resp.status == HTTPStatus.NOT_FOUND:
         return False
       if http_error.resp.status in self.__RETRYABLE_DELETE_HTTP_CODES:
         return True
@@ -380,17 +384,17 @@ class Actuator(object):
           print('Deleted "{type}" {name}'.format(
               type=resource_type, name=name))
 
-        if httplib.OK in result_by_code:
-          result_by_code[httplib.OK].append(elem)
+        if HTTPStatus.OK in result_by_code:
+          result_by_code[HTTPStatus.OK].append(elem)
         else:
-          result_by_code[httplib.OK] = [elem]
+          result_by_code[HTTPStatus.OK] = [elem]
       except HttpError as http_error:
         if http_error.resp.status in result_by_code:
           result_by_code[http_error.resp.status].append(elem)
         else:
           result_by_code[http_error.resp.status] = [elem]
 
-        if http_error.resp.status == httplib.NOT_FOUND:
+        if http_error.resp.status == HTTPStatus.NOT_FOUND:
           print('  - "{type}" "{name}" was already deleted'.format(
               type=resource_type, name=name))
         else:
@@ -529,7 +533,7 @@ class Main(object):
 
       error = 'Could not determine timestamp key for {0}'.format(
           item.get('kind', item))
-      print error
+      print(error)
       raise ValueError(error)
 
     def item_filter(item):

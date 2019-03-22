@@ -43,7 +43,7 @@ class PassphraseInjector(object):
     self.__fd = fd
     self.__ssh_passphrase_file = ssh_passphrase_file
     self.__daemon = daemon
-    self.__logger = logger or logging.getlogger(__name__)
+    self.__logger = logger or logging.getLogger(__name__)
 
   def __call__(self):
     """Reads from the bound fd and injects the passphrase when asked.
@@ -54,8 +54,8 @@ class PassphraseInjector(object):
     passphrase = None
     try:
       if self.__ssh_passphrase_file:
-        with file(self.__ssh_passphrase_file) as f:
-          passphrase = f.read()
+        with open(self.__ssh_passphrase_file) as stream:
+          passphrase = stream.read()
           if passphrase[-1] != '\n':
             passphrase += '\n'
     except IOError as ioex:

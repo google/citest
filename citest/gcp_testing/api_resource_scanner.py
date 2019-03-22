@@ -17,8 +17,16 @@
 
 import collections
 import re
-import urllib2
-import urlparse
+
+try:
+  from urlparse import urljoin
+  from urllib2 import urlopen
+  from urllib2 import Request
+except ImportError:
+  from urllib.parse import urljoin
+  from urllib.request import urlopen
+  from urllib.request import Request
+
 from googleapiclient.errors import HttpError
 
 from citest.base import ExecutionContext
@@ -53,9 +61,9 @@ def get_metadata(relative_url):
     relative_url: [string] Metadata url to fetch relative to base metadata URL.
   """
   base_url = 'http://metadata/computeMetadata/v1/'
-  url = urlparse.urljoin(base_url, relative_url)
+  url = urljoin(base_url, relative_url)
   headers = {'Metadata-Flavor': 'Google'}
-  return urllib2.urlopen(urllib2.Request(url, headers=headers)).read()
+  return urlopen(Request(url, headers=headers)).read()
 
 
 _ApiResourceScannerListHelperResult = collections.namedtuple(
