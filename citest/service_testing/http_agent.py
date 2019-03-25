@@ -23,13 +23,17 @@ import sys
 import traceback
 
 try:
- from urllib2 import urlopen
+ from urllib2 import build_opener
  from urllib2 import Request
+ from urllib2 import HTTPCookieProcessor
+ from urllib2 import HTTPSHandler
  from urllib2 import HTTPError
  from urllib2 import URLError
 except ImportError:
- from urllib.request import urlopen
+ from urllib.request import build_opener
  from urllib.request import Request
+ from ulllib.request import HTTPCookieProcessor
+ from ulllib.request import HTTPSHandler
  from urllib.error import HTTPError
  from urllib.error import URLError
 
@@ -434,9 +438,11 @@ class HttpAgent(base_agent.BaseAgent):
           _logger=self.logger,
           _context='request')
 
-    context = None
     if self.__ignore_ssl_cert_verification:
       context = ssl._create_unverified_context()
+      opener = build_opener(HTTPSHandler(context=context), HTTPCookieProcessor())
+    else:
+      opener = build_opener(HTTPCookieProcessor())
 
     code = None
     output = None
@@ -444,7 +450,7 @@ class HttpAgent(base_agent.BaseAgent):
     headers = None
 
     try:
-      response = urlopen(req, context=context)
+      response = opener.open(req)
       code = response.getcode()
       output = bytes.decode(response.read())
       if sys.version_info[0] > 2:
