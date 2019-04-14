@@ -32,8 +32,8 @@ try:
 except ImportError:
  from urllib.request import build_opener
  from urllib.request import Request
- from ulllib.request import HTTPCookieProcessor
- from ulllib.request import HTTPSHandler
+ from urllib.request import HTTPCookieProcessor
+ from urllib.request import HTTPSHandler
  from urllib.error import HTTPError
  from urllib.error import URLError
 
