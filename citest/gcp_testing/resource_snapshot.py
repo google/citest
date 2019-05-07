@@ -88,7 +88,6 @@ from citest.gcp_testing.api_investigator import ApiInvestigatorBuilder
 from citest.gcp_testing.api_resource_scanner import ApiResourceScanner
 from citest.gcp_testing.api_resource_diff import ApiDiff
 
-
 AttemptedResourceDeletes = collections.namedtuple(
     'AttemptedResourcesDeletes', ['agent', 'aggregated', 'code_to_results'])
 
@@ -269,7 +268,7 @@ class Actuator(object):
                   agent, resource_type, elems, aggregated))
 
   def __wait_on_delete(
-      self, agent, resource_type, results, aggregated, timeout=180):
+      self, agent, resource_type, results, aggregated, timeout=300):
     """Wait for outstanding results to finish deleting or timeout."""
     awaiting_list = results.get(HTTPStatus.OK, [])
     retryable_elems = []
@@ -279,10 +278,10 @@ class Actuator(object):
     # Wait for the deletes to finish before returning
     wait_until = time.time() + timeout
     print_every_secs = 20
-    approx_secs_so_far = 0   # used to print every secs
+    approx_secs_so_far = 0  # used to print every secs
     if awaiting_list:
-      print('Waiting for {0} items to finish deleting ...'.format(
-          len(awaiting_list)))
+      print('Waiting for {0} {1} items to finish deleting ...'.format(
+          len(awaiting_list), resource_type))
 
       while awaiting_list and time.time() < wait_until:
         awaiting_list = [elem for elem in awaiting_list
@@ -292,11 +291,14 @@ class Actuator(object):
           sleep_secs = 5
           approx_secs_so_far += sleep_secs
           if approx_secs_so_far % print_every_secs == 0:
-            print('  Still waiting on {0} ...'.format(len(awaiting_list)))
+            print('  Still waiting on {0} {1}...'.format(len(awaiting_list),
+                                                         resource_type))
           time.sleep(sleep_secs)
       if awaiting_list:
-        print('Gave up waiting on remaining {0} items.'.format(
-            len(awaiting_list)))
+        print('Gave up waiting on remaining {0} {1} items:'.format(
+            len(awaiting_list), resource_type))
+        for elem in awaiting_list:
+          print('  ', elem)
 
     return retryable_elems
 
@@ -635,7 +637,6 @@ class Main(object):
 
     return num_diffs
 
-
   def do_command_print_catalog(self, api):
     """Print all the listable (and non-listable) resources of the api."""
     text = self.__investigator.stringify_api(api, self.__scanner)
@@ -644,7 +645,7 @@ class Main(object):
 
   def do_command_print_api_spec(self, api):
     """Print the list method specification for each of the API resources."""
-    listable = self.__scanner.get_listable_api_resources(api)
+    listable = self.__investigator.get_listable_api_resources(api)
     text = '\n'.join(['LISTABLE Resources for {api}'.format(api=api),
                       to_json_string(listable)])
     print(text)
