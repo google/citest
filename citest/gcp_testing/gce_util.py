@@ -287,7 +287,7 @@ def establish_network_connectivity(gcloud, instance, target_port):
   logger.info(
       'Could not connect directly. Try tunneling as %s...', tunnel_spec)
   pid, fd = gcloud.pty_fork_ssh(
-      instance, ['--ssh-flag="-L %s"' % tunnel_spec], async=True)
+      instance, ['--ssh-flag="-L %s"' % tunnel_spec], asynchronous=True)
 
   running = False
   try:

@@ -61,7 +61,8 @@ def new_global_journal_with_path(path, **metadata):
 
     journal_file = open(path, 'wb')
     # Protect sensitive data.
-    os.fchmod(journal_file.fileno(), stat.S_IRUSR | stat.S_IWUSR)
+    if hasattr(os, "fchmod"):
+      os.fchmod(journal_file.fileno(), stat.S_IRUSR | stat.S_IWUSR)
     journal = Journal()
     journal.open_with_file(journal_file, **metadata)
 

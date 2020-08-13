@@ -259,14 +259,14 @@ class GCloudAgent(cli_agent.CliAgent):
     return preamble + args_with_zone
 
 
-  def pty_fork_ssh(self, instance, arg_array, async=False):
+  def pty_fork_ssh(self, instance, arg_array, asynchronous=False):
     """Fork a pseudo-tty and run gcloud compute ssh in it.
 
     Args:
       instance: The instance to ssh to, using the agents project and zone.
       arg_array: The list of additional gcloud command line argument strings
           following the ssh command.
-      async: If true then this shell is intended to act as a long-lived
+      asynchronous: If true then this shell is intended to act as a long-lived
           daemon thread (e.g. to provide a tunnel), so start the thread with
           a PassphraseInjector that can inject the passphrase if prompted to
           do so. Otherwise this is intended to act as a short-term shell
@@ -286,9 +286,9 @@ class GCloudAgent(cli_agent.CliAgent):
     pid, fd = os.forkpty()
     if not pid:
       os.execv(bash_command[0], bash_command)
-    if async:
+    if asynchronous:
       pi = PassphraseInjector(
-          fd=fd, ssh_passphrase_file=self.__ssh_passphrase_file, daemon=async,
+          fd=fd, ssh_passphrase_file=self.__ssh_passphrase_file, daemon=asynchronous,
           logger=self.logger)
       t = threading.Thread(target=pi)
       t.setDaemon(True)
@@ -308,7 +308,7 @@ class GCloudAgent(cli_agent.CliAgent):
     """
     escaped_command = command.replace('"', '\\"').replace('$', '\\$')
     pid, fd = self.pty_fork_ssh(
-        instance, ['--command', '"%s"' % escaped_command], async=False)
+        instance, ['--command', '"%s"' % escaped_command], asynchronous=False)
     output = PassphraseInjector(
         fd=fd, ssh_passphrase_file=self.__ssh_passphrase_file)()
     exit_code = os.waitpid(pid, os.WNOHANG)[1]
