@@ -361,7 +361,7 @@ class ProcessToRenderInfo(object):
 
     return value_info
 
-  def process_metadata(self, obj, blacklist=None):
+  def process_metadata(self, obj, excludelist=None):
     """Renders object metadata as an HTML table
 
     Args:
@@ -373,7 +373,7 @@ class ProcessToRenderInfo(object):
     table = self.__document_manager.new_tag('table')
     row_count = 0
     for name, value in sorted(obj.items()):
-      if name not in blacklist or []:
+      if name not in excludelist or []:
         row_count += 1
         table.append(self.__document_manager.make_tag_container(
             'tr', [self.__document_manager.make_tag_text('th', name),
@@ -405,8 +405,8 @@ class ProcessToRenderInfo(object):
     if self.__prune:
       subject = prune_entity(subject, self.__entity_manager)
 
-    blacklist = ['_edges']
-    meta_info = self.process_metadata(subject, blacklist=blacklist)
+    excludelist = ['_edges']
+    meta_info = self.process_metadata(subject, excludelist=excludelist)
     if meta_info.detail_block:
       table.append(
           self.__html_info_to_tr_tag(
